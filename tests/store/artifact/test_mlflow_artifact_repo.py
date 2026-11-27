@@ -1,13 +1,23 @@
 import os
 import posixpath
+import threading
+import time
 from unittest import mock
 
 import pytest
+from requests import HTTPError
 
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.utils.credentials import get_default_host_creds
+from mlflow.utils.server_info import (
+    SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
+    SERVER_INFO_ENDPOINT,
+    SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
+    SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    _clear_server_info_cache,
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -17,6 +27,13 @@ def set_tracking_uri():
         return_value="http://localhost:5000/",
     ):
         yield
+
+
+@pytest.fixture(autouse=True)
+def clear_server_info_cache():
+    _clear_server_info_cache()
+    yield
+    _clear_server_info_cache()
 
 
 def test_artifact_uri_factory():
@@ -62,6 +79,39 @@ def test_mlflow_artifact_uri_raises_with_invalid_tracking_uri():
             artifact_uri=f"mlflow-artifacts://myhostname:4242{base_path}/hostport",
             tracking_uri="file:///tmp",
         )
+
+
+@pytest.mark.parametrize(
+    ("tracking_uri", "redacted_uri"),
+    [
+        (
+            "postgresql://mlflow:hunter2@db.example.com:5432/mlflow",
+            "postgresql://db.example.com:5432/mlflow",
+        ),
+        (
+            "postgresql://mlflow@db.example.com/mlflow?password=hunter2&sslmode=require",
+            "postgresql://db.example.com/mlflow",
+        ),
+        (
+            "mssql+pyodbc:///?odbc_connect=DRIVER%3DODBC%3BSERVER%3Ddb%3BUID%3Dmlflow%3BPWD%3Dhunter2",
+            "mssql+pyodbc:/",
+        ),
+    ],
+)
+def test_mlflow_artifact_uri_error_redacts_tracking_uri_credentials(tracking_uri, redacted_uri):
+    # The tracking server resolves its own backend store URI as the tracking URI, and the
+    # tracing exporter logs this error verbatim, so the password must never appear in it.
+    with pytest.raises(
+        MlflowException,
+        match="When an mlflow-artifacts URI was supplied, the tracking URI must be a valid",
+    ) as exc_info:
+        MlflowArtifactsRepository.resolve_uri(
+            artifact_uri="mlflow-artifacts:/1/traces/tr-123/artifacts",
+            tracking_uri=tracking_uri,
+        )
+    message = str(exc_info.value)
+    assert "hunter2" not in message
+    assert f"currently set to {redacted_uri}." in message
 
 
 def test_mlflow_artifact_uri_raises_with_invalid_artifact_uri():
@@ -335,3 +385,374 @@ def test_download_artifacts(mlflow_artifact_repo, tmp_path):
         ]
         assert read_file(paths[0]) == "data_a"
         assert read_file(paths[1]) == "data_b"
+
+
+def _make_multipart_repo(artifact_uri="mlflow-artifacts:/api/2.0/mlflow-artifacts/artifacts"):
+    return MlflowArtifactsRepository(artifact_uri)
+
+
+def _mock_server_info_response(
+    uploads=False, downloads=False, artifacts_presigned_only=False, status_code=200
+):
+    resp = mock.Mock()
+    resp.status_code = status_code
+    resp.json.return_value = {
+        "store_type": "SqlStore",
+        "workspaces_enabled": False,
+        "trace_archival_enabled": False,
+        SERVER_INFO_MULTIPART_UPLOADS_ENABLED: uploads,
+        SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: downloads,
+        SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: artifacts_presigned_only,
+    }
+    return resp
+
+
+def test_auto_detects_multipart_upload_from_server_info(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    repo = _make_multipart_repo()
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        return_value=_mock_server_info_response(uploads=True),
+    ):
+        assert repo._is_multipart_upload_enabled() is True
+
+
+def test_auto_detects_multipart_download_from_server_info(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", raising=False)
+    repo = _make_multipart_repo()
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        return_value=_mock_server_info_response(downloads=True),
+    ):
+        assert repo._is_multipart_download_enabled() is True
+
+
+def test_env_var_true_overrides_server_no_support(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    repo = _make_multipart_repo()
+    assert repo._is_multipart_upload_enabled() is True
+
+
+def test_env_var_false_overrides_server_support(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "false")
+    repo = _make_multipart_repo()
+    assert repo._is_multipart_upload_enabled() is False
+
+
+def test_env_var_false_overrides_server_download_support(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "false")
+    repo = _make_multipart_repo()
+    assert repo._is_multipart_download_enabled() is False
+
+
+def test_old_server_without_fields_defaults_to_disabled(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", raising=False)
+    repo = _make_multipart_repo()
+
+    resp = mock.Mock()
+    resp.status_code = 200
+    resp.json.return_value = {
+        "store_type": "SqlStore",
+        "workspaces_enabled": False,
+    }
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        return_value=resp,
+    ):
+        assert repo._is_multipart_upload_enabled() is False
+        assert repo._is_multipart_download_enabled() is False
+
+
+def test_server_info_404_defaults_to_disabled(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    repo = _make_multipart_repo()
+
+    resp = mock.Mock()
+    resp.status_code = 404
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        return_value=resp,
+    ):
+        assert repo._is_multipart_upload_enabled() is False
+
+
+def test_server_info_network_error_defaults_to_disabled(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    repo = _make_multipart_repo()
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        side_effect=ConnectionError("connection refused"),
+    ):
+        assert repo._is_multipart_upload_enabled() is False
+
+
+def test_capabilities_cached_per_instance(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    repo = _make_multipart_repo()
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        return_value=_mock_server_info_response(uploads=True, downloads=True),
+    ) as mock_request:
+        assert repo._is_multipart_upload_enabled() is True
+        assert repo._is_multipart_download_enabled() is True
+        mock_request.assert_called_once()
+
+
+def test_separate_instances_share_successful_probe(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    repo1 = _make_multipart_repo()
+    repo2 = _make_multipart_repo()
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        return_value=_mock_server_info_response(uploads=True),
+    ) as mock_request:
+        repo1._is_multipart_upload_enabled()
+        repo2._is_multipart_upload_enabled()
+        mock_request.assert_called_once()
+
+
+def test_capability_probe_uses_artifact_host_and_preserves_path_prefix(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    with mock.patch(
+        "mlflow.store.artifact.mlflow_artifacts_repo.get_tracking_uri",
+        return_value="http://tracking.example.com/mlflow",
+    ):
+        repo = MlflowArtifactsRepository("mlflow-artifacts://artifacts.example.com:9000/exp")
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        return_value=_mock_server_info_response(uploads=True),
+    ) as mock_request:
+        assert repo._is_multipart_upload_enabled() is True
+
+    host_creds = mock_request.call_args.kwargs["host_creds"]
+    assert host_creds.host == "http://artifacts.example.com:9000/mlflow"
+    assert mock_request.call_args.kwargs["endpoint"] == SERVER_INFO_ENDPOINT
+
+
+def test_small_upload_preserves_proxy_path_when_server_advertises_support(monkeypatch, tmp_path):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    repo = _make_multipart_repo()
+    small_file = tmp_path / "small.bin"
+    small_file.write_bytes(b"tiny")
+
+    with (
+        mock.patch(
+            "mlflow.utils.server_info.http_request",
+            return_value=_mock_server_info_response(uploads=True),
+        ) as mock_server_info_request,
+        mock.patch.object(repo, "_try_multipart_upload") as mock_multipart_upload,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockResponse({}, 200),
+        ) as mock_proxy_upload,
+    ):
+        repo.log_artifact(str(small_file))
+
+    mock_server_info_request.assert_called_once()
+    mock_multipart_upload.assert_not_called()
+    mock_proxy_upload.assert_called_once()
+
+
+def test_small_upload_uses_multipart_when_server_requires_presigned(monkeypatch, tmp_path):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    repo = _make_multipart_repo()
+    small_file = tmp_path / "small.bin"
+    small_file.write_bytes(b"tiny")
+
+    with (
+        mock.patch(
+            "mlflow.utils.server_info.http_request",
+            return_value=_mock_server_info_response(uploads=True, artifacts_presigned_only=True),
+        ) as mock_server_info_request,
+        mock.patch.object(repo, "_try_multipart_upload") as mock_multipart_upload,
+    ):
+        repo.log_artifact(str(small_file))
+
+    mock_server_info_request.assert_called_once()
+    mock_multipart_upload.assert_called_once_with(str(small_file), None)
+
+
+def test_auto_detected_multipart_upload_falls_back_on_normal_server(monkeypatch, tmp_path):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", "1")
+    repo = _make_multipart_repo()
+    local_file = tmp_path / "artifact.bin"
+    local_file.write_bytes(b"tiny")
+    unsupported_response = mock.Mock()
+    unsupported_response.json.return_value = {
+        "message": "Multipart upload is not supported for the current artifact repository"
+    }
+
+    with (
+        mock.patch(
+            "mlflow.utils.server_info.http_request",
+            return_value=_mock_server_info_response(uploads=True),
+        ) as mock_server_info_request,
+        mock.patch.object(
+            repo,
+            "create_multipart_upload",
+            side_effect=HTTPError(response=unsupported_response),
+        ) as mock_create_multipart_upload,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockResponse({}, 200),
+        ) as mock_proxy_upload,
+    ):
+        repo.log_artifact(str(local_file))
+
+    mock_server_info_request.assert_called_once()
+    mock_create_multipart_upload.assert_called_once_with(str(local_file), 1, None)
+    mock_proxy_upload.assert_called_once()
+
+
+def test_client_multipart_override_falls_back_on_501(monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", "1")
+    repo = _make_multipart_repo()
+    local_file = tmp_path / "artifact.bin"
+    local_file.write_bytes(b"tiny")
+    unavailable_response = mock.Mock()
+    unavailable_response.status_code = 501
+    unavailable_response.json.return_value = {
+        "message": "Presigned artifact transfers are unavailable."
+    }
+
+    with (
+        mock.patch(
+            "mlflow.utils.server_info.http_request",
+            return_value=_mock_server_info_response(uploads=False),
+        ) as mock_server_info_request,
+        mock.patch.object(
+            repo,
+            "create_multipart_upload",
+            side_effect=HTTPError(response=unavailable_response),
+        ) as mock_create_multipart_upload,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockResponse({}, 200),
+        ) as mock_proxy_upload,
+    ):
+        repo.log_artifact(str(local_file))
+
+    mock_server_info_request.assert_called_once()
+    mock_create_multipart_upload.assert_called_once_with(str(local_file), 1, None)
+    mock_proxy_upload.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Multipart upload is not supported for the current artifact repository",
+        "Presigned artifact transfers are unavailable.",
+    ],
+)
+def test_presigned_only_multipart_upload_does_not_fallback(monkeypatch, tmp_path, message):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    repo = _make_multipart_repo()
+    local_file = tmp_path / "artifact.bin"
+    local_file.write_bytes(b"tiny")
+    unsupported_response = mock.Mock()
+    unsupported_response.status_code = 501
+    unsupported_response.json.return_value = {"message": message}
+
+    with (
+        mock.patch(
+            "mlflow.utils.server_info.http_request",
+            return_value=_mock_server_info_response(uploads=True, artifacts_presigned_only=True),
+        ) as mock_server_info_request,
+        mock.patch.object(
+            repo,
+            "create_multipart_upload",
+            side_effect=HTTPError(response=unsupported_response),
+        ) as mock_create_multipart_upload,
+        mock.patch("mlflow.store.artifact.http_artifact_repo.http_request") as mock_proxy_upload,
+        pytest.raises(
+            _UnsupportedMultipartUploadException,
+            match="Multipart upload is not supported",
+        ),
+    ):
+        repo.log_artifact(str(local_file))
+
+    mock_server_info_request.assert_called_once()
+    mock_create_multipart_upload.assert_called_once_with(str(local_file), 1, None)
+    mock_proxy_upload.assert_not_called()
+
+
+def test_capabilities_fetch_is_thread_safe_across_repo_instances(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", raising=False)
+    repo1 = _make_multipart_repo()
+    repo2 = _make_multipart_repo()
+    results = []
+
+    def slow_server_info(*_args, **_kwargs):
+        time.sleep(0.05)
+        return _mock_server_info_response(uploads=True, downloads=True)
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        side_effect=slow_server_info,
+    ) as mock_request:
+        threads = [
+            threading.Thread(
+                target=lambda: results.append(repo1._is_multipart_upload_enabled()),
+                name=f"multipart-upload-probe-{idx}",
+            )
+            for idx in range(4)
+        ] + [
+            threading.Thread(
+                target=lambda: results.append(repo2._is_multipart_download_enabled()),
+                name=f"multipart-download-probe-{idx}",
+            )
+            for idx in range(4)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=5)
+
+    assert mock_request.call_count == 1
+    assert results == [True] * 8
+
+
+def test_capabilities_do_not_share_across_artifact_hosts(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    repo1 = MlflowArtifactsRepository("mlflow-artifacts://artifacts-1.example.com/exp")
+    repo2 = MlflowArtifactsRepository("mlflow-artifacts://artifacts-2.example.com/exp")
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        return_value=_mock_server_info_response(uploads=True),
+    ) as mock_request:
+        assert repo1._is_multipart_upload_enabled() is True
+        assert repo2._is_multipart_upload_enabled() is True
+
+    assert mock_request.call_count == 2
+
+
+def test_capabilities_do_not_share_across_path_prefixes(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
+    repo1 = MlflowArtifactsRepository(
+        "mlflow-artifacts:/exp",
+        tracking_uri="http://tracking.example.com",
+    )
+    repo2 = MlflowArtifactsRepository(
+        "mlflow-artifacts:/exp",
+        tracking_uri="http://tracking.example.com/mlflow",
+    )
+
+    with mock.patch(
+        "mlflow.utils.server_info.http_request",
+        return_value=_mock_server_info_response(uploads=True),
+    ) as mock_request:
+        assert repo1._is_multipart_upload_enabled() is True
+        assert repo2._is_multipart_upload_enabled() is True
+
+    assert mock_request.call_count == 2

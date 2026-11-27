@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import NamedTuple
 from unittest import mock
 
-import cloudpickle
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
@@ -401,6 +400,13 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_info.model_uri, mlflow.lightgbm.get_default_pip_requirements())
 
 
+def test_get_default_serialization_format_in_databricks():
+    with mock.patch("mlflow.lightgbm.is_in_databricks_runtime", return_value=True):
+        assert mlflow.lightgbm._get_default_serialization_format() == "cloudpickle"
+    with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
+        assert mlflow.lightgbm._get_default_serialization_format() == "cloudpickle"
+
+
 def test_pyfunc_serve_and_score(lgb_model):
     model, inference_dataframe = lgb_model
     artifact_path = "model"
@@ -592,7 +598,9 @@ def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
         )
     ]
     assert f"skops=={skops.__version__}" in logged_reqs
-    assert f"cloudpickle=={cloudpickle.__version__}" not in logged_reqs
+    # No cloudpickle-absence assertion: joblib>=1.6.0 depends on cloudpickle (previously it
+    # vendored its own copy), so requirement inference captures it transitively for any
+    # sklearn-based model regardless of the serialization format.
 
     reloaded_model = mlflow.lightgbm.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
@@ -632,7 +640,9 @@ def test_sklearn_regressor_model_save_load_by_skops(lgb_sklearn_regressor_model,
         )
     ]
     assert f"skops=={skops.__version__}" in logged_reqs
-    assert f"cloudpickle=={cloudpickle.__version__}" not in logged_reqs
+    # No cloudpickle-absence assertion: joblib>=1.6.0 depends on cloudpickle (previously it
+    # vendored its own copy), so requirement inference captures it transitively for any
+    # sklearn-based model regardless of the serialization format.
 
     reloaded_model = mlflow.lightgbm.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)

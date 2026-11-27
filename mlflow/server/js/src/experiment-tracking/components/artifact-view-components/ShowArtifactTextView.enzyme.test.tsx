@@ -53,6 +53,26 @@ describe('ShowArtifactTextView', () => {
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should clear previous error when a new artifact loads successfully', (done) => {
+    const getArtifact = jest.fn(({ path }: any) =>
+      path === 'missing.txt' ? Promise.reject(new Error('my error text')) : Promise.resolve('my text'),
+    );
+    const props = { ...minimalProps, path: 'missing.txt', getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactTextView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.artifact-text-view-error').length).toBeGreaterThan(0);
+      wrapper.setProps({ path: 'present.txt' });
+      setImmediate(() => {
+        wrapper.update();
+        expect(wrapper.find('.artifact-text-view-error').length).toBe(0);
+        expect(wrapper.find('code').text()).toBe('my text');
+        done();
+      });
+    });
+  });
+
   test('should render loading text when view is loading', () => {
     instance = wrapper.instance();
     instance.setState({ loading: true });
@@ -80,7 +100,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('print("foo")');
     });
-    const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -94,7 +114,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
     });
-    const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -108,7 +128,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
     });
-    const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -122,7 +142,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('{"key1": "val1"}\n{"key2": "val2"}');
     });
-    const props = { path: 'events.jsonl', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    const props = { path: 'events.jsonl', runUuid: 'fakeUuid', getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -145,7 +165,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('{"key1": "val1", "key2": "val2"}');
     });
-    const props = { path: 'fake.json', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    const props = { path: 'fake.json', runUuid: 'fakeUuid', getArtifact };
     wrapper = mountWithIntl(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
@@ -165,5 +185,55 @@ describe('ShowArtifactTextView', () => {
   test('should leave jsonl content unformatted', () => {
     const outputText = prettifyArtifactText('json', '{"key1":"val1"}\n{"key2":"val2"}', 'events.jsonl');
     expect(outputText).toBe('{"key1":"val1"}\n{"key2":"val2"}');
+  });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should use virtualized renderer for very large files', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('large file content');
+    });
+    const props = { ...minimalProps, getArtifact, size: 10 * 1024 * 1024 }; // 10MB
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
+    setImmediate(() => {
+      wrapper.update();
+      const highlighter = wrapper.find(SyntaxHighlighter).first();
+      expect(highlighter.exists()).toBe(true);
+      expect(highlighter.prop('renderer')).toBeDefined();
+      done();
+    });
+  });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should not use virtualized renderer for small files', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('small file content');
+    });
+    const props = { ...minimalProps, getArtifact, size: 1024 }; // 1KB
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
+    setImmediate(() => {
+      wrapper.update();
+      const highlighter = wrapper.find(SyntaxHighlighter).first();
+      expect(highlighter.exists()).toBe(true);
+      expect(highlighter.prop('renderer')).toBeUndefined();
+      done();
+    });
+  });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should use virtualized renderer for line-heavy files below the size threshold', (done) => {
+    // Small in bytes but many lines: the [].concat(...lines) spill crashes on line count, not size.
+    const lineHeavyContent = Array.from({ length: 60 * 1000 }, (_, i) => `line ${i}`).join('\n');
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(lineHeavyContent);
+    });
+    const props = { ...minimalProps, getArtifact, size: 1024 }; // 1KB reported size
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
+    setImmediate(() => {
+      wrapper.update();
+      const highlighter = wrapper.find(SyntaxHighlighter).first();
+      expect(highlighter.exists()).toBe(true);
+      expect(highlighter.prop('renderer')).toBeDefined();
+      done();
+    });
   });
 });

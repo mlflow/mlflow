@@ -1,11 +1,8 @@
 import { LegacySelect } from '@databricks/design-system';
 import { useCallback, useEffect } from 'react';
 import { isEmpty, isUndefined } from 'lodash';
-import type {
-  RunsChartsCardConfig,
-  RunsChartsBarCardConfig,
-  RunsChartsMetricByDatasetEntry,
-} from '../../runs-charts.types';
+import { RunsChartsCardConfig } from '../../runs-charts.types';
+import type { RunsChartsBarCardConfig, RunsChartsMetricByDatasetEntry } from '../../runs-charts.types';
 import { RunsChartsConfigureField } from './RunsChartsConfigure.common';
 import { RunsChartsConfigureMetricWithDatasetSelect } from './RunsChartsConfigureMetricWithDatasetSelect';
 
@@ -28,13 +25,18 @@ export const RunsChartsConfigureBarChart = ({
    */
   const updateMetric = useCallback(
     (metricKey: string, datasetName?: string, dataAccessKey?: string) => {
-      onStateChange((current) => ({
-        ...(current as RunsChartsBarCardConfig),
-        metricKey,
-        selectedMetricKeys: [dataAccessKey ?? metricKey],
-        datasetName,
-        dataAccessKey,
-      }));
+      onStateChange((current) => {
+        const currentConfig = current as RunsChartsBarCardConfig;
+        const selectedMetricKeys = [dataAccessKey ?? metricKey];
+        return {
+          ...currentConfig,
+          metricKey,
+          selectedMetricKeys,
+          datasetName,
+          dataAccessKey,
+          displayName: RunsChartsCardConfig.getDisplayNameForUpdatedMetricSelection(currentConfig, selectedMetricKeys),
+        };
+      });
     },
     [onStateChange],
   );
@@ -44,11 +46,15 @@ export const RunsChartsConfigureBarChart = ({
    */
   const updateSelectedMetrics = useCallback(
     (metricKeys: string[]) => {
-      onStateChange((current) => ({
-        ...(current as RunsChartsBarCardConfig),
-        metricKey: metricKeys[0] ?? '',
-        selectedMetricKeys: metricKeys,
-      }));
+      onStateChange((current) => {
+        const currentConfig = current as RunsChartsBarCardConfig;
+        return {
+          ...currentConfig,
+          metricKey: metricKeys[0] ?? '',
+          selectedMetricKeys: metricKeys,
+          displayName: RunsChartsCardConfig.getDisplayNameForUpdatedMetricSelection(currentConfig, metricKeys),
+        };
+      });
     },
     [onStateChange],
   );

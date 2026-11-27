@@ -9,7 +9,7 @@ import React, { useMemo } from 'react';
 import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { SectionErrorBoundary } from '../../common/components/error-boundaries/SectionErrorBoundary';
 
-const Plot = React.lazy(() => import('react-plotly.js'));
+const Plot = React.lazy(() => import('./PlotlyFactory'));
 
 export const LazyPlot = ({ fallback, layout, ...props }: any) => {
   const { theme } = useDesignSystemTheme();

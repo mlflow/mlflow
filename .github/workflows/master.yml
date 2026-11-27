@@ -2,18 +2,22 @@ name: MLflow tests
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths-ignore:
       - "docs/**"
       - "**.md"
       - "dev/clint/**"
+      - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
+      - ".github/workflows/triage.yml"
+      - ".github/workflows/verify.yml"
+      - ".github/workflows/resolve.yml"
+      - ".github/workflows/repair.yml"
+      - ".github/workflows/nightly.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - "libs/typescript/**"
+      - ".github/workflows/typescript.yml"
       - ".claude/**"
   push:
     branches:
@@ -43,6 +47,7 @@ env:
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
@@ -50,13 +55,12 @@ jobs:
   # The python skinny tests cover the subset of mlflow functionality
   # while also verifying certain dependencies are omitted.
   python-skinny:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -69,25 +73,40 @@ jobs:
           ./dev/run-python-skinny-tests.sh
 
   python:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    name: python (${{ matrix.mode }} ${{ matrix.group }}/${{ matrix.splits }})
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
+    cache-mode: write
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3, 4]
+        # `parallel` shards run the bulk of the suite under pytest-xdist. `serial` shards run the
+        # xdist-hostile tests (see `_XDIST_SERIAL_PATHS` in tests/conftest.py) one at a time. They
+        # only conflict with tests running concurrently on the same machine, so giving them their
+        # own runners keeps them serial without making them wait for the parallel pass.
         include:
-          - splits: 4
+          - { mode: parallel, splits: 6, group: 1 }
+          - { mode: parallel, splits: 6, group: 2 }
+          - { mode: parallel, splits: 6, group: 3 }
+          - { mode: parallel, splits: 6, group: 4 }
+          - { mode: parallel, splits: 6, group: 5 }
+          - { mode: parallel, splits: 6, group: 6 }
+          - { mode: serial, splits: 4, group: 1 }
+          - { mode: serial, splits: 4, group: 2 }
+          - { mode: serial, splits: 4, group: 3 }
+          - { mode: serial, splits: 4, group: 4 }
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           submodules: true
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -97,7 +116,9 @@ jobs:
             -r requirements/test-requirements.txt \
             -r requirements/extra-ml-requirements.txt
       - uses: ./.github/actions/show-versions
+      # Only the serial shards run the HF dataset tests this cache is keyed on.
       - uses: ./.github/actions/cache-hf
+        if: matrix.mode == 'serial'
       - name: Import check
         run: |
           # `-I` is used to avoid importing modules from user-specific site-packages
@@ -105,19 +126,30 @@ jobs:
           uv run --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         env:
+          MODE: ${{ matrix.mode }}
           SPLITS: ${{ matrix.splits }}
           GROUP: ${{ matrix.group }}
         run: |
           source dev/setup-ssh.sh
-          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP \
-            --quiet --requires-ssh --ignore-flavors \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/genai \
-            --ignore=tests/docker \
+          # `--serial` filters the collected tests before `--splits`/`--group` shards them, so
+          # the parallel and serial shards partition the suite independently.
+          COMMON_ARGS=(
+            --splits="$SPLITS" --group="$GROUP"
+            --quiet --requires-ssh --ignore-flavors
+            --ignore=tests/examples
+            --ignore=tests/evaluate
+            --ignore=tests/genai
+            --ignore=tests/docker
             tests
+          )
+          if [[ "$MODE" == "parallel" ]]; then
+            uv run --no-sync pytest --serial=exclude -n auto --dist loadscope "${COMMON_ARGS[@]}"
+          else
+            uv run --no-sync pytest --serial=only "${COMMON_ARGS[@]}"
+          fi
 
       - name: Run databricks-connect related tests
+        if: matrix.mode == 'serial' && matrix.group == 1
         run: |
           # this needs to be run in a separate job because installing databricks-connect could break other
           # tests that uses normal SparkSession instead of remote SparkSession
@@ -125,70 +157,61 @@ jobs:
             pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
 
   database:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each backend runs in its own containers (`tests/db/compose.sh` tears down volumes
+        # before every command), so the backends share no state and can run on separate runners.
+        db: [postgresql, mysql, mssql, sqlite]
+    env:
+      DB: ${{ matrix.db }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
       - name: Build
         run: |
-          ./tests/db/compose.sh pull -q postgresql mysql mssql
+          # SQLite has no database server image to pull.
+          if [[ "$DB" != "sqlite" ]]; then
+            ./tests/db/compose.sh pull -q "$DB"
+          fi
           docker images --digests
-          ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
+          ./tests/db/compose.sh build "mlflow-$DB" "migration-$DB"
       - name: Run tests
         run: |
-          set +e
-          err=0
-          trap 'err=1' ERR
-          RESULTS=""
-          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-' | sort)
-          do
-            # Set `--no-TTY` to show container logs on GitHub Actions:
-            # https://github.com/actions/virtual-environments/issues/5022
-            ./tests/db/compose.sh run --rm --no-TTY $service pytest \
-              tests/store/tracking/sqlalchemy_store \
-              tests/store/tracking/test_gateway_sql_store.py \
-              tests/store/model_registry/test_sqlalchemy_store.py \
-              tests/store/model_registry/test_sqlalchemy_workspace_store.py \
-              tests/store/workspace/test_sqlalchemy_store.py \
-              tests/db
-              RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
-          done
-
-          echo -e "$RESULTS"
-          test $err = 0
+          # Set `--no-TTY` to show container logs on GitHub Actions:
+          # https://github.com/actions/virtual-environments/issues/5022
+          ./tests/db/compose.sh run --rm --no-TTY "mlflow-$DB" pytest -q \
+            tests/store/tracking/sqlalchemy_store \
+            tests/store/tracking/test_gateway_sql_store.py \
+            tests/store/model_registry/test_sqlalchemy_store.py \
+            tests/store/model_registry/test_sqlalchemy_workspace_store.py \
+            tests/store/workspace/test_sqlalchemy_store.py \
+            tests/db
 
       - name: Run migration check
         run: |
-          set +e
-          err=0
-          trap 'err=1' ERR
-
-          ./tests/db/compose.sh down --volumes --remove-orphans
-          for service in $(./tests/db/compose.sh config --services | grep '^migration-')
-          do
-            ./tests/db/compose.sh run --rm --no-TTY $service
-          done
-
-          test $err = 0
+          if ! ./tests/db/compose.sh run --rm --no-TTY "migration-$DB"; then
+            echo "::error::Migration check failed for migration-$DB"
+            exit 1
+          fi
 
       - name: Clean up
         run: |
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
 
   java:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -206,13 +229,12 @@ jobs:
           uv run --no-dev mvn clean package -q
 
   flavors:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -234,8 +256,7 @@ jobs:
             tests/autologging
 
   models:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -246,12 +267,14 @@ jobs:
         include:
           - splits: 3
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -269,23 +292,24 @@ jobs:
           uv run --no-sync pytest --splits=$SPLITS --group=$GROUP tests/models
 
   evaluate:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        group: [1]
+        group: [1, 2]
         include:
-          - splits: 1
+          - splits: 2
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -302,17 +326,24 @@ jobs:
         run: |
           uv run --no-sync pytest --splits=$SPLITS --group=$GROUP tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
+        # Not covered by `--splits`, so run it in one shard only.
+        if: matrix.group == 1
         run: |
           uv run --no-sync pytest tests/evaluate/test_default_evaluator_delta.py
 
   genai:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # The OSS and Databricks runs are separate pytest invocations (the latter adds
+        # databricks-agents via `uv run --with`), so they run on separate runners.
+        variant: [oss, databricks]
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -334,11 +365,16 @@ jobs:
           # unpinned install backtracks to the ancient 0.1.8 (imports the
           # removed openai.error). Restore it once upstream lifts the pins.
           # https://github.com/guardrails-ai/guardrails/issues/1505
+          # Avoid google-adk[gcp] here: its OTel GCP deps include prereleases,
+          # and UV_EXCLUDE_NEWER=P7D can make uv backtrack to google-adk==0.0.1
+          # when a new stable OTel GCP release is still cooldown-excluded. These
+          # tests need google-adk plus vertexai imports from google-cloud-aiplatform.
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm 'google-adk[gcp]'
+            deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm google-adk google-cloud-aiplatform
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
+        if: matrix.variant == 'oss'
         run: |
           # guardrails-ai is not installed (see the install step), so skip its
           # tests to keep collection of the rest of tests/genai from breaking.
@@ -347,6 +383,7 @@ jobs:
             --ignore tests/genai/scorers/guardrails
 
       - name: Run GenAI Tests (Databricks)
+        if: matrix.variant == 'databricks'
         run: |
           # guardrails-ai is not installed (see the install step), so skip its
           # tests here too. https://github.com/guardrails-ai/guardrails/issues/1505
@@ -355,7 +392,7 @@ jobs:
           # which imports the published mlflow-skinny that databricks-agents pulls
           # into this overlay rather than the local checkout. That published build
           # lacks the new `mlflow.test` API, so the generated test fails to collect.
-          # It already runs against the local mlflow in the OSS step above.
+          # It already runs against the local mlflow in the `genai (oss)` job.
           uv run --no-sync --with databricks-agents \
             pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
             --ignore tests/genai/optimize --ignore tests/genai/prompts \
@@ -363,8 +400,7 @@ jobs:
             --ignore tests/genai/evaluate/test_pytest_integration.py
 
   pyfunc:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
@@ -375,12 +411,14 @@ jobs:
         include:
           - splits: 4
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
@@ -400,68 +438,3 @@ jobs:
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
           uv run --no-sync pytest tests/pyfunc/test_spark_connect.py
-
-  windows:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: windows-latest
-    timeout-minutes: 120
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        group: [1, 2, 3]
-        include:
-          - splits: 3
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-          submodules: true
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
-      - name: Install python dependencies
-        run: |
-          uv sync --extra extras --extra genai --extra mcp
-          uv pip install \
-            -r requirements/test-requirements.txt \
-            pyspark datasets tensorflow torch transformers openai \
-            tests/resources/mlflow-test-plugin
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/cache-hf
-      - name: Download Hadoop winutils for Spark
-        run: |
-          git clone https://github.com/cdarlint/winutils /tmp/winutils
-      - name: Run python tests
-        env:
-          # Set Hadoop environment variables required for testing Spark integrations on Windows
-          HADOOP_HOME: /tmp/winutils/hadoop-3.2.2
-          # Use non-GUI matplotlib backend since Tkinter may not be installed properly on Windows runners
-          # https://github.com/stefmolin/data-morph/pull/273
-          MPLBACKEND: Agg
-          SPLITS: ${{ matrix.splits }}
-          GROUP: ${{ matrix.group }}
-        run: |
-          export PATH=$PATH:$HADOOP_HOME/bin
-          uv run --no-sync pytest tests \
-            --splits=$SPLITS \
-            --group=$GROUP \
-            --ignore-flavors \
-            --ignore=tests/projects \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna \
-            --ignore=tests/genai \
-            --ignore=tests/sagemaker \
-            --ignore=tests/gateway \
-            --ignore=tests/server/auth \
-            --ignore=tests/data/test_spark_dataset.py \
-            --ignore=tests/data/test_spark_dataset_source.py \
-            --ignore=tests/data/test_delta_dataset_source.py \
-            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_spark_datasource \
-            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_delta_datasource \
-            --ignore=tests/docker \
-            --ignore=tests/demo

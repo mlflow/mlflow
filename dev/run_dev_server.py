@@ -59,9 +59,10 @@ def on_signal(signum: int, _frame: object) -> None:
     sys.exit(128 + signum)
 
 
-def start_backend(port: int) -> tuple[subprocess.Popen[bytes], list[Path]]:
+def start_backend(
+    port: int, children: list[subprocess.Popen[bytes]], tmp_paths: list[Path]
+) -> None:
     backend_args: list[str] = []
-    tmp_paths: list[Path] = []
     if tracking_uri := os.environ.get("MLFLOW_TRACKING_URI"):
         backend_args += ["--backend-store-uri", tracking_uri, "--default-artifact-root", "mlruns"]
     elif backend_uri := os.environ.get("MLFLOW_BACKEND_STORE_URI"):
@@ -84,12 +85,14 @@ def start_backend(port: int) -> tuple[subprocess.Popen[bytes], list[Path]]:
 
     cmd = [sys.executable, "-m", "mlflow", "server", *backend_args, "--dev", "--port", str(port)]
     print(f"Running tracking server: {shlex.join(cmd)}")
-    proc = subprocess.Popen(cmd, cwd=REPO_ROOT, start_new_session=True)
+    # Register before waiting so cleanup also stops it if startup is interrupted or times out.
+    children.append(subprocess.Popen(cmd, cwd=REPO_ROOT, start_new_session=True))
     wait_ready(f"http://localhost:{port}/health", "tracking server")
-    return proc, tmp_paths
 
 
-def start_frontend(backend_port: int, frontend_port: int) -> subprocess.Popen[bytes]:
+def start_frontend(
+    backend_port: int, frontend_port: int, children: list[subprocess.Popen[bytes]]
+) -> None:
     proc = subprocess.Popen(
         ["yarn", "start"],
         cwd=JS_DIR,
@@ -102,8 +105,8 @@ def start_frontend(backend_port: int, frontend_port: int) -> subprocess.Popen[by
         },
         start_new_session=True,
     )
+    children.append(proc)
     wait_ready(f"http://localhost:{frontend_port}/", "React dev server", timeout=180)
-    return proc
 
 
 def wait_ready(url: str, label: str, timeout: float = 60.0) -> None:
@@ -125,7 +128,8 @@ def main() -> None:
     # Line-buffer prints so progress shows up live when stdout is redirected to a file.
     sys.stdout.reconfigure(line_buffering=True)  # type: ignore[union-attr]
 
-    argparse.ArgumentParser(description=__doc__).parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.parse_args()
 
     subprocess.check_call(["yarn", "install"], cwd=JS_DIR)
 
@@ -141,10 +145,8 @@ def main() -> None:
     for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig, on_signal)
 
-    backend_proc, backend_tmp = start_backend(backend_port)
-    children.append(backend_proc)
-    tmp_paths.extend(backend_tmp)
-    children.append(start_frontend(backend_port, frontend_port))
+    start_backend(backend_port, children, tmp_paths)
+    start_frontend(backend_port, frontend_port, children)
 
     # Block until any child exits; atexit reaps the rest.
     while all(proc.poll() is None for proc in children):

@@ -41,6 +41,9 @@ class AsyncTraceExportQueue:
     def __init__(self):
         self._queue: Queue[Task] = Queue(maxsize=MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE.get())
         self._lock = threading.RLock()
+        # Serialize flush() without holding self._lock across thread joins, which could
+        # deadlock with a concurrent put().
+        self._flush_lock = threading.Lock()
         self._max_workers = MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS.get()
 
         # Thread event that indicates the queue should stop processing tasks
@@ -53,33 +56,31 @@ class AsyncTraceExportQueue:
 
     def put(self, task: Task):
         """Put a new task to the queue for processing."""
-        if not self.is_active():
-            if self._stop_event.is_set():
-                # Queue was terminated via flush(terminate=True); _stop_event will never be
-                # cleared, so activating and then waiting would deadlock. Execute synchronously.
-                task.handle()
+        with self._lock:
+            if not self.is_active():
+                if not self._stop_event.is_set():
+                    self.activate()
+
+            if self.is_active():
+                try:
+                    # Do not block if the queue is full, it will block the main application
+                    self._queue.put(task, block=False)
+                except queue_Full:
+                    if self._last_full_queue_warning_time is None or (
+                        time.time() - self._last_full_queue_warning_time > 30
+                    ):
+                        _logger.warning(
+                            "Trace export queue is full, trace will be discarded. "
+                            "Consider increasing the queue size through "
+                            "`MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` environment variable or "
+                            "number of workers through `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`"
+                            " environment variable."
+                        )
+                        self._last_full_queue_warning_time = time.time()
                 return
-            self.activate()
 
-        # If stop event is set, wait for the queue to be drained before putting the task
-        if self._stop_event.is_set():
-            self._stop_event.wait()
-
-        try:
-            # Do not block if the queue is full, it will block the main application
-            self._queue.put(task, block=False)
-        except queue_Full:
-            if self._last_full_queue_warning_time is None or (
-                time.time() - self._last_full_queue_warning_time > 30
-            ):
-                _logger.warning(
-                    "Trace export queue is full, trace will be discarded. "
-                    "Consider increasing the queue size through "
-                    "`MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` environment variable or "
-                    "number of workers through `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`"
-                    " environment variable."
-                )
-                self._last_full_queue_warning_time = time.time()
+        # Queue is flushing or was terminated; execute synchronously.
+        task.handle()
 
     def _consumer_loop(self) -> None:
         while not self._stop_event.is_set():
@@ -170,18 +171,24 @@ class AsyncTraceExportQueue:
         Args:
             terminate: If True, shut down the logging threads after flushing.
         """
-        if not self.is_active():
-            return
+        with self._flush_lock:
+            with self._lock:
+                if not self.is_active():
+                    return
 
-        self._stop_event.set()
-        self._consumer_thread.join()
+                # Mark the queue inactive before stopping the consumer so concurrent
+                # put() calls cannot enqueue work that no consumer will process.
+                self._is_active = False
+                self._stop_event.set()
 
-        # Wait for all tasks to be processed
-        self._queue.join()
+            self._consumer_thread.join()
 
-        self._worker_threadpool.shutdown(wait=True)
-        self._is_active = False
-        # Restart threads to listen to incoming requests after flushing, if not terminating
-        if not terminate:
-            self._stop_event.clear()
-            self.activate()
+            # Wait for all tasks to be processed
+            self._queue.join()
+
+            self._worker_threadpool.shutdown(wait=True)
+
+            # Restart threads to listen to incoming requests after flushing, if not terminating
+            if not terminate:
+                self._stop_event.clear()
+                self.activate()

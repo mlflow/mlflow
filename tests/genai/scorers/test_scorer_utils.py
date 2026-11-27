@@ -1,20 +1,33 @@
 import json
+import os
+import re
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
+import mlflow
 from mlflow.entities import Assessment, Feedback, Trace
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges import make_judge
+from mlflow.genai.scorers import Guidelines, Scorer, get_scorer, make_scorer_ensemble, scorer
+from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, ScorerSamplingConfig
 from mlflow.genai.scorers.scorer_utils import (
     BUILTIN_SCORER_PYDANTIC_DATA,
     INSTRUCTIONS_JUDGE_PYDANTIC_DATA,
     build_gateway_model,
     extract_endpoint_ref,
     extract_model_from_serialized_scorer,
+    find_custom_scorer_without_source,
+    get_scorer_definition_digest,
     get_tool_call_signature,
     is_gateway_model,
     normalize_tool_call_arguments,
+    params_contain_custom_scorer_code,
     parse_tool_call_expectations,
     recreate_function,
+    scorer_params_use_direct_provider_model,
     update_model_in_serialized_scorer,
 )
 from mlflow.genai.utils.type import FunctionCall
@@ -185,6 +198,17 @@ def test_signature_with_defaults():
     assert recreated is not None
     assert recreated(3) == 9  # 3^2
     assert recreated(2, 3) == 8  # 2^3
+
+
+def test_signature_with_parentheses_in_defaults():
+    source = "return sep.join(parts) + suffix"
+    signature = "(parts=('a', 'b'), sep=str('-'), suffix=')') -> str"
+    func_name = "join_parts"
+
+    recreated = recreate_function(source, signature, func_name)
+
+    assert recreated() == "a-b)"
+    assert recreated(("x", "y"), "+", "") == "x+y"
 
 
 def test_complex_signature():
@@ -649,3 +673,391 @@ def test_get_tool_call_signature_sorts_arguments():
     sig1 = get_tool_call_signature(call1, include_arguments=True)
     sig2 = get_tool_call_signature(call2, include_arguments=True)
     assert sig1 == sig2
+
+
+# ============================================================================
+# CUSTOM-SCORER DETECTION AND REMOTE-COMPATIBILITY TESTS
+# ============================================================================
+
+
+def _custom_scorer_json():
+    return json.dumps({
+        "name": "c",
+        "call_source": "    return 1\n",
+        "call_signature": "(inputs, outputs)",
+        "original_func_name": "c",
+    })
+
+
+def _builtin_scorer_json():
+    return json.dumps({"name": "b", "builtin_scorer_class": "Safety"})
+
+
+def _judge_scorer_json(model_uri):
+    return json.dumps({"name": "j", "instructions_judge_pydantic_data": {"model": model_uri}})
+
+
+def test_invoke_scorer_custom_detected():
+    params = {"serialized_scorer": _custom_scorer_json(), "trace_ids": ["t1"]}
+    assert params_contain_custom_scorer_code("invoke_scorer", params) is True
+
+
+def test_invoke_scorer_builtin_not_custom():
+    params = {"serialized_scorer": _builtin_scorer_json(), "trace_ids": ["t1"]}
+    assert params_contain_custom_scorer_code("invoke_scorer", params) is False
+
+
+def test_online_scorers_custom_detected():
+    params = {
+        "experiment_id": "e",
+        "online_scorers": [
+            {"serialized_scorer": _builtin_scorer_json()},
+            {"serialized_scorer": _custom_scorer_json()},
+        ],
+    }
+    assert params_contain_custom_scorer_code("run_online_trace_scorer", params) is True
+
+
+def test_non_scorer_job_not_custom():
+    assert params_contain_custom_scorer_code("optimize_prompts", {"anything": 1}) is False
+
+
+def test_malformed_serialized_scorer_raises():
+    params = {"serialized_scorer": "not json"}
+    with pytest.raises(MlflowException, match="Malformed serialized scorer"):
+        params_contain_custom_scorer_code("invoke_scorer", params)
+
+
+def test_custom_scorer_execution_blocked(monkeypatch):
+    from mlflow.genai.scorers.scorer_utils import custom_scorer_execution_blocked
+
+    custom = json.loads(_custom_scorer_json())
+    builtin = json.loads(_builtin_scorer_json())
+
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    assert custom_scorer_execution_blocked(custom) is True
+    assert custom_scorer_execution_blocked(builtin) is False
+
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    assert custom_scorer_execution_blocked(custom) is False
+
+
+def test_direct_provider_model_flagged():
+    params = {"serialized_scorer": _judge_scorer_json("openai:/gpt-4")}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is True
+
+
+def test_gateway_endpoint_model_ok():
+    params = {"serialized_scorer": _judge_scorer_json("endpoints:/my-endpoint")}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is False
+
+
+def test_no_model_is_compatible():
+    params = {"serialized_scorer": _builtin_scorer_json()}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is False
+
+
+def test_online_scorers_direct_provider_flagged():
+    params = {"online_scorers": [{"serialized_scorer": _judge_scorer_json("anthropic:/claude")}]}
+    assert scorer_params_use_direct_provider_model("run_online_trace_scorer", params) is True
+
+
+def test_invoke_genai_evaluate_custom_detected():
+    # This job carries a plural `serialized_scorers` list, not a single `serialized_scorer`.
+    params = {
+        "serialized_scorers": [_builtin_scorer_json(), _custom_scorer_json()],
+        "trace_ids": ["t1"],
+    }
+    assert params_contain_custom_scorer_code("invoke_genai_evaluate", params) is True
+
+
+def test_invoke_genai_evaluate_builtin_not_custom():
+    params = {"serialized_scorers": [_builtin_scorer_json()], "trace_ids": ["t1"]}
+    assert params_contain_custom_scorer_code("invoke_genai_evaluate", params) is False
+
+
+def test_ensemble_nested_custom_detected():
+    # A decorator sub-scorer nested inside an ensemble must be detected even though the
+    # top-level scorer has no `call_source`.
+    ensemble = json.dumps({
+        "name": "e",
+        "ensemble_scorer_data": {
+            "scorers": [
+                {"name": "b", "builtin_scorer_class": "Safety"},
+                {
+                    "name": "c",
+                    "call_source": "    return 1\n",
+                    "call_signature": "(inputs, outputs)",
+                    "original_func_name": "c",
+                },
+            ]
+        },
+    })
+    assert (
+        params_contain_custom_scorer_code("invoke_scorer", {"serialized_scorer": ensemble}) is True
+    )
+
+
+def test_gateway_scheme_model_ok():
+    params = {"serialized_scorer": _judge_scorer_json("gateway:/my-endpoint")}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is False
+
+
+def test_databricks_scheme_model_ok():
+    params = {"serialized_scorer": _judge_scorer_json("databricks:/my-endpoint")}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is False
+
+
+@pytest.mark.parametrize("model", ["databricks", "gpt-oss-120b"])
+def test_bare_model_name_flagged(model):
+    # A model value with no "scheme:/" is a direct-provider model (not gateway-backed), so the
+    # check must fail closed and flag it rather than let it pass to a remote executor.
+    params = {"serialized_scorer": _judge_scorer_json(model)}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is True
+
+
+def test_empty_model_is_compatible():
+    # An empty model string means no model was specified (not a direct-provider URI), so it is
+    # treated as compatible rather than flagged.
+    params = {"serialized_scorer": _judge_scorer_json("")}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is False
+
+
+def test_scorer_detection_job_names_match_registered_jobs():
+    # The detection job-name sets must stay in sync with the actual registered scorer job
+    # names; a rename that touches only one side would silently fail the gate open.
+    from mlflow.genai.evaluation.job import invoke_genai_evaluate_job
+    from mlflow.genai.scorers.job import (
+        invoke_scorer_job,
+        run_online_session_scorer_job,
+        run_online_trace_scorer_job,
+    )
+    from mlflow.genai.scorers.scorer_utils import _scorer_job_param_names
+
+    inline, inline_list, online = _scorer_job_param_names()
+    detected = inline | inline_list | online
+    registered = {
+        invoke_scorer_job._job_fn_metadata.name,
+        invoke_genai_evaluate_job._job_fn_metadata.name,
+        run_online_trace_scorer_job._job_fn_metadata.name,
+        run_online_session_scorer_job._job_fn_metadata.name,
+    }
+    assert detected == registered
+
+
+# ============================================================================
+# SCORER DEFINITION DIGEST TESTS
+# ============================================================================
+
+
+def _check_scorer():
+    @scorer
+    def check(outputs) -> bool:
+        return bool(outputs)
+
+    return check
+
+
+def _check_scorer_with_docstring():
+    @scorer
+    def check(outputs) -> bool:
+        """Check that there is an output."""
+        return bool(outputs)
+
+    return check
+
+
+def _check_scorer_with_new_body():
+    @scorer
+    def check(outputs) -> bool:
+        return len(outputs) > 1
+
+    return check
+
+
+def _guidelines(guidelines=("Be concise",)):
+    return Guidelines(name="concise", guidelines=list(guidelines))
+
+
+def _judge(instructions="Is {{ outputs }} concise?"):
+    return make_judge(name="judge", instructions=instructions, feedback_value_type=bool)
+
+
+@pytest.mark.parametrize("make_scorer", [_check_scorer, _guidelines, _judge])
+def test_definition_digest_is_stable_for_the_same_definition(make_scorer):
+    digest = get_scorer_definition_digest(make_scorer())
+
+    assert re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
+    assert get_scorer_definition_digest(make_scorer()) == digest
+
+
+def test_definition_digest_ignores_the_docstring():
+    assert get_scorer_definition_digest(_check_scorer()) == get_scorer_definition_digest(
+        _check_scorer_with_docstring()
+    )
+
+
+@pytest.mark.parametrize(
+    ("original", "changed"),
+    [
+        (_check_scorer, _check_scorer_with_new_body),
+        (_guidelines, lambda: _guidelines(["Be polite"])),
+        (_judge, lambda: _judge("Is {{ outputs }} polite?")),
+    ],
+)
+def test_definition_digest_changes_with_the_definition(original, changed):
+    assert get_scorer_definition_digest(original()) != get_scorer_definition_digest(changed())
+
+
+def test_definition_digest_ignores_the_mlflow_version(monkeypatch):
+    digest = get_scorer_definition_digest(_guidelines())
+
+    monkeypatch.setattr(mlflow, "__version__", "0.0.1")
+
+    assert _guidelines().model_dump()["mlflow_version"] == "0.0.1"
+    assert get_scorer_definition_digest(_guidelines()) == digest
+
+
+def test_definition_digest_ignores_the_sampling_config():
+    sampled = _guidelines()._set_registration_metadata(
+        backend=SCORER_BACKEND_TRACKING,
+        experiment_id="1",
+        sampling_config=ScorerSamplingConfig(sample_rate=0.5, filter_string="tags.env = 'prod'"),
+    )
+
+    assert get_scorer_definition_digest(sampled) == get_scorer_definition_digest(_guidelines())
+
+
+@pytest.mark.parametrize("make_scorer", [_check_scorer, _guidelines, _judge])
+def test_definition_digest_matches_after_a_registry_round_trip(make_scorer, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    experiment_id = mlflow.create_experiment("definition-digest-round-trip")
+    local = make_scorer()
+    local.register(experiment_id=experiment_id)
+
+    loaded = get_scorer(name=local.name, experiment_id=experiment_id)
+
+    assert loaded.scorer_version == 1
+    assert get_scorer_definition_digest(loaded) == get_scorer_definition_digest(make_scorer())
+
+
+def test_definition_digest_of_a_builtin_scorer_does_not_depend_on_the_hash_seed():
+    code = (
+        "from mlflow.genai.scorers import Guidelines\n"
+        "from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest\n"
+        "print(get_scorer_definition_digest(Guidelines(name='concise', guidelines=['Be concise'])))"
+    )
+    digests = {
+        subprocess.check_output(
+            [sys.executable, "-c", code], env={**os.environ, "PYTHONHASHSEED": seed}, text=True
+        ).strip()
+        for seed in ["1", "2"]
+    }
+
+    assert digests == {get_scorer_definition_digest(_guidelines(["Be concise"]))}
+
+
+def test_definition_digest_changes_after_the_scorer_is_edited():
+    check = _check_scorer()
+    digest = get_scorer_definition_digest(check)
+
+    check.description = "Checks that there is an output."
+
+    assert get_scorer_definition_digest(check) != digest
+
+
+def test_definition_digest_leaves_scorer_caches_unchanged():
+    check = _check_scorer()
+    inner = make_scorer_ensemble(name="inner", scorers=[check], ensemble_fn="maximum")
+    outer = make_scorer_ensemble(name="outer", scorers=[inner], ensemble_fn="maximum")
+
+    get_scorer_definition_digest(check)
+    get_scorer_definition_digest(inner)
+    get_scorer_definition_digest(outer)
+
+    assert check._cached_dump is None
+
+
+def test_definition_digest_leaves_scorer_cache_unchanged_across_threads():
+    switch_interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    try:
+        checks = [_check_scorer() for _ in range(50)]
+        for check in checks:
+            with ThreadPoolExecutor(max_workers=16, thread_name_prefix="digest-test") as pool:
+                list(pool.map(lambda _: get_scorer_definition_digest(check), range(32)))
+    finally:
+        sys.setswitchinterval(switch_interval)
+
+    assert all(check._cached_dump is None for check in checks)
+
+
+def test_definition_digest_matches_a_legacy_dump_without_timeout():
+    dump = _judge().model_dump()
+    dump.pop("timeout")
+
+    legacy = Scorer.model_validate(dump)
+
+    assert get_scorer_definition_digest(legacy) == get_scorer_definition_digest(_judge())
+
+
+class _UserScorer(Scorer):
+    name: str = "user_scorer"
+
+    def __call__(self, *, outputs=None, **kwargs):
+        return True
+
+
+class _NonJsonScorer(Scorer):
+    name: str = "non_json"
+
+    def model_dump(self, **kwargs):
+        return {"third_party_scorer_data": {"kwargs": {"client": object()}}}
+
+    def __call__(self, *, outputs=None, **kwargs):
+        return True
+
+
+def test_definition_digest_of_a_user_scorer_subclass_uses_its_class_source():
+    assert get_scorer_definition_digest(_UserScorer()).startswith("sha256:")
+    assert get_scorer_definition_digest(_UserScorer()) == get_scorer_definition_digest(
+        _UserScorer()
+    )
+
+
+@pytest.mark.parametrize(
+    "unhashable",
+    [
+        make_scorer_ensemble(name="ensemble", scorers=[_check_scorer()], ensemble_fn=max),
+        _NonJsonScorer(),
+        object(),
+    ],
+    ids=["custom_function_ensemble", "non_json_kwargs", "not_a_scorer"],
+)
+def test_definition_digest_is_none_when_the_definition_cannot_be_hashed(unhashable):
+    assert get_scorer_definition_digest(unhashable) is None
+
+
+@pytest.mark.parametrize(
+    ("serialized", "expected"),
+    [
+        ({"name": "ok", "call_source": "return 1", "call_signature": "()"}, None),
+        ({"name": "builtin", "builtin_scorer_class": "Safety"}, None),
+        ({"name": "no_source", "call_source": "", "call_signature": "()"}, "no_source"),
+        ({"name": "blank", "call_source": "  \n ", "call_signature": "()"}, "blank"),
+        (
+            {
+                "name": "ensemble",
+                "ensemble_scorer_data": {
+                    "scorers": [
+                        {"name": "ok", "call_source": "return 1"},
+                        {"name": "inner", "call_source": ""},
+                    ]
+                },
+            },
+            "inner",
+        ),
+    ],
+)
+def test_find_custom_scorer_without_source(serialized, expected):
+    assert find_custom_scorer_without_source(serialized) == expected

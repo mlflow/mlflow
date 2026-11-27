@@ -1,14 +1,70 @@
 import json
-from typing import Literal
+from typing import Any, Literal
 
 import click
+from pydantic_core import PydanticUndefined
 
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.genai.judges import make_judge
-from mlflow.genai.scorers import get_all_scorers
 from mlflow.genai.scorers import list_scorers as list_scorers_api
+from mlflow.genai.scorers.builtin_scorers import (
+    BuiltInScorer,
+    SessionLevelScorer,
+    _get_all_concrete_builtin_scorers,
+)
 from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.utils.string_utils import _create_table
+
+# Fields shared by all built-in scorers (name, description, required_columns,
+# inference_params, extra_headers). Excluded when deriving the constructor arguments a
+# specific scorer requires, so only scorer-specific required fields (e.g. Guidelines'
+# ``guidelines``) are reported.
+_SHARED_SCORER_FIELDS = set(BuiltInScorer.model_fields)
+
+
+def _builtin_scorer_catalog() -> list[dict[str, Any]]:
+    """Describe every built-in scorer by reading its class, without instantiating it.
+
+    ``get_all_scorers()`` only returns scorers instantiable with no arguments, so
+    scorers with required constructor arguments (``Guidelines``, ``RegexMatch``,
+    ``ResponseLength``, ``ConversationalGuidelines``) never appear. Reading fields off
+    the class instead surfaces all of them, along with the data contract and the
+    arguments needed to construct each one.
+
+    Reports the statically declared requirements only. Some scorers enforce
+    additional, alternative, or conditional requirements at construction or evaluation
+    time that this flat view does not represent:
+
+    - ``required_columns`` reflects the field default; scorers such as ``correctness``,
+      ``equivalence``, and ``expectations_guidelines`` require one of
+      ``expectations/expected_response`` or ``expectations/expected_facts`` (enforced in
+      ``validate_columns()``).
+    - ``required_args`` lists individually required constructor fields; it does not
+      capture one-of requirements such as ``response_length`` needing at least one of
+      ``min_length`` or ``max_length`` (enforced by a model validator).
+    """
+    catalog = []
+    for cls in _get_all_concrete_builtin_scorers():
+        fields = cls.model_fields
+        required_columns_field = fields.get("required_columns")
+        required_columns = (
+            required_columns_field.default
+            if required_columns_field is not None
+            and required_columns_field.default is not PydanticUndefined
+            else None
+        )
+        catalog.append({
+            "name": fields["name"].default,
+            "description": fields["description"].default,
+            "required_columns": sorted(required_columns) if required_columns else [],
+            "session_level": issubclass(cls, SessionLevelScorer),
+            "required_args": sorted(
+                name
+                for name, field in fields.items()
+                if field.is_required() and name not in _SHARED_SCORER_FIELDS
+            ),
+        })
+    return sorted(catalog, key=lambda s: s["name"])
 
 
 class DictParamType(click.ParamType):
@@ -76,6 +132,12 @@ def list_scorers(
     """
     List registered scorers for an experiment, or list all built-in scorers.
 
+    With ``--builtin``, the output describes every built-in scorer: the columns it
+    requires, whether it is session-level, and any arguments needed to construct it
+    (e.g. ``Guidelines`` needs ``guidelines``). Scorers with required arguments are
+    included, unlike ``get_all_scorers()``, which only returns those instantiable with
+    defaults.
+
     \b
     Examples:
 
@@ -113,17 +175,34 @@ def list_scorers(
             "registered scorers for an experiment."
         )
 
-    # Get scorers based on mode
-    scorers = get_all_scorers() if builtin else list_scorers_api(experiment_id=experiment_id)
+    if builtin:
+        scorer_data = _builtin_scorer_catalog()
+        if output == "json":
+            click.echo(json.dumps({"scorers": scorer_data}, indent=2))
+        else:
+            table = [
+                [
+                    s["name"],
+                    ", ".join(s["required_columns"]) or "-",
+                    "yes" if s["session_level"] else "no",
+                    ", ".join(s["required_args"]) or "-",
+                    s["description"] or "",
+                ]
+                for s in scorer_data
+            ]
+            click.echo(
+                _create_table(
+                    table,
+                    headers=["Scorer Name", "Requires", "Session", "Args", "Description"],
+                )
+            )
+        return
 
-    # Format scorer data for output
+    scorers = list_scorers_api(experiment_id=experiment_id)
     scorer_data = [{"name": scorer.name, "description": scorer.description} for scorer in scorers]
-
     if output == "json":
-        result = {"scorers": scorer_data}
-        click.echo(json.dumps(result, indent=2))
+        click.echo(json.dumps({"scorers": scorer_data}, indent=2))
     else:
-        # Table output format
         table = [[s["name"], s["description"] or ""] for s in scorer_data]
         click.echo(_create_table(table, headers=["Scorer Name", "Description"]))
 

@@ -15,6 +15,7 @@ export interface SetupOptions extends ConfigPathOptions {
   experimentId?: string;
   experimentName?: string;
   traceLocation?: string;
+  workspace?: string;
 }
 
 export interface ParsedSetupArgs extends SetupOptions {
@@ -39,6 +40,8 @@ export function parseSetupArgs(args: string[]): ParsedSetupArgs {
       // Treat a missing value as empty (not undefined) so validation fails
       // loudly instead of silently ignoring the flag.
       parsed.traceLocation = args[++i] ?? '';
+    } else if (arg === '--workspace') {
+      parsed.workspace = args[++i];
     }
   }
   return parsed;
@@ -51,6 +54,7 @@ function printSummary(
     experimentId: string;
     experimentName?: string;
     traceLocation?: string;
+    workspace?: string;
   },
 ): void {
   console.error('\nCurrent configuration');
@@ -63,6 +67,9 @@ function printSummary(
   }
   if (config.traceLocation) {
     console.error(`  Trace location: ${config.traceLocation}`);
+  }
+  if (config.workspace) {
+    console.error(`  Workspace: ${config.workspace}`);
   }
 }
 
@@ -126,6 +133,7 @@ export async function runSetup(args: string[], options: SetupOptions = {}): Prom
       experimentId: resolved.experimentId,
       experimentName: resolved.experimentName,
       traceLocation: merged.traceLocation,
+      workspace: merged.workspace,
     });
 
     console.error(`\n${settingsFileExisted ? 'Updated' : 'Created'} ${settingsPath}`);
@@ -142,6 +150,7 @@ export async function runSetup(args: string[], options: SetupOptions = {}): Prom
       experimentId: resolved.experimentId,
       experimentName: resolved.experimentName,
       traceLocation: merged.traceLocation,
+      workspace: merged.workspace,
     });
   } catch (error) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -164,6 +173,7 @@ export function runStatus(options: ConfigPathOptions = {}): void {
   if (config.traceLocation) {
     console.error(`  Trace location: ${config.traceLocation}`);
   }
+  console.error(`  Workspace: ${config.workspace ?? 'not set'}`);
 
   if (!config.enabled) {
     console.error('\nTracing is disabled. Run `mlflow-claude-code setup` to configure it.');

@@ -1,14 +1,18 @@
+import errno
 import filecmp
 import hashlib
 import io
+import logging
 import os
 import shutil
 import stat
 import tarfile
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from pyspark.sql import SparkSession
+from sqlalchemy.engine import make_url
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -22,6 +26,9 @@ from mlflow.utils.file_utils import (
     get_parent_dir,
     get_total_file_size,
     local_file_uri_to_path,
+    make_containing_dirs,
+    path_to_local_sqlite_uri,
+    remove_on_error,
 )
 from mlflow.utils.os import is_windows
 
@@ -96,6 +103,22 @@ def test_get_parent_dir(tmp_path):
     assert str(tmp_path) == get_parent_dir(str(child_dir))
 
 
+def test_make_containing_dirs_when_dir_created_concurrently(tmp_path):
+    dir_path = tmp_path / "metrics" / "eval"
+    dir_path.mkdir(parents=True)
+    # Simulate another process creating the directory right after an existence check
+    with mock.patch("os.path.exists", return_value=False):
+        make_containing_dirs(str(dir_path / "accuracy"))
+    assert dir_path.is_dir()
+
+
+def test_make_containing_dirs_raises_when_parent_is_file(tmp_path):
+    file_path = tmp_path / "metrics"
+    file_path.touch()
+    with pytest.raises(FileExistsError, match="metrics"):
+        make_containing_dirs(str(file_path / "accuracy"))
+
+
 def test_file_copy():
     with TempDir() as tmp:
         file_path = tmp.path("test_file.txt")
@@ -157,6 +180,35 @@ def test_handle_readonly_on_windows(tmp_path):
 )
 def test_local_file_uri_to_path_on_windows(input_uri, expected_path):
     assert local_file_uri_to_path(input_uri) == expected_path
+
+
+@pytest.mark.parametrize(
+    ("input_uri", "expected_path"),
+    [
+        ("/tmp/a#b/c", "/tmp/a#b/c"),
+        ("/tmp/a?b/c", "/tmp/a?b/c"),
+        ("/tmp/a?x=1/c", "/tmp/a?x=1/c"),
+        ("file:///tmp/a%23b/c", "/tmp/a#b/c"),
+        ("file:///tmp/a%3Fb/c", "/tmp/a?b/c"),
+    ],
+)
+def test_local_file_uri_to_path_keeps_question_mark_and_hash(input_uri, expected_path):
+    assert local_file_uri_to_path(input_uri) == str(Path(expected_path))
+
+
+@pytest.mark.parametrize("dirname", ["a+b", "a%2Bb", "a#b", "a b"])
+def test_path_to_local_sqlite_uri_preserves_literal_path(tmp_path, dirname):
+    db_path = tmp_path / dirname / "mlflow.db"
+    uri = path_to_local_sqlite_uri(db_path)
+    assert Path(make_url(uri).database) == db_path
+
+
+def test_path_to_local_sqlite_uri_without_sqlalchemy(tmp_path):
+    db_path = tmp_path / "a%2Bb" / "mlflow.db"
+    with mock.patch("importlib.util.find_spec", return_value=None) as mock_find_spec:
+        uri = path_to_local_sqlite_uri(db_path)
+    mock_find_spec.assert_called_once_with("sqlalchemy")
+    assert uri == f"sqlite:///{db_path.as_posix()}"
 
 
 def test_shutil_copytree_without_file_permissions(tmp_path):
@@ -390,3 +442,261 @@ def test_safe_extractall_blocks_symlink_escape(tmp_path):
         with pytest.raises(MlflowException, match="would be extracted outside"):
             _safe_extractall(tar, dest)
     assert not (tmp_path.parent / "pwned.txt").exists()
+
+
+@pytest.mark.parametrize(
+    ("symlink_name", "symlink_target", "hardlink_target"),
+    [
+        ("link", "../outside", "link/secret.txt"),
+        ("link", "../outside/secret.txt", "link"),
+        # Dangling inside the destination, but points outside once re-extracted at "hardlink"
+        ("sub/link", "../outside/secret.txt", "sub/link"),
+    ],
+)
+def test_extract_archive_to_dir_blocks_hardlink_through_symlink(
+    tmp_path, symlink_name, symlink_target, hardlink_target
+):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    secret = outside / "secret.txt"
+    secret.write_text("secret")
+    secret.chmod(0o600)
+    original_mode = stat.S_IMODE(secret.stat().st_mode)
+
+    mal_tar = tmp_path / "hardlink_escape.tar"
+    with tarfile.open(mal_tar, "w") as tar:
+        link = tarfile.TarInfo(symlink_name)
+        link.type = tarfile.SYMTYPE
+        link.linkname = symlink_target
+        tar.addfile(link)
+        hardlink = tarfile.TarInfo("hardlink")
+        hardlink.type = tarfile.LNKTYPE
+        hardlink.linkname = hardlink_target
+        hardlink.mode = 0o666
+        tar.addfile(hardlink)
+
+    dest = tmp_path / "extracted"
+    # Python 3.14's default tar filter can reject the symlink before MLflow sees the hard link.
+    with pytest.raises((MlflowException, tarfile.TarError), match="outside the destination"):
+        extract_archive_to_dir(mal_tar, dest)
+    assert not (dest / "hardlink").exists()
+    assert stat.S_IMODE(secret.stat().st_mode) == original_mode
+
+
+@pytest.mark.parametrize("link_errno", [None, errno.EPERM, errno.ENOSYS, errno.EINVAL])
+def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path, monkeypatch, link_errno):
+    archive = tmp_path / "hardlinks.tar"
+    with tarfile.open(archive, "w") as tar:
+        subdir = tarfile.TarInfo("subdir")
+        subdir.type = tarfile.DIRTYPE
+        subdir.mode = 0o755
+        tar.addfile(subdir)
+        for name in ["data.txt", "subdir/file.txt"]:
+            info = tarfile.TarInfo(name)
+            info.mode = 0o640
+            info.mtime = 1_000_000
+            data = name.encode()
+            info.size = len(data)
+            tar.addfile(info, fileobj=io.BytesIO(data))
+        link = tarfile.TarInfo("subdir_link")
+        link.type = tarfile.SYMTYPE
+        link.linkname = "subdir"
+        tar.addfile(link)
+        for name, target in [("copy.txt", "data.txt"), ("via_link.txt", "subdir_link/file.txt")]:
+            hardlink = tarfile.TarInfo(name)
+            hardlink.type = tarfile.LNKTYPE
+            hardlink.linkname = target
+            hardlink.mode = 0o755
+            hardlink.mtime = 2_000_000
+            tar.addfile(hardlink)
+
+    dest = tmp_path / "extracted"
+    if link_errno is not None:
+        monkeypatch.setattr(os, "link", mock.Mock(side_effect=OSError(link_errno, "unavailable")))
+    extract_archive_to_dir(archive, dest)
+    for name, target in [("copy.txt", "data.txt"), ("via_link.txt", "subdir/file.txt")]:
+        link = dest / name
+        assert link.read_text() == target
+        assert link.samefile(dest / target) == (link_errno is None)
+        link_stat = link.stat()
+        assert link_stat.st_mtime == 1_000_000
+        if not is_windows():
+            assert stat.S_IMODE(link_stat.st_mode) == 0o640
+
+
+def test_hardlink_copy_preserves_existing_destination(tmp_path):
+    archive = tmp_path / "hardlinks.tar"
+    with tarfile.open(archive, "w") as tar:
+        tar.addfile(tarfile.TarInfo("target"))
+        link = tarfile.TarInfo("alias")
+        link.type = tarfile.LNKTYPE
+        link.linkname = "target"
+        tar.addfile(link)
+
+    dest = tmp_path / "extracted"
+    dest.mkdir()
+    alias = dest / "alias"
+    alias.write_text("existing")
+    with (
+        mock.patch("os.link", side_effect=OSError(errno.ENOTSUP, "unsupported")),
+        pytest.raises(MlflowException, match="Failed to extract hard link"),
+    ):
+        extract_archive_to_dir(archive, dest)
+    assert alias.read_text() == "existing"
+
+
+@pytest.mark.parametrize(
+    "hardlink_targets",
+    [
+        # The second link's path already exists, so `os.link` fails
+        ["d/r/s", "d/q/../s"],
+        # `Path` drops the trailing slash, but `os.link` fails on it
+        ["d/q/../s/"],
+    ],
+)
+def test_extract_archive_to_dir_hardlink_does_not_fall_back_to_member(tmp_path, hardlink_targets):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    secret = outside / "secret.txt"
+    secret.write_text("secret")
+    secret.chmod(0o600)
+    original_mode = stat.S_IMODE(secret.stat().st_mode)
+
+    archive = tmp_path / "hardlink_fallback.tar"
+    with tarfile.open(archive, "w") as tar:
+        for name in ["d", "d/r", "d/r/t"]:
+            directory = tarfile.TarInfo(name)
+            directory.type = tarfile.DIRTYPE
+            directory.mode = 0o755
+            tar.addfile(directory)
+        regular = tarfile.TarInfo("d/r/s")
+        regular.size = 1
+        tar.addfile(regular, fileobj=io.BytesIO(b"x"))
+        # `d/q/../s` resolves to the regular file `d/r/s`, but normalizes to the
+        # symlink member `d/s`, which points outside when re-extracted at `h`
+        for name, target in [("d/s", "../outside/secret.txt"), ("d/q", "r/t")]:
+            link = tarfile.TarInfo(name)
+            link.type = tarfile.SYMTYPE
+            link.linkname = target
+            tar.addfile(link)
+        for target in hardlink_targets:
+            hardlink = tarfile.TarInfo("h")
+            hardlink.type = tarfile.LNKTYPE
+            hardlink.linkname = target
+            hardlink.mode = 0o666
+            tar.addfile(hardlink)
+
+    dest = tmp_path / "extracted"
+    # Windows collapses `..` before following symlinks, so the target normalizes to the
+    # dangling symlink `d/s` and fails validation before `os.link` runs
+    with pytest.raises(
+        MlflowException,
+        match="would be extracted outside" if is_windows() else "Failed to extract hard link",
+    ):
+        extract_archive_to_dir(archive, dest)
+    assert not (dest / "h").is_symlink()
+    assert stat.S_IMODE(secret.stat().st_mode) == original_mode
+
+
+@pytest.fixture
+def file_utils_caplog(caplog, monkeypatch):
+    # The "mlflow" logger disables propagation, so enable it for caplog to capture records
+    monkeypatch.setattr(logging.getLogger("mlflow"), "propagate", True)
+    with caplog.at_level(logging.WARNING, logger="mlflow.utils.file_utils"):
+        yield caplog
+
+
+@pytest.mark.parametrize("is_dir", [False, True], ids=["file", "directory"])
+def test_remove_on_error_reraises_original_exception_when_cleanup_fails(
+    tmp_path, file_utils_caplog, is_dir
+):
+    def fail_remove(path):
+        raise PermissionError("cleanup failed")
+
+    if is_dir:
+        path = tmp_path / "dir"
+        path.mkdir()
+        (path / "nested.txt").write_text("content")
+        # Scope the patch to the remove_on_error call so the failing rmtree does not
+        # leak into other fixtures' teardown (e.g. db_uri's rmtree)
+        fail_cleanup = mock.patch.object(shutil, "rmtree", side_effect=fail_remove)
+    else:
+        path = tmp_path / "file.txt"
+        path.write_text("content")
+        fail_cleanup = mock.patch.object(os, "remove", side_effect=fail_remove)
+
+    with fail_cleanup, pytest.raises(ValueError, match="root cause") as exc_info:
+        with remove_on_error(path):
+            raise ValueError("root cause")
+
+    # The cleanup failure must not pollute the propagated exception's chain
+    assert exc_info.value.__context__ is None
+    assert path.exists()
+    assert [r.getMessage() for r in file_utils_caplog.records] == [
+        f"Failed to remove {path}: cleanup failed"
+    ]
+
+
+@pytest.mark.parametrize("is_dir", [False, True], ids=["file", "directory"])
+def test_remove_on_error_removes_path_and_reraises(tmp_path, file_utils_caplog, is_dir):
+    path = tmp_path / ("dir" if is_dir else "file.txt")
+    if is_dir:
+        path.mkdir()
+        (path / "nested.txt").write_text("content")
+    else:
+        path.write_text("content")
+    onerror = mock.Mock()
+
+    with pytest.raises(ValueError, match="root cause") as exc_info:
+        with remove_on_error(path, onerror=onerror):
+            raise ValueError("root cause")
+
+    onerror.assert_called_once_with(exc_info.value)
+    assert not path.exists()
+    assert [r.getMessage() for r in file_utils_caplog.records] == [f"Successfully removed {path}"]
+
+
+def test_remove_on_error_leaves_non_regular_path_alone(tmp_path, file_utils_caplog, monkeypatch):
+    path = tmp_path / "special"
+    path.write_text("content")
+    # Simulate a path that exists but is neither a regular file nor a directory (e.g. a FIFO)
+    monkeypatch.setattr(os.path, "isfile", lambda p: False)
+    monkeypatch.setattr(os.path, "isdir", lambda p: False)
+
+    with pytest.raises(ValueError, match="root cause"):
+        with remove_on_error(path):
+            raise ValueError("root cause")
+
+    assert path.exists()
+    assert [r.getMessage() for r in file_utils_caplog.records] == [
+        f"Not removing {path}: neither a regular file nor a directory"
+    ]
+
+
+def test_remove_on_error_logs_nothing_for_nonexistent_path(tmp_path, file_utils_caplog):
+    path = tmp_path / "never_created"
+
+    with pytest.raises(ValueError, match="root cause"):
+        with remove_on_error(path):
+            raise ValueError("root cause")
+
+    assert file_utils_caplog.records == []
+
+
+@pytest.mark.parametrize("verify", [None, True, False])
+def test_download_file_using_http_uri_tls_verification(tmp_path, verify):
+    destination = tmp_path / "artifact"
+    with mock.patch("mlflow.utils.file_utils.cloud_storage_http_request") as request:
+        request.return_value.__enter__.return_value.iter_content.return_value = [b"content"]
+        kwargs = {} if verify is None else {"verify": verify}
+        file_utils.download_file_using_http_uri(
+            "https://storage.example/artifact", destination, **kwargs
+        )
+    request.assert_called_once_with(
+        "get",
+        "https://storage.example/artifact",
+        stream=True,
+        headers={},
+        verify=True if verify is None else verify,
+    )
+    assert destination.read_bytes() == b"content"

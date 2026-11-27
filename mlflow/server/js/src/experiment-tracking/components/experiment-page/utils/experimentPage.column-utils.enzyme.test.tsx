@@ -2,7 +2,7 @@ import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { mount } from 'enzyme';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../constants';
 import type { UseRunsColumnDefinitionsParams } from './experimentPage.column-utils';
-import { useRunsColumnDefinitions } from './experimentPage.column-utils';
+import { getFrameworkComponents, useRunsColumnDefinitions } from './experimentPage.column-utils';
 import {
   EXPERIMENT_FIELD_PREFIX_METRIC,
   EXPERIMENT_FIELD_PREFIX_PARAM,
@@ -41,6 +41,25 @@ describe('ExperimentViewRuns column utils', () => {
       onToggleVisibility: jest.fn(),
       selectedColumns: createExperimentPageUIState().selectedColumns,
     });
+  });
+
+  test('does not forward ag-grid loading overlay params to spinner DOM', () => {
+    const LoadingOverlay = getFrameworkComponents().loadingOverlayComponent;
+    const wrapper = mount(
+      <LoadingOverlay
+        {...({
+          api: {},
+          columnApi: {},
+          context: {},
+          reactContainer: document.createElement('div'),
+          showImmediately: true,
+        } as any)}
+      />,
+    );
+
+    expect(wrapper.html()).not.toMatch(
+      /\s(api|columnapi|columnApi|context|reactcontainer|reactContainer|showimmediately|showImmediately)=/,
+    );
   });
 
   test('it creates proper column definitions with basic attributes', () => {

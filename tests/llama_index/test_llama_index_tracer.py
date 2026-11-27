@@ -29,6 +29,7 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import (
     StreamResolver,
+    active_span_id,
     remove_llama_index_tracer,
     set_llama_index_tracer,
 )
@@ -99,7 +100,13 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
 
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
-    assert attr["model_dict"]["model"] == model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == model_name
     assert spans[0].model_name == model_name
 
     assert traces[0].info.token_usage == {
@@ -161,7 +168,13 @@ def test_trace_llm_complete_stream():
     }
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
-    assert attr["model_dict"]["model"] == model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == model_name
     assert spans[0].model_name == model_name
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
@@ -244,7 +257,13 @@ def test_trace_llm_chat(is_async, mock_litellm_cost):
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
-    assert attr["model_dict"]["model"] == llm.metadata.model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == llm.metadata.model_name
     assert spans[0].model_name == llm.metadata.model_name
     if not IS_TRACING_SDK_ONLY:
         assert spans[0].llm_cost == {
@@ -393,7 +412,13 @@ def test_trace_llm_chat_stream():
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
-    assert attr["model_dict"]["model"] == llm.metadata.model_name
+    # llama-index-core >= 0.14.17 records the LLMMetadata dict (keyed by "model_name")
+    # in the start event instead of the model config (keyed by "model").
+    assert (
+        v
+        if (v := attr["model_dict"].get("model")) is not None
+        else attr["model_dict"].get("model_name")
+    ) == llm.metadata.model_name
     assert spans[0].model_name == llm.metadata.model_name
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
@@ -858,6 +883,58 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     inner_result_span = next(s for s in spans if s.name == "custom_inner_result_span")
     assert inner_result_span.inputs is not None
     assert inner_result_span.outputs == result
+
+
+def test_stream_resolver_restores_pending_parent_context():
+    parent = mlflow.start_span_no_context("parent")
+    child = mlflow.start_span_no_context("child", parent_span=parent)
+    original_span = mlflow.get_current_active_span()
+    original_span_id = original_span.span_id if original_span else None
+    original_llama_span_id = active_span_id.get() if active_span_id else None
+
+    def stream():
+        for chunk in ("a", "b"):
+            assert mlflow.get_current_active_span().span_id == child.span_id
+            if active_span_id:
+                assert active_span_id.get() == "child"
+            yield chunk
+
+    response = StreamingResponse(response_gen=stream())
+    resolver = StreamResolver()
+    try:
+        assert resolver.register_stream_span(child, response.response_gen, llama_span_id="child")
+        assert resolver.register_stream_span(parent, response, llama_span_id="parent")
+
+        for chunk in ("a", "b"):
+            assert next(response.response_gen) == chunk
+            current_span = mlflow.get_current_active_span()
+            assert (current_span.span_id if current_span else None) == original_span_id
+            if active_span_id:
+                assert active_span_id.get() == original_llama_span_id
+        assert list(response.response_gen) == []
+    finally:
+        child.end()
+        parent.end()
+
+
+def test_stream_resolver_does_not_leak_context_when_attachment_fails(monkeypatch):
+    span = mlflow.start_span_no_context("parent")
+    response = StreamingResponse(response_gen=(chunk for chunk in ("a",)))
+    resolver = StreamResolver()
+    original_llama_span_id = active_span_id.get() if active_span_id else None
+    try:
+        assert resolver.register_stream_span(span, response, llama_span_id="parent")
+
+        def fail_to_attach(_span):
+            raise RuntimeError("failed to attach")
+
+        monkeypatch.setattr("mlflow.llama_index.tracer.set_span_in_context", fail_to_attach)
+        with pytest.raises(RuntimeError, match="failed to attach"):
+            next(response.response_gen)
+        if active_span_id:
+            assert active_span_id.get() == original_llama_span_id
+    finally:
+        span.end()
 
 
 @pytest.mark.asyncio

@@ -4,9 +4,11 @@ import builtins
 import datetime as dt
 import json
 import string
+import warnings
 from abc import ABC, abstractmethod
+from collections import Counter
 from copy import deepcopy
-from dataclasses import is_dataclass
+from dataclasses import fields, is_dataclass
 from enum import Enum
 from types import UnionType
 from typing import Any, TypedDict, Union, get_args, get_origin
@@ -305,8 +307,10 @@ class Property(BaseType):
         if self.name != other.name:
             raise MlflowException("Can't merge properties with different names")
         required = self.required and other.required
-        if isinstance(self.dtype, DataType) and isinstance(other.dtype, DataType):
-            if self.dtype == other.dtype:
+        if isinstance(self.dtype, DataType):
+            # Mirror `AnyType._merge`: an undetermined type (e.g. inferred from `None`)
+            # is compatible with any concrete type regardless of merge order
+            if self.dtype == other.dtype or isinstance(other.dtype, AnyType):
                 return Property(name=self.name, dtype=self.dtype, required=required)
             raise MlflowException(f"Properties are incompatible for {self.dtype} and {other.dtype}")
 
@@ -553,7 +557,7 @@ class Array(BaseType):
         if not isinstance(other, Array):
             raise MlflowException(f"Can't merge array with non-array type: {type(other).__name__}")
         if isinstance(self.dtype, DataType):
-            if self.dtype == other.dtype:
+            if self.dtype == other.dtype or isinstance(other.dtype, AnyType):
                 return Array(dtype=self.dtype)
             raise MlflowException(
                 f"Array types are incompatible for {self} with dtype={self.dtype} and "
@@ -667,7 +671,7 @@ class Map(BaseType):
         if not isinstance(other, Map):
             raise MlflowException(f"Can't merge map with non-map type: {type(other).__name__}")
         if isinstance(self.value_type, DataType):
-            if self.value_type == other.value_type:
+            if self.value_type == other.value_type or isinstance(other.value_type, AnyType):
                 return Map(value_type=self.value_type)
             raise MlflowException(
                 f"Map types are incompatible for {self} with value_type={self.value_type} and "
@@ -998,7 +1002,33 @@ class Schema:
                 "Creating Schema with unnamed optional inputs is not supported. "
                 "Please name all inputs or make all inputs required."
             )
+        if all(x.name is not None for x in inputs):
+            # TODO: Raise an exception instead of warning in a future release.
+            # Warning first avoids breaking `Model.load()` for models already logged with
+            # such signatures.
+            if any(x.name == "" for x in inputs):
+                warnings.warn(
+                    "Creating Schema with empty input names is deprecated and will raise an "
+                    "exception in a future release.",
+                    FutureWarning,
+                    stacklevel=2,
+                )
+            # Empty names are already reported above, so don't also report them as duplicates.
+            if duplicates := self._find_duplicates([x for x in inputs if x.name != ""]):
+                warnings.warn(
+                    f"Duplicated input names found in schema: {duplicates}. Creating Schema with "
+                    "duplicated input names is deprecated and will raise an exception in a "
+                    "future release.",
+                    FutureWarning,
+                    stacklevel=2,
+                )
         self._inputs = inputs
+
+    @staticmethod
+    def _find_duplicates(inputs: list[ColSpec | TensorSpec]) -> list[str]:
+        counts = Counter(x.name for x in inputs)
+        # Names aren't type-checked, so sort by `str` to handle mixed types (e.g., `1` and `"a"`).
+        return sorted((name for name, count in counts.items() if count > 1), key=str)
 
     def __len__(self):
         return len(self._inputs)
@@ -1236,13 +1266,17 @@ class ParamSpec:
 
     def to_dict(self) -> ParamSpecTypedDict:
         if self.shape is None:
-            if isinstance(self.dtype, DataType) and self.dtype.name == "datetime":
+            if (
+                isinstance(self.dtype, DataType)
+                and self.dtype.name == "datetime"
+                and self.default is not None
+            ):
                 default_value = self.default.isoformat()
             else:
                 default_value = self.default
         elif self.shape == (-1,):
             default_value = (
-                [v.isoformat() for v in self.default]
+                [v.isoformat() if v is not None else None for v in self.default]
                 if self.dtype.name == "datetime"
                 else self.default
             )
@@ -1477,9 +1511,7 @@ def _convert_dataclass_to_nested_object(dataclass):
     """
     Convert a nested dataclass to an Object type used within a ColSpec.
     """
-    properties = []
-    for field_name, field_type in dataclass.__annotations__.items():
-        properties.append(_convert_field_to_property(field_name, field_type))
+    properties = [_convert_field_to_property(field.name, field.type) for field in fields(dataclass)]
     return Object(properties=properties)
 
 

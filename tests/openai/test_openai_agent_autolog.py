@@ -102,6 +102,7 @@ async def test_autolog_agent():
                     content=[
                         ResponseOutputText(
                             annotations=[],
+                            logprobs=[],
                             text="¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?",
                             type="output_text",
                         )
@@ -240,6 +241,7 @@ async def test_autolog_agent_with_manual_trace():
                     content=[
                         ResponseOutputText(
                             annotations=[],
+                            logprobs=[],
                             text="Nice joke",
                             type="output_text",
                         )
@@ -289,6 +291,7 @@ async def test_disable_enable_autolog():
                     content=[
                         ResponseOutputText(
                             annotations=[],
+                            logprobs=[],
                             text="Why is Peter Pan always flying?",
                             type="output_text",
                         )
@@ -350,6 +353,7 @@ def _make_streamed_response(text: str) -> Response:
                 content=[
                     ResponseOutputText(
                         annotations=[],
+                        logprobs=[],
                         text=text,
                         type="output_text",
                     )
@@ -532,3 +536,114 @@ def test_autolog_disable_openai_agent_tracer():
     processors = _get_processors()
     assert len(processors) == 1
     assert isinstance(processors[0], MlflowOpenAgentTracingProcessor)
+
+
+def test_generation_span_attributes_stored_under_span_attribute_keys():
+    from agents.tracing import GenerationSpanData
+
+    from mlflow.openai._agent_tracer import _parse_span_data
+    from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+
+    usage = {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+    span_data = mock.MagicMock(spec=GenerationSpanData)
+    span_data.type = "generation"
+    span_data.input = [{"role": "user", "content": "hello"}]
+    span_data.output = [{"role": "assistant", "content": "hi"}]
+    span_data.model = "gpt-4o-mini"
+    span_data.model_config = {}
+    span_data.usage = usage
+
+    _, _, attributes = _parse_span_data(span_data)
+
+    assert attributes.get(SpanAttributeKey.MODEL) == "gpt-4o-mini"
+    assert "model" not in attributes
+    assert attributes.get(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+    assert "usage" not in attributes
+
+
+@pytest.mark.parametrize(
+    ("usage", "expected"),
+    [
+        (
+            {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+            {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+        ),
+        (
+            {"input_tokens": 5, "output_tokens": 10},
+            {"input_tokens": 5, "output_tokens": 10},
+        ),
+        # cached tokens are nested inside input_tokens_details
+        (
+            {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15,
+                "input_tokens_details": {"cached_tokens": 4, "cache_write_tokens": 2},
+            },
+            {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15,
+                "cache_read_input_tokens": 4,
+                "cache_creation_input_tokens": 2,
+            },
+        ),
+        # partial cache details — only cached_tokens present
+        (
+            {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15,
+                "input_tokens_details": {"cached_tokens": 3},
+            },
+            {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15,
+                "cache_read_input_tokens": 3,
+            },
+        ),
+        (None, None),
+        ({}, None),
+    ],
+)
+def test_parse_generation_usage(usage, expected):
+    from mlflow.openai._agent_tracer import _parse_generation_usage
+
+    assert _parse_generation_usage(usage) == expected
+
+
+def test_calculate_span_cost_uses_generation_span_model_attribute():
+    from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+    from mlflow.tracing.utils import calculate_span_cost
+
+    usage = {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+    attribute_store = {
+        SpanAttributeKey.MODEL: "some-model",
+        SpanAttributeKey.CHAT_USAGE: usage,
+        SpanAttributeKey.MODEL_PROVIDER: None,
+    }
+    mock_span = mock.MagicMock()
+    mock_span.get_attribute.side_effect = attribute_store.get
+
+    expected_cost = {"input_cost": 0.01, "output_cost": 0.02, "total_cost": 0.03}
+    with mock.patch(
+        "mlflow.tracing.utils.calculate_cost_by_model_and_token_usage",
+        return_value=expected_cost,
+    ) as mock_cost:
+        result = calculate_span_cost(mock_span)
+
+    mock_cost.assert_called_once_with("some-model", usage, None)
+    assert result == expected_cost

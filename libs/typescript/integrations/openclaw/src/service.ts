@@ -36,6 +36,11 @@ const TraceMetadataKey = {
   TRACE_USER: 'mlflow.trace.user',
 } as const;
 
+// Keep local: integrations are independent packages and must support older @mlflow/core floors.
+function getCurrentUser(): string {
+  return process.env.USER || process.env.USERNAME || '';
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -387,7 +392,7 @@ export function createMLflowService(
     });
     rootSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
     rootSpan.setAttribute(TraceMetadataKey.TRACE_SESSION, sessionKey);
-    rootSpan.setAttribute(TraceMetadataKey.TRACE_USER, process.env.USER || '');
+    rootSpan.setAttribute(TraceMetadataKey.TRACE_USER, getCurrentUser());
 
     const trace: ActiveTrace = {
       rootSpan,

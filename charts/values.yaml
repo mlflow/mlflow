@@ -16,9 +16,24 @@ imagePullSecrets: []
 # would produce an undesirable resource name.
 fullnameOverride: ""
 
-# Number of MLflow server replicas. Use 1 when storage.enabled is true and
-# the PVC access mode is ReadWriteOnce, as only one pod can mount the volume.
+# Number of MLflow server replicas. Ignored when autoscaling.enabled is true.
+# Use 1 when storage.enabled is true and the PVC access mode is ReadWriteOnce,
+# as only one pod can mount the volume.
 replicaCount: 1
+
+# Horizontal Pod Autoscaler (HPA) for scaling MLflow based on resource utilization.
+# When enabled, scales between minReplicas and maxReplicas based on CPU and/or
+# memory targets. Requires external storage (not SQLite) and resource requests.
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  # Target CPU utilization percentage. Set to null or "" to disable CPU-based scaling.
+  targetCPUUtilizationPercentage: 75
+  # Target memory utilization percentage. Set to null or "" to disable memory-based scaling.
+  targetMemoryUtilizationPercentage: 80
+  # Optional HPA behavior (scaleUp/scaleDown policies, stabilization windows).
+  behavior: {}
 
 # Deployment update strategy. When not set, defaults to Recreate if the storage
 # PVC access mode is ReadWriteOnce or a SQLite backend store URI is configured;
@@ -48,6 +63,38 @@ server:
   # staticPrefix: path prefix when MLflow is served under a subpath (e.g. /mlflow).
   # Aligns the --static-prefix server arg and liveness/readiness probe paths.
   staticPrefix: ""
+
+# Liveness, readiness, and startup probe configuration for the mlflow container.
+# The chart always generates the underlying httpGet request itself (the
+# server.staticPrefix + "/health" path, the dynamic http/https named port, and
+# the HTTPS scheme when tls.enabled is true) — these blocks only control
+# whether each probe is enabled and its timing/threshold behavior.
+#
+# The startup probe gates liveness and readiness until it succeeds, which is
+# useful for slow-starting deployments (e.g. external databases, sidecar
+# proxies). Set probes.startup.enabled: false to disable it explicitly.
+#
+# Set timeoutSeconds higher than the Kubernetes default (1s) if your
+# deployment's health endpoint can be slow to respond under load.
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 1
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+  startup:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 30
 
 # Garbage collection via a CronJob that runs `mlflow gc`.
 # Permanently removes soft-deleted runs, experiments, and logged models
@@ -96,6 +143,11 @@ service:
   # Service type: ClusterIP, NodePort, or LoadBalancer.
   type: ClusterIP
   annotations: {}
+  # Port the Service listens on. Defaults to server.value_options.port (i.e.
+  # the Service port matches the container port) when not set. Set this to
+  # decouple the two, e.g. to expose the server on the conventional port 80
+  # while it listens internally on 5000.
+  port: ""
 
 # Ingress for external access to the MLflow server.
 ingress:
@@ -131,8 +183,10 @@ mlflow:
   #       name: mlflow-registry-secret
   #       key: uri
   registryStoreUriFrom: {}
-  # Root location for storing artifacts (runs). Used when MLflow manages artifact serving.
-  # Examples: "s3://my-bucket/mlflow", "/mlflow/artifacts"
+  # Default artifact root for newly created experiments. Clients write to this
+  # location directly, so use a remote URI they can reach. For server-proxied
+  # artifact storage (local paths on the server), set artifactsDestination instead.
+  # Example: "s3://my-bucket/mlflow"
   defaultArtifactRoot: ""
   # Directory where MLflow proxies artifact uploads and downloads.
   # Required when using --serve-artifacts.
@@ -167,6 +221,61 @@ tls:
   # Name of the TLS Secret containing tls.crt and tls.key.
   secretName: mlflow-tls
 
+# Create the backend store credential Secret via the External Secrets
+# Operator (https://external-secrets.io/) instead of managing it outside
+# the chart. When enabled, creates a SecretStore and ExternalSecret; disabled
+# by default so existing users are unaffected.
+#
+# Example (AWS Secrets Manager, building a postgres URI from separate
+# username/password fields in the remote secret):
+#   externalSecrets:
+#     enabled: true
+#     provider:
+#       aws:
+#         service: SecretsManager
+#         region: eu-west-1
+#         auth:
+#           jwt:
+#             serviceAccountRef:
+#               name: mlflow
+#     secretName: mlflow-backend-store
+#     template:
+#       engineVersion: v2
+#       data:
+#         db-uri: "postgresql://{{ .username }}:{{ .password }}@my-db-host:5432/mlflow"
+#     data:
+#       - secretKey: username
+#         remoteRef:
+#           key: my-remote-secret-name
+#           property: username
+#       - secretKey: password
+#         remoteRef:
+#           key: my-remote-secret-name
+#           property: password
+#   mlflow:
+#     backendStoreUriFrom:
+#       secretKeyRef:
+#         name: mlflow-backend-store
+#         key: db-uri
+externalSecrets:
+  enabled: false
+  # apiVersion for both the SecretStore and ExternalSecret resources.
+  apiVersion: external-secrets.io/v1
+  # Passed through as SecretStore.spec.provider — any provider ESO supports
+  # (aws, gcpsm, azurekv, vault, etc.). Required when enabled.
+  provider: {}
+  refreshInterval: 1h
+  # Name of the Secret the ExternalSecret creates. Defaults to the chart's
+  # fullname when empty.
+  secretName: ""
+  # Passed through as ExternalSecret.spec.target.template. Optional — use
+  # when the Secret's keys need to be derived from the remote data (e.g.
+  # assembling a connection URI from separate fields), rather than mapped
+  # one-to-one.
+  template: {}
+  # Passed through as ExternalSecret.spec.data. Required when enabled.
+  data: []
+
 # NetworkPolicy restricting ingress and egress traffic for the MLflow pod.
 # Egress rules allow DNS, HTTPS, Kubernetes API, common databases, and S3.
 networkPolicy:
@@ -175,9 +284,11 @@ networkPolicy:
   additionalEgressRules: []
 
 # Prometheus metrics configuration. When enabled, the MLflow server exposes
-# metrics at the specified HTTP path.
+# metrics at /metrics. Override path only for a custom image that serves them
+# elsewhere; the stock image always uses /metrics, even under staticPrefix.
 metrics:
   enabled: false
+  path: /metrics
 
 # Prometheus ServiceMonitor for metrics scraping (requires the Prometheus
 # Operator CRD to be installed in the cluster).
@@ -265,3 +376,14 @@ nodeSelector: {}
 tolerations: []
 # Affinity rules for pod scheduling.
 affinity: {}
+# Topology spread constraints for pod scheduling.
+# Example:
+# topologySpreadConstraints:
+#   - maxSkew: 1
+#     topologyKey: topology.kubernetes.io/zone
+#     whenUnsatisfiable: DoNotSchedule
+#     labelSelector:
+#       matchLabels:
+#         app.kubernetes.io/name: mlflow
+#         app.kubernetes.io/instance: <release name>
+topologySpreadConstraints: []

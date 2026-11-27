@@ -209,8 +209,10 @@ class ModelVersion(_ModelRegistryEntity):
             proto.status_message if proto.HasField("status_message") else None,
             run_link=proto.run_link,
             aliases=proto.aliases,
-            deployment_job_state=ModelVersionDeploymentJobState.from_proto(
-                proto.deployment_job_state
+            deployment_job_state=(
+                ModelVersionDeploymentJobState.from_proto(proto.deployment_job_state)
+                if proto.HasField("deployment_job_state")
+                else None
             ),
         )
         for tag in proto.tags:
@@ -248,6 +250,6 @@ class ModelVersion(_ModelRegistryEntity):
         ])
         model_version.aliases.extend(self.aliases)
         if self.deployment_job_state is not None:
-            ModelVersionDeploymentJobState.to_proto(self.deployment_job_state)
+            model_version.deployment_job_state.CopyFrom(self.deployment_job_state.to_proto())
         # TODO: Include params, metrics, and model ID in proto
         return model_version

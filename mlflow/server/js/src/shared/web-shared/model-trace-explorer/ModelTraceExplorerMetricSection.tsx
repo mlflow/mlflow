@@ -11,6 +11,7 @@ export const ModelTraceHeaderMetricSection = ({
   getTruncatedLabel,
   onCopy,
   hideLabel = false,
+  tooltipContent,
 }: {
   label: React.ReactNode;
   /**
@@ -26,6 +27,10 @@ export const ModelTraceHeaderMetricSection = ({
   getTruncatedLabel: (label: string) => string;
   onCopy: (success: boolean) => void;
   hideLabel?: boolean;
+  /**
+   * Optional override for the tooltip content. If not provided, `value` will be used.
+   */
+  tooltipContent?: React.ReactNode;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -49,7 +54,11 @@ export const ModelTraceHeaderMetricSection = ({
           {label}
         </Typography.Text>
       )}
-      <Tooltip componentId="shared.model-trace-explorer.header-details.tooltip" content={value} maxWidth={400}>
+      <Tooltip
+        componentId="shared.model-trace-explorer.header-details.tooltip"
+        content={tooltipContent ?? value}
+        maxWidth={400}
+      >
         <Tag
           componentId="shared.model-trace-explorer.header-details.tag"
           color={color}

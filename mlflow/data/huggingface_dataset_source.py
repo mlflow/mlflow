@@ -31,7 +31,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         Args:
             path: The path of the Hugging Face dataset, if it is a dataset from HuggingFace hub,
                 `path` must match the hub path, e.g., "databricks/databricks-dolly-15k".
-            config_name: The name of of the Hugging Face dataset configuration.
+            config_name: The name of the Hugging Face dataset configuration.
             data_dir: The `data_dir` of the Hugging Face dataset configuration.
             data_files: Paths to source data file(s) for the Hugging Face dataset configuration.
             split: Which split of the data to load.

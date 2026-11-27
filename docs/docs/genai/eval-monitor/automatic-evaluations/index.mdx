@@ -46,7 +46,8 @@ These examples show how to set up LLM judges that automatically evaluate traces 
 
 :::note
 
-- Automatic evaluation only supports [LLM judges](/genai/eval-monitor/scorers/#llms-as-judges). Code-based scorers (using the [`@scorer` decorator](/genai/eval-monitor/scorers/custom) or [`Scorer` class](/genai/eval-monitor/scorers/custom/#define-scorers-with-the-scorer-class)) are not supported. Use [built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined) or create custom judges with [`make_judge()`](/genai/eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge).
+- Automatic evaluation supports [LLM judges](/genai/eval-monitor/scorers/#llms-as-judges). Use [built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined) or create custom judges with [`make_judge()`](/genai/eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge). Code-based scorers (using the [`@scorer` decorator](/genai/eval-monitor/scorers/custom) or [`Scorer` class](/genai/eval-monitor/scorers/custom/#define-scorers-with-the-scorer-class)) are not supported.
+  - The exception is a self-hosted server that its administrator has set up to [run code-based scorers in job containers](/self-hosting/job-containers) (experimental). It runs `@scorer` scorers in containers that have no network access, and you start them [the same way as LLM judges](/self-hosting/job-containers#turn-on-automatic-evaluation-for-a-code-based-scorer). The `Scorer` class is still not supported.
 - When a judge is created or enabled, it evaluates traces and sessions that are **at most one hour old**. Updating a judge's configuration does not trigger re-evaluation of previously assessed traces.
   :::
 
@@ -86,7 +87,7 @@ These examples show how to set up LLM judges that automatically evaluate traces 
 </TabItem>
 <TabItem value="sdk" label="SDK">
 
-For more details about the APIs used in this example, see <APILink fn="mlflow.genai.scorers.Scorer.start" />, <APILink fn="mlflow.genai.scorers.Scorer.update" />, and <APILink fn="mlflow.genai.scorers.Scorer.stop" />.
+For more details about the APIs used in this example, see <APILink fn="mlflow.genai.Scorer.start" />, <APILink fn="mlflow.genai.Scorer.update" />, and <APILink fn="mlflow.genai.Scorer.stop" />.
 
 **1. Specify the experiment for automatic evaluation**
 
@@ -140,7 +141,7 @@ judge.stop()  # Or, disable the judge
 
 ## Viewing Results
 
-Assessments from automatic evaluation appear directly in the MLflow UI. For traces, assessments typically appear within a minute or two of logging. Multi-turn sessions are evaluated after 5 minutes of inactivity (no new traces have been added to the session) by default—this is <APILink fn="mlflow.environment_variables.MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS">configurable</APILink>.
+Assessments from automatic evaluation appear directly in the MLflow UI after scheduling and evaluation complete.
 
 Navigate to your experiment in the MLflow UI to see results.
 
@@ -190,6 +191,12 @@ filter_string = "metadata.environment = 'production'"
 For session-level evaluation, filters apply to the **first trace** in the session.
 :::
 
+### Trace-Level Evaluation
+
+Automatic evaluation can assess individual traces.
+
+- **Trace completion**: A trace becomes eligible for automatic evaluation 5 minutes after it starts by default. Configure the <APILink fn="mlflow.environment_variables.MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS">trace completion buffer</APILink> to exceed the expected trace duration; traces that remain in progress longer than the buffer can be skipped
+
 ### Session-Level Evaluation
 
 Automatic evaluation can assess entire multi-turn conversations (sessions), in addition to individual traces.
@@ -219,8 +226,28 @@ The [MLflow Server](/genai/getting-started/connect-environment) uses [AI Gateway
 | **Missing assessments**                        | Verify that the judge is active, the filter matches your traces, the sampling rate is greater than zero, and the traces are less than one hour old |
 | **Unexpected or unsatisfactory judge results** | Edit the judge's instructions or use the [`align()` method](/genai/eval-monitor/scorers/llm-judge/alignment) to optimize them automatically        |
 | **Evaluation errors**                          | Check trace/session assessments in the UI or SDK, or server logs, for details. Failed evaluations are not retried automatically                    |
+| **A judge stopped running after an upgrade**   | See [Judges that set their own endpoint](#judges-that-set-their-own-endpoint)                                                                      |
 
 For further debugging, enable debug logging on the MLflow server by setting the <APILink fn="mlflow.environment_variables.MLFLOW_LOGGING_LEVEL"><code>MLFLOW_LOGGING_LEVEL=DEBUG</code></APILink> environment variable and checking the MLflow server logs.
+
+### Judges that set their own endpoint
+
+Automatic evaluation skips a judge whose options choose where its LLM requests are sent, such as `api_base` or `base_url` in a judge's `inference_params` or in a third-party judge's `kwargs`, and the server logs a warning that names the judge. The MLflow server no longer accepts these options when a judge is registered, but a judge registered with an earlier version of MLflow can still carry them. Its automatic evaluation stays configured but produces no assessments, and starting it, or updating it with a sample rate above zero, fails with an error that names the option.
+
+To run the judge again, register a new version of it without these options, and reach the model through an [AI Gateway endpoint](/genai/governance/ai-gateway/endpoints/create-and-manage) (`gateway:/<endpoint-name>`) instead. Automatic evaluation always runs the latest version of a judge, so the existing configuration picks up the new version:
+
+```python
+from mlflow.genai.judges import make_judge
+
+judge = make_judge(
+    name="answer_quality",
+    instructions="Evaluate whether {{ outputs }} answers {{ inputs }}.",
+    model="gateway:/my-llm-endpoint",
+)
+judge.register(name="answer_quality")  # Same name as the existing judge
+```
+
+To turn the judge off instead, call `get_scorer(name="answer_quality").stop()`, which always works.
 
 ## Next Steps
 

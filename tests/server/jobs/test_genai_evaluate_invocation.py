@@ -250,6 +250,29 @@ def test_invoke_genai_evaluate_missing_trace_marks_run_failed(
     assert run.info.status == RunStatus.to_string(RunStatus.FAILED)
 
 
+def test_invoke_genai_evaluate_rejects_foreign_experiment_trace(
+    client: Client, experiment_with_traces
+):
+    # The caller's own experiment passes the route check, so the handler must bind the
+    # supplied trace ids to it against the real store (GHSA-v7w2-x9m4-3743).
+    _, foreign_trace_ids = experiment_with_traces
+    own_experiment_id = mlflow.create_experiment(f"genai_evaluate_own_{time.time()}")
+
+    response = requests.post(
+        f"{client.server_url}/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+        json={
+            "experiment_id": own_experiment_id,
+            "trace_ids": foreign_trace_ids,
+            "serialized_scorers": [_serialized_judge()],
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error_code"] == "PERMISSION_DENIED"
+    # Rejected before the handler creates the evaluation run or submits a job.
+    assert mlflow.search_runs(experiment_ids=[own_experiment_id], output_format="list") == []
+
+
 def test_invoke_genai_evaluate_multiple_scorers_share_one_run(
     client: Client, experiment_with_traces
 ):

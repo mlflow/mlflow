@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Button, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { AssistantAwareActionBar } from '../../../../common/components/AssistantAwareActionBar';
 
 export type SaveStatus = 'clean' | 'dirty' | 'invalid' | 'empty-inputs' | 'saving' | 'saved' | 'error';
 
@@ -98,7 +99,7 @@ export const DatasetRecordDetailFooter = ({
   const canDiscard = status === 'dirty' || status === 'invalid' || status === 'empty-inputs' || status === 'error';
 
   return (
-    <div
+    <AssistantAwareActionBar
       css={{
         // Horizontal padding comes from the side panel's footer wrapper; we only own the
         // top gap that separates the divider from the buttons here.
@@ -145,6 +146,6 @@ export const DatasetRecordDetailFooter = ({
           />
         )}
       </Button>
-    </div>
+    </AssistantAwareActionBar>
   );
 };

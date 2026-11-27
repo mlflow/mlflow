@@ -1,4 +1,5 @@
 import json
+import re
 from collections.abc import Sequence
 from itertools import tee
 from typing import Any, Generator, Iterator
@@ -6,6 +7,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from mlflow.exceptions import MlflowException
 from mlflow.types.agent import ChatContext
 from mlflow.types.responses_helpers import (
     BaseRequestPayload,
@@ -29,6 +31,12 @@ from mlflow.types.schema import Schema
 from mlflow.types.type_hints import _infer_schema_from_type_hint
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     MlflowEventsAndWarningsBehaviorGlobally,
+)
+from mlflow.utils.logging_utils import suppress_logs
+
+_EXPECTED_UNION_INFERENCE_WARNING = re.compile(
+    r"^Union type hint (?:with multiple non-None types )?is inferred as AnyType, "
+    r"and MLflow doesn't validate the data against its element types\.$"
 )
 
 
@@ -123,10 +131,13 @@ class ResponsesAgentStreamEvent(BaseModel):
         return self
 
 
-with MlflowEventsAndWarningsBehaviorGlobally(
-    reroute_warnings=False,
-    disable_event_logs=True,
-    disable_warnings=True,
+with (
+    MlflowEventsAndWarningsBehaviorGlobally(
+        reroute_warnings=False,
+        disable_event_logs=True,
+        disable_warnings=True,
+    ),
+    suppress_logs("mlflow.types.type_hints", filter_regex=_EXPECTED_UNION_INFERENCE_WARNING),
 ):
     properties = _infer_schema_from_type_hint(ResponsesAgentRequest).to_dict()[0]["properties"]
     formatted_properties = [{**prop, "name": name} for name, prop in properties.items()]
@@ -312,6 +323,21 @@ def create_mcp_approval_response_item(
     }
 
 
+def _content_part_to_cc(part: dict[str, Any]) -> dict[str, Any]:
+    match part:
+        case {"text": str(text)}:
+            return {"type": "text", "text": text}
+        case {"type": "input_image", "image_url": str(url)}:
+            image_url = {"url": url}
+            if detail := part.get("detail"):
+                image_url["detail"] = detail
+            return {"type": "image_url", "image_url": image_url}
+    raise MlflowException.invalid_parameter_value(
+        f"Cannot convert a Responses content part of type {part.get('type')!r} "
+        "to the Chat Completions format."
+    )
+
+
 def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
     """Convert from a Responses API output item to a list of ChatCompletion messages."""
     msg_type = message.get("type")
@@ -333,9 +359,12 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
             }
         ]
     elif msg_type == "message" and isinstance(message.get("content"), list):
-        return [
-            {"role": message["role"], "content": content["text"]} for content in message["content"]
-        ]
+        parts = message["content"]
+        if all("text" in part for part in parts):
+            return [{"role": message["role"], "content": part["text"]} for part in parts]
+        # Non-text parts such as images can't be flattened to a string, so keep them as one
+        # message with Chat Completions content parts.
+        return [{"role": message["role"], "content": [_content_part_to_cc(p) for p in parts]}]
     elif msg_type == "reasoning":
         return [{"role": "assistant", "content": json.dumps(message["summary"])}]
     elif msg_type == "function_call_output":
@@ -409,7 +438,10 @@ def output_to_responses_items_stream(
     Handles an iterator of ChatCompletion chunks or LangChain BaseMessage objects.
     """
     peeking_iter, chunks = tee(chunks)
-    first_chunk = next(peeking_iter)
+    empty = object()
+    first_chunk = next(peeking_iter, empty)
+    if first_chunk is empty:
+        return
     if _HAS_LANGCHAIN_BASE_MESSAGE and isinstance(first_chunk, BaseMessage):
         yield from _langchain_message_stream_to_responses_stream(chunks, aggregator)
     else:

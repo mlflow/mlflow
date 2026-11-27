@@ -107,6 +107,12 @@ def resolve_workspace_for_request_if_enabled(
 
     if not MLFLOW_ENABLE_WORKSPACES.get():
         if (header_value or "").strip():
+            _logger.warning(
+                "Rejecting request to %r: it sets the '%s' header, but workspaces are not "
+                "enabled on this server.",
+                path,
+                WORKSPACE_HEADER_NAME,
+            )
             raise MlflowException(
                 "Workspace APIs are not available: workspaces are not enabled on this server",
                 error_code=databricks_pb2.FEATURE_DISABLED,

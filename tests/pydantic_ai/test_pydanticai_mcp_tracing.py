@@ -1,6 +1,12 @@
+import importlib.metadata
 from unittest.mock import patch
 
 import pytest
+from packaging.version import Version
+
+if Version(importlib.metadata.version("pydantic_ai")).major >= 2:
+    pytest.skip("Pydantic AI 1.x MCP tracing tests", allow_module_level=True)
+
 from pydantic_ai.mcp import MCPServerStdio
 
 import mlflow

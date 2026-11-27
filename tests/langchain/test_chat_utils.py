@@ -12,6 +12,7 @@ from langchain_core.messages import (
 from langchain_core.outputs import ChatGenerationChunk
 from langchain_core.outputs.chat_generation import ChatGeneration
 from langchain_core.outputs.generation import Generation
+from pydantic import ValidationError
 
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils.chat import (
@@ -96,6 +97,63 @@ def test_convert_lc_message_to_chat_message_tool_calls(message, expected):
     assert convert_lc_message_to_chat_message(message) == expected
 
 
+def test_convert_lc_message_to_chat_message_bare_string_content():
+    message = HumanMessage(content=["hi ", {"type": "text", "text": "there"}])
+
+    assert convert_lc_message_to_chat_message(message) == ChatMessage(
+        role="user",
+        content=[
+            {"type": "text", "text": "hi "},
+            {"type": "text", "text": "there"},
+        ],
+    )
+
+
+def test_convert_lc_message_to_chat_message_bare_string_with_tool_call():
+    message = AIMessage(
+        content=["Sure — ", {"type": "text", "text": "let me add"}],
+        tool_calls=[{"id": "call_1", "name": "add", "args": {"x": 1}, "type": "tool_call"}],
+    )
+
+    assert convert_lc_message_to_chat_message(message) == ChatMessage(
+        role="assistant",
+        content=[
+            {"type": "text", "text": "Sure — "},
+            {"type": "text", "text": "let me add"},
+        ],
+        tool_calls=[
+            _ToolCall(
+                id="call_1",
+                type="function",
+                function=Function(name="add", arguments='{"x": 1}'),
+            )
+        ],
+    )
+
+
+def test_convert_lc_message_to_chat_message_empty_string_with_tool_use():
+    # Streaming aggregation can produce ["", {...}] before a tool call. The empty
+    # string must not turn into a text part, so content stays None.
+    message = AIMessage(
+        content=["", {"type": "tool_use", "id": "call_1", "name": "add"}],
+        tool_calls=[{"id": "call_1", "name": "add", "args": {"x": 1}, "type": "tool_call"}],
+    )
+
+    result = convert_lc_message_to_chat_message(message)
+
+    assert result.content is None
+
+
+def test_convert_lc_message_to_chat_message_unknown_dict_block_raises_validation_error():
+    # A dict without a recognized ``type`` should fail validation, not KeyError.
+    message = AIMessage(
+        content=[{"text": "x"}],
+        tool_calls=[{"id": "call_1", "name": "add", "args": {}, "type": "tool_call"}],
+    )
+    with pytest.raises(ValidationError, match="Unable to extract tag using discriminator 'type'"):
+        convert_lc_message_to_chat_message(message)
+
+
 def test_convert_lc_message_to_chat_message_audio_content():
     message = HumanMessage(
         content=[
@@ -150,6 +208,25 @@ def test_convert_lc_message_to_chat_message_audio_mpeg():
     assert result.content[0].type == "input_audio"
     assert result.content[0].input_audio.data == "AAAA"
     assert result.content[0].input_audio.format == "mp3"
+
+
+def test_convert_lc_message_to_chat_message_reasoning_content():
+    message = AIMessage(
+        content=[
+            {
+                "type": "reasoning",
+                "summary": [{"type": "summary_text", "text": "No need to retrieve."}],
+            },
+            {"type": "text", "text": "How can I help you today?"},
+        ]
+    )
+    result = convert_lc_message_to_chat_message(message)
+    assert result.role == "assistant"
+    assert len(result.content) == 2
+    assert result.content[0].type == "reasoning"
+    assert result.content[0].summary[0].text == "No need to retrieve."
+    assert result.content[1].type == "text"
+    assert result.content[1].text == "How can I help you today?"
 
 
 def test_convert_lc_message_to_chat_message_string_content_unchanged():

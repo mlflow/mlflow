@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.protos.unity_catalog_oss_messages_pb2 import (
+from mlflow.protos.unity_catalog_messages_pb2 import (
     READ_WRITE_MODEL_VERSION,
     CreateModelVersion,
     CreateRegisteredModel,
@@ -23,7 +23,7 @@ from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     UpdateModelVersion,
     UpdateRegisteredModel,
 )
-from mlflow.protos.unity_catalog_oss_service_pb2 import UnityCatalogService
+from mlflow.protos.unity_catalog_service_pb2 import UnityCatalogService
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.base_rest_store import BaseRestStore
@@ -437,11 +437,11 @@ class UnityCatalogOssStore(BaseRestStore):
         Get temporary credentials for uploading model version files
 
         Args:
-            name: Registered model name.
+            model_name: Registered model name.
             version: Model version number.
 
         Returns:
-            mlflow.protos.unity_catalog_oss_messages_pb2.TemporaryCredentials containing
+            mlflow.protos.unity_catalog_messages_pb2.TemporaryCredentials containing
             temporary model version credentials.
         """
         req_body = message_to_json(

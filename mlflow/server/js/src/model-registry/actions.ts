@@ -11,6 +11,18 @@ import { getArtifactContent } from '../common/utils/ArtifactUtils';
 import yaml from 'js-yaml';
 import type { ModelVersionInfoEntity } from '../experiment-tracking/types';
 import type { KeyValueEntity } from '../common/types';
+import {
+  fetchArtifactPreferPresigned,
+  shouldFallBackToProxy,
+} from '../experiment-tracking/utils/PresignedArtifactUtils';
+import {
+  getArtifactsPresignedOnlySync,
+  getModelArtifactPresignedDownloadsSupportedSync,
+} from '../experiment-tracking/hooks/useServerInfo';
+import { MlflowService } from '../experiment-tracking/sdk/MlflowService';
+import { ErrorWrapper } from '../common/utils/ErrorWrapper';
+import { getProtoField } from './utils';
+import { extractArtifactPathFromModelSource, extractLoggedModelIdFromModelSource } from './utils/VersionUtils';
 
 const CREATE_REGISTERED_MODEL = 'CREATE_REGISTERED_MODEL';
 // @ts-expect-error TS(7006): Parameter 'name' implicitly has an 'any' type.
@@ -109,14 +121,126 @@ export const createModelVersionApi = (
 });
 
 export const GET_MODEL_VERSION_ARTIFACT = 'GET_MODEL_VERSION_ARTIFACT';
-export const getModelVersionArtifactApi = (modelName: any, version: any, id = getUUID()) => {
+type ModelVersionArtifactSource = Partial<ModelVersionInfoEntity> & { model_id?: string };
+
+export type ModelVersionArtifactMetadata = {
+  modelVersion: Promise<ModelVersionArtifactSource | undefined>;
+  getRunArtifactRootUri: (runId: string) => Promise<string | undefined>;
+};
+
+export const shouldNotifyModelVersionArtifactError = (error: unknown) =>
+  error instanceof ErrorWrapper &&
+  ((error.getStatus() === 403 &&
+    (error.textJson?.artifacts_presigned_only === true || error.textJson?.external_artifact_service === true)) ||
+    (error.getStatus() === 400 && error.textJson?.invalid_artifact_root === true));
+
+export const fetchModelVersionArtifact = async (
+  modelName: any,
+  version: any,
+  metadata?: ModelVersionArtifactMetadata,
+) => {
   const baseUri = 'model-versions/get-artifact?path=MLmodel';
   const uriEncodedModelName = `name=${encodeURIComponent(modelName)}`;
   const uriEncodedModelVersion = `version=${encodeURIComponent(version)}`;
   const artifactLocation = `${baseUri}&${uriEncodedModelName}&${uriEncodedModelVersion}`;
+  const presignedOnly = getArtifactsPresignedOnlySync();
+  if (presignedOnly || getModelArtifactPresignedDownloadsSupportedSync()) {
+    let response;
+    try {
+      response = await MlflowService.getModelVersionPresignedDownloadUrl({
+        name: modelName,
+        version,
+        path: 'MLmodel',
+      });
+      if (!response.url) {
+        throw new ErrorWrapper('The server did not return a presigned URL for this model version.', 501);
+      }
+    } catch (error) {
+      if (shouldFallBackToProxy(error, presignedOnly)) return getArtifactContent(artifactLocation);
+      throw error;
+    }
+    return fetchArtifactPreferPresigned({ runUuid: '', path: 'MLmodel' }, artifactLocation, getArtifactContent, {
+      url: response.url,
+      headers: response.headers ?? {},
+    });
+  }
+  const fetchRegistryArtifact = () => getArtifactContent(artifactLocation);
+
+  let modelVersion: ModelVersionArtifactSource | undefined;
+  try {
+    modelVersion = metadata
+      ? await metadata.modelVersion
+      : ((await Services.getModelVersion({ name: modelName, version })) as Record<string, ModelVersionArtifactSource>)[
+          getProtoField('model_version')
+        ];
+  } catch {
+    return fetchRegistryArtifact();
+  }
+
+  const modelSource = modelVersion?.source as string | undefined;
+  const loggedModelId = modelVersion?.model_id ?? extractLoggedModelIdFromModelSource(modelSource);
+  const getSourceArtifactRoot = async (getRoot: () => Promise<string | undefined>) => {
+    try {
+      return await getRoot();
+    } catch (error) {
+      // Registered artifacts remain readable when the source is inaccessible or soft-deleted.
+      // Only this metadata lookup may fall back to the separately authorized registry route.
+      if (error instanceof ErrorWrapper && [401, 403, 404].includes(error.getStatus())) {
+        return undefined;
+      }
+      throw error;
+    }
+  };
+  if (loggedModelId) {
+    const artifactRootUri = await getSourceArtifactRoot(
+      async () => (await MlflowService.getLoggedModel(loggedModelId))?.model?.info?.artifact_uri,
+    );
+    if (!artifactRootUri) return fetchRegistryArtifact();
+    return fetchArtifactPreferPresigned(
+      {
+        runUuid: '',
+        path: 'MLmodel',
+        isLoggedModelsMode: true,
+        loggedModelId,
+        artifactRootUri,
+      },
+      artifactLocation,
+      getArtifactContent,
+    );
+  }
+
+  const runId = modelVersion?.run_id as string | undefined;
+  const modelArtifactPath = runId && modelSource ? extractArtifactPathFromModelSource(modelSource, runId) : undefined;
+  if (runId && modelArtifactPath !== undefined) {
+    const artifactRootUri = await getSourceArtifactRoot(
+      metadata
+        ? () => metadata.getRunArtifactRootUri(runId)
+        : async () => (await MlflowService.getRun({ run_id: runId }))?.run?.info?.artifactUri,
+    );
+    if (!artifactRootUri) return fetchRegistryArtifact();
+    // A matching run ID alone does not establish that an absolute source uses this storage root.
+    const expectedSource = [artifactRootUri.replace(/\/$/, ''), modelArtifactPath].filter(Boolean).join('/');
+    if (!modelSource?.startsWith('runs:') && modelSource !== expectedSource) return fetchRegistryArtifact();
+    const mlModelPath = [modelArtifactPath, 'MLmodel'].filter(Boolean).join('/');
+    return fetchArtifactPreferPresigned(
+      { runUuid: runId, path: mlModelPath, artifactRootUri },
+      artifactLocation,
+      getArtifactContent,
+    );
+  }
+
+  return fetchRegistryArtifact();
+};
+
+export const getModelVersionArtifactApi = (
+  modelName: any,
+  version: any,
+  id = getUUID(),
+  metadata?: ModelVersionArtifactMetadata,
+) => {
   return {
     type: GET_MODEL_VERSION_ARTIFACT,
-    payload: getArtifactContent(artifactLocation),
+    payload: fetchModelVersionArtifact(modelName, version, metadata),
     meta: { id, modelName, version },
   };
 };

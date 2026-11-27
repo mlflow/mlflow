@@ -2,7 +2,9 @@ import json
 from unittest.mock import patch
 
 import groq
+import httpx
 import pytest
+from groq.types import CreateEmbeddingResponse, Embedding
 from groq.types.audio.transcription import Transcription
 from groq.types.audio.translation import Translation
 from groq.types.chat import ChatCompletionMessageToolCall
@@ -12,10 +14,16 @@ from groq.types.chat.chat_completion import (
     Choice,
     CompletionUsage,
 )
+from groq.types.create_embedding_response import Usage as EmbeddingUsage
 
 import mlflow.groq
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.distributed import (
+    _get_tracing_headers_from_span,
+    set_tracing_context_from_http_request_headers,
+)
+from mlflow.tracing.utils import aggregate_usage_from_spans
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
@@ -116,6 +124,43 @@ def test_chat_completion_autolog(mock_litellm_cost):
     # No new trace should be created
     traces = get_traces()
     assert len(traces) == 1
+
+
+@pytest.mark.parametrize("user_headers", [None, {"X-Custom": "my-value"}])
+def test_tracing_headers_parent_gateway_span_without_double_counting(user_headers):
+    mlflow.groq.autolog()
+    client = groq.Groq()
+    request = DUMMY_CHAT_COMPLETION_REQUEST.copy()
+    if user_headers is not None:
+        request["extra_headers"] = user_headers
+
+    with patch("groq._client.Groq.post", return_value=DUMMY_CHAT_COMPLETION_RESPONSE) as mock_post:
+        client.chat.completions.create(**request)
+
+    span = get_traces()[0].data.spans[0]
+    sent_headers = mock_post.call_args.kwargs["options"]["headers"]
+    # Stored spans do not retain the live sampling flag, so compare the trace and span IDs.
+    assert (
+        sent_headers["traceparent"].split("-")[:3]
+        == _get_tracing_headers_from_span(span)["traceparent"].split("-")[:3]
+    )
+    if user_headers is not None:
+        assert sent_headers["X-Custom"] == "my-value"
+    assert span.inputs.get("extra_headers") == user_headers
+    assert "traceparent" not in (span.inputs.get("extra_headers") or {})
+
+    # A gateway span using the propagated context is a child, so its repeated usage is skipped.
+    with set_tracing_context_from_http_request_headers(sent_headers):
+        with mlflow.start_span("gateway") as gateway_span:
+            gateway_span.set_attribute(
+                SpanAttributeKey.CHAT_USAGE, span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+            )
+
+    assert gateway_span.trace_id == span.trace_id
+    assert gateway_span.parent_id == span.span_id
+    assert aggregate_usage_from_spans([span, gateway_span]) == span.get_attribute(
+        SpanAttributeKey.CHAT_USAGE
+    )
 
 
 TOOLS = [
@@ -369,3 +414,214 @@ def test_audio_translation_autolog():
     # No new trace should be created
     traces = get_traces()
     assert len(traces) == 1
+
+
+def _stream_chunk(delta, finish_reason=None, **kwargs):
+    return {
+        "id": "chatcmpl-test-id",
+        "object": "chat.completion.chunk",
+        "created": 1733574047,
+        "model": "llama3-8b-8192",
+        "choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}],
+        **kwargs,
+    }
+
+
+STREAM_USAGE = {"prompt_tokens": 20, "completion_tokens": 3, "total_tokens": 23}
+
+DUMMY_STREAM_CHUNKS = [
+    _stream_chunk({"role": "assistant", "content": ""}),
+    _stream_chunk({"content": "test"}),
+    _stream_chunk({"content": " response"}),
+    _stream_chunk({}, finish_reason="stop", x_groq={"id": "req_test", "usage": STREAM_USAGE}),
+]
+
+
+def _streaming_client(chunks):
+    def handler(request):
+        body = "".join(f"data: {json.dumps(chunk)}\n\n" for chunk in chunks) + "data: [DONE]\n\n"
+        return httpx.Response(
+            200, headers={"content-type": "text/event-stream"}, content=body.encode()
+        )
+
+    return groq.Groq(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+
+
+@pytest.mark.parametrize(
+    "chunks",
+    [
+        DUMMY_STREAM_CHUNKS,
+        # With extra_body={"stream_options": {"include_usage": True}}, the usage is sent in a
+        # separate last chunk
+        [
+            *DUMMY_STREAM_CHUNKS[:-1],
+            _stream_chunk({}, finish_reason="stop"),
+            {**_stream_chunk({}), "choices": [], "usage": STREAM_USAGE},
+        ],
+    ],
+)
+def test_chat_completion_streaming_autolog(chunks):
+    mlflow.groq.autolog()
+    client = _streaming_client(chunks)
+
+    stream = client.chat.completions.create(**DUMMY_CHAT_COMPLETION_REQUEST, stream=True)
+    content = "".join(chunk.choices[0].delta.content or "" for chunk in stream if chunk.choices)
+    assert content == "test response"
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "Completions"
+    assert span.span_type == SpanType.CHAT_MODEL
+    assert span.inputs == {**DUMMY_CHAT_COMPLETION_REQUEST, "stream": True}
+    assert span.outputs == {
+        "id": "chatcmpl-test-id",
+        "object": "chat.completion",
+        "created": 1733574047,
+        "model": "llama3-8b-8192",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "test response"},
+                "finish_reason": "stop",
+            }
+        ],
+    }
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 20,
+        "output_tokens": 3,
+        "total_tokens": 23,
+    }
+    assert traces[0].info.token_usage == {
+        "input_tokens": 20,
+        "output_tokens": 3,
+        "total_tokens": 23,
+    }
+
+
+def test_chat_completion_streaming_autolog_with_reasoning():
+    mlflow.groq.autolog()
+    client = _streaming_client([
+        _stream_chunk({"role": "assistant", "reasoning": "The user"}),
+        _stream_chunk({"reasoning": " wants a test."}),
+        *DUMMY_STREAM_CHUNKS[1:],
+    ])
+
+    list(client.chat.completions.create(**DUMMY_CHAT_COMPLETION_REQUEST, stream=True))
+
+    span = get_traces()[0].data.spans[0]
+    assert span.outputs["choices"][0]["message"] == {
+        "role": "assistant",
+        "content": "test response",
+        "reasoning": "The user wants a test.",
+    }
+
+
+def test_chat_completion_streaming_autolog_with_tool_calls():
+    mlflow.groq.autolog()
+    tool_call = {
+        "index": 0,
+        "id": "tool call id",
+        "type": "function",
+        "function": {"name": "calculate", "arguments": '{"expression": '},
+    }
+    client = _streaming_client([
+        _stream_chunk({"role": "assistant", "tool_calls": [tool_call]}),
+        _stream_chunk({"tool_calls": [{"index": 0, "function": {"arguments": '"25 * 4"}'}}]}),
+        _stream_chunk({}, finish_reason="tool_calls"),
+    ])
+
+    stream = client.chat.completions.create(**DUMMY_TOOL_CALL_REQUEST, stream=True)
+    list(stream)
+
+    span = get_traces()[0].data.spans[0]
+    assert span.get_attribute("mlflow.chat.tools") == TOOLS
+    assert span.outputs["choices"][0] == {
+        "index": 0,
+        "message": {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "tool call id",
+                    "type": "function",
+                    "function": {"name": "calculate", "arguments": '{"expression": "25 * 4"}'},
+                }
+            ],
+        },
+        "finish_reason": "tool_calls",
+    }
+
+
+def test_chat_completion_streaming_autolog_closed_early():
+    mlflow.groq.autolog()
+    client = _streaming_client(DUMMY_STREAM_CHUNKS)
+
+    with client.chat.completions.create(**DUMMY_CHAT_COMPLETION_REQUEST, stream=True) as stream:
+        next(stream)
+        next(stream)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert span.outputs["choices"][0]["message"]["content"] == "test"
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) is None
+
+
+def test_chat_completion_streaming_autolog_error():
+    mlflow.groq.autolog()
+    client = _streaming_client([
+        DUMMY_STREAM_CHUNKS[0],
+        {"error": {"message": "stream failed", "type": "server_error"}},
+    ])
+
+    stream = client.chat.completions.create(**DUMMY_CHAT_COMPLETION_REQUEST, stream=True)
+    with pytest.raises(groq.APIError, match="stream failed"):
+        list(stream)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    span = traces[0].data.spans[0]
+    assert span.status.status_code == "ERROR"
+    assert span.events[0].name == "exception"
+
+
+DUMMY_EMBEDDING_REQUEST = {
+    "input": "Test input",
+    "model": "nomic-embed-text-v1_5",
+}
+
+DUMMY_EMBEDDING_RESPONSE = CreateEmbeddingResponse(
+    data=[Embedding(embedding=[0.1, 0.2, 0.3], index=0, object="embedding")],
+    model="nomic-embed-text-v1_5",
+    object="list",
+    usage=EmbeddingUsage(prompt_tokens=7, total_tokens=7),
+)
+
+
+def test_embeddings_autolog():
+    mlflow.groq.autolog()
+    client = groq.Groq()
+
+    with patch("groq._client.Groq.post", return_value=DUMMY_EMBEDDING_RESPONSE) as mock_post:
+        client.embeddings.create(**DUMMY_EMBEDDING_REQUEST)
+    mock_post.assert_called_once()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "Embeddings"
+    assert span.span_type == SpanType.EMBEDDING
+    assert span.inputs == DUMMY_EMBEDDING_REQUEST
+    assert span.outputs == DUMMY_EMBEDDING_RESPONSE.to_dict(exclude_unset=False)
+    assert span.model_name == "nomic-embed-text-v1_5"
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 7,
+        "total_tokens": 7,
+    }

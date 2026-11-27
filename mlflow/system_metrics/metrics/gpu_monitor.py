@@ -33,11 +33,19 @@ class GPUMonitor(BaseMetricsMonitor):
 
         super().__init__()
         self.num_gpus = pynvml.nvmlDeviceGetCount()
-        self.gpu_handles = [pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(self.num_gpus)]
+        # Keyed by GPU index so a skipped GPU doesn't shift the metric names of the others.
+        self.gpu_handles = {}
+        for i in range(self.num_gpus):
+            try:
+                self.gpu_handles[i] = pynvml.nvmlDeviceGetHandleByIndex(i)
+            except pynvml.NVMLError as e:
+                _logger.warning(f"Failed to get handle for GPU {i}, skip logging its metrics: {e}")
+        if self.num_gpus and not self.gpu_handles:
+            raise RuntimeError("Failed to get a handle for any GPU, skip logging GPU metrics.")
 
     def collect_metrics(self):
         # Get GPU metrics.
-        for i, handle in enumerate(self.gpu_handles):
+        for i, handle in self.gpu_handles.items():
             try:
                 memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
                 self._metrics[f"gpu_{i}_memory_usage_percentage"].append(

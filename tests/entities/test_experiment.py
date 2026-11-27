@@ -148,6 +148,29 @@ def test_trace_location_lazy_resolves_from_tags():
     assert exp.trace_location is loc
 
 
+def test_trace_location_resolves_from_databricks_tag_keys():
+    # The keys Databricks sets when it links an experiment to Unity Catalog. They're literal so
+    # that a constant drifting from them fails here.
+    exp = Experiment(
+        experiment_id="1",
+        name="test",
+        artifact_location="/tmp",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+        tags=[
+            ExperimentTag("mlflow.experiment.databricksTraceDestinationPath", "cat.sch.pfx"),
+            ExperimentTag("mlflow.experiment.databricksTraceSpanStorageTable", "cat.sch.spans"),
+            ExperimentTag("mlflow.experiment.databricksTraceLogStorageTable", "cat.sch.logs"),
+            ExperimentTag(
+                "mlflow.experiment.databricksTraceAnnotationStorageTable", "cat.sch.annot"
+            ),
+        ],
+    )
+    loc = exp.trace_location
+    assert loc.full_otel_spans_table_name == "cat.sch.spans"
+    assert loc.full_otel_logs_table_name == "cat.sch.logs"
+    assert loc.full_annotations_table_name == "cat.sch.annot"
+
+
 def test_trace_location_none_without_tags():
     exp = Experiment(
         experiment_id="1",

@@ -266,6 +266,20 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (TypeScript)',
   },
   {
+    id: 'cloudflare-agents',
+    name: 'Cloudflare Agents',
+    logoPath: '/images/logos/cloudflare-logo.svg',
+    link: '/genai/tracing/integrations/listing/cloudflare-agents',
+    category: 'Agent Frameworks (TypeScript)',
+  },
+  {
+    id: 'flue',
+    name: 'Flue',
+    logoPath: '/images/logos/flue-logo.svg',
+    link: '/genai/tracing/integrations/listing/flue',
+    category: 'Agent Frameworks (TypeScript)',
+  },
+  {
     id: 'spring-ai',
     name: 'Spring AI',
     logoPath: '/images/logos/spring-ai-logo.png',
@@ -327,6 +341,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     name: 'Mistral',
     logoPath: '/images/logos/mistral-ai-logo.svg',
     link: '/genai/tracing/integrations/listing/mistral',
+    category: 'Model Providers',
+  },
+  {
+    id: 'typesafe',
+    name: 'TypeSafe AI',
+    logoPath: '/images/logos/typesafe-ai-logo.png',
+    link: '/genai/tracing/integrations/listing/typesafe',
     category: 'Model Providers',
   },
   {

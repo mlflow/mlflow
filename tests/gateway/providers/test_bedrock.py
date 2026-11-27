@@ -1,9 +1,18 @@
+import base64
 import io
+import json
+import struct
+import zlib
+from typing import Any
 from unittest import mock
 
 import pytest
+from aiohttp import ClientTimeout
+from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
+from pydantic import ValidationError
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import (
     AmazonBedrockConfig,
     AWSBaseConfig,
@@ -12,6 +21,7 @@ from mlflow.gateway.config import (
     EndpointConfig,
 )
 from mlflow.gateway.exceptions import AIGatewayException
+from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -22,6 +32,7 @@ from tests.gateway.providers.test_anthropic import (
     parsed_completions_response as anthropic_parsed_completions_response,
 )
 from tests.gateway.providers.test_cohere import completions_response as cohere_completions_response
+from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
 
 
 def ai21_completion_response():
@@ -219,6 +230,55 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
+        # Titan names the nucleus-sampling field `topP`; forwarding `top_p` verbatim
+        # sends a key Bedrock does not recognise and silently ignores.
+        "provider": AmazonBedrockModelProvider.AMAZON,
+        "config": {
+            "name": "completions",
+            "endpoint_type": "llm/v1/completions",
+            "model": {
+                "provider": "bedrock",
+                "name": "amazon.titan-tg1-large",
+            },
+        },
+        "request": {
+            "prompt": "This is a test",
+            "max_tokens": 1000,
+            "top_p": 0.9,
+        },
+        "response": {
+            "results": [
+                {
+                    "tokenCount": 5,
+                    "outputText": "\nThis is a test",
+                    "completionReason": "FINISH",
+                }
+            ],
+            "inputTextTokenCount": 4,
+        },
+        "expected": {
+            "id": None,
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "amazon.titan-tg1-large",
+            "choices": [
+                {
+                    "text": "\nThis is a test",
+                    "index": 0,
+                    "finish_reason": None,
+                }
+            ],
+            "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
+        },
+        "model_request": {
+            "inputText": "This is a test",
+            "textGenerationConfig": {
+                "maxTokenCount": 1000,
+                "topP": 0.9,
+            },
+        },
+    },
+    {
         "provider": AmazonBedrockModelProvider.AI21,
         "config": {
             "name": "completions",
@@ -234,6 +294,30 @@ bedrock_model_provider_fixtures = [
         "response": ai21_completion_response(),
         "expected": ai21_parsed_completion_response("ai21.j2-ultra"),
         "model_request": {"prompt": "This is a test"},
+    },
+    {
+        # Same as above for Jurassic, which also names the field `topP`.
+        "provider": AmazonBedrockModelProvider.AI21,
+        "config": {
+            "name": "completions",
+            "endpoint_type": "llm/v1/completions",
+            "model": {
+                "provider": "bedrock",
+                "name": "ai21.j2-ultra",
+            },
+        },
+        "request": {
+            "prompt": "This is a test",
+            "max_tokens": 1000,
+            "top_p": 0.9,
+        },
+        "response": ai21_completion_response(),
+        "expected": ai21_parsed_completion_response("ai21.j2-ultra"),
+        "model_request": {
+            "prompt": "This is a test",
+            "maxTokens": 1000,
+            "topP": 0.9,
+        },
     },
     {
         "provider": AmazonBedrockModelProvider.AI21,
@@ -295,6 +379,78 @@ bedrock_aws_configs = [
     ),
     ({"aws_region": "us-east-1", "aws_role_arn": "test-aws-role-arn"}, AWSRole),
 ]
+
+
+@pytest.mark.parametrize(
+    "region",
+    [
+        "",
+        "us-east-1",
+        "eu-west-1",
+        "ap-southeast-5",
+        "us-gov-west-1",
+        "cn-north-1",
+        "us-iso-east-1",
+        "us-isob-east-1",
+        "eu-isoe-west-1",
+        "us-isof-south-1",
+        "eusc-de-east-1",
+    ],
+)
+def test_aws_region_valid(region):
+    config = AWSBaseConfig(aws_region=region)
+    assert config.aws_region == region
+
+
+_INVALID_AWS_REGIONS = [
+    "evil.example",
+    "evil.example#",
+    "evil.example/#",
+    "x.evil.example?",
+    "https://example.com",
+    "example/path",
+    "region@host",
+    "US-EAST-1",
+    "us-east-1\n",
+]
+
+
+@pytest.mark.parametrize("region", _INVALID_AWS_REGIONS)
+def test_aws_region_invalid(region):
+    with pytest.raises(ValidationError, match="aws_region"):
+        AWSBaseConfig(aws_region=region)
+
+
+@pytest.mark.parametrize("region", _INVALID_AWS_REGIONS)
+@pytest.mark.parametrize(
+    "credentials",
+    [
+        {"aws_bearer_token": "bedrock-api-key"},
+        {"aws_access_key_id": "test-access-key-id", "aws_secret_access_key": "test-secret"},
+        {"aws_role_arn": "test-aws-role-arn"},
+        {},
+    ],
+)
+def test_bedrock_config_rejects_invalid_aws_region(credentials, region):
+    with pytest.raises(ValidationError, match="aws_region"):
+        AmazonBedrockConfig(aws_config={**credentials, "aws_region": region})
+
+
+def test_endpoint_config_hides_bedrock_secrets_in_region_errors():
+    config = {
+        "name": "claude",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "bedrock",
+            "name": "anthropic.claude-3-haiku",
+            "config": {
+                "aws_config": {"aws_region": "evil.example/#", "aws_bearer_token": "TOPSECRET"}
+            },
+        },
+    }
+    with pytest.raises(ValidationError, match="aws_region must contain only") as exc:
+        EndpointConfig(**config)
+    assert "TOPSECRET" not in str(exc.value)
 
 
 def _merge_model_and_aws_config(config, aws_config):
@@ -412,6 +568,37 @@ async def test_bedrock_request_response(
 
         mock_request.assert_called_once()
         mock_request.assert_called_once_with(model_request)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("aws_config", [c[0] for c in bedrock_aws_configs])
+async def test_bedrock_titan_rejects_top_p_zero(aws_config):
+    # MLflow accepts top_p=0, but Titan requires topP to be strictly greater than 0.
+    config = {
+        "name": "completions",
+        "endpoint_type": "llm/v1/completions",
+        "model": {
+            "provider": "bedrock",
+            "name": "amazon.titan-tg1-large",
+        },
+    }
+    provider = AmazonBedrockProvider(
+        EndpointConfig(**_merge_model_and_aws_config(config, aws_config))
+    )
+    payload = completions.RequestPayload(prompt="This is a test", max_tokens=1000, top_p=0)
+
+    with (
+        mock.patch(
+            "mlflow.gateway.providers.bedrock.AmazonBedrockProvider._request"
+        ) as mock_request,
+        pytest.raises(
+            AIGatewayException, match="'top_p' must be greater than 0 for AWS Titan models"
+        ) as exc_info,
+    ):
+        await provider.completions(payload)
+
+    assert exc_info.value.status_code == 422
+    mock_request.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -549,6 +736,145 @@ async def test_bedrock_converse_chat_stream():
     mock_client.converse_stream.assert_called_once()
 
 
+_CACHE_USAGE = {
+    "inputTokens": 20,
+    "outputTokens": 5,
+    "totalTokens": 25,
+    "cacheReadInputTokens": 2000,
+    "cacheWriteInputTokens": 300,
+}
+
+
+def _assert_cache_usage(usage):
+    assert usage["prompt_tokens"] == 2320
+    assert usage["completion_tokens"] == 5
+    assert usage["total_tokens"] == 2325
+    assert usage["prompt_tokens_details"]["cached_tokens"] == 2000
+    assert usage["cache_creation_input_tokens"] == 300
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_cache_tokens():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    response = _converse_response()
+    response["usage"] = _CACHE_USAGE
+    mock_client.converse.return_value = response
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        result = jsonable_encoder(await provider.chat(payload))
+
+    _assert_cache_usage(result["usage"])
+    mock_client.converse.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_stream_cache_tokens():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = {
+        "stream": iter([
+            {"contentBlockDelta": {"delta": {"text": "Hello"}}},
+            {"messageStop": {"stopReason": "end_turn"}},
+            {"metadata": {"usage": _CACHE_USAGE}},
+        ])
+    }
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload)]
+
+    _assert_cache_usage(chunks[-1]["usage"])
+    mock_client.converse_stream.assert_called_once()
+
+
+_STOP_REASON_CASES = [
+    ("end_turn", "stop"),
+    ("tool_use", "tool_calls"),
+    ("max_tokens", "length"),
+    ("model_context_window_exceeded", "length"),
+    ("content_filtered", "content_filter"),
+    ("guardrail_intervened", "content_filter"),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("stop_reason", "expected"), _STOP_REASON_CASES)
+async def test_bedrock_converse_chat_finish_reason(stop_reason, expected):
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    response = _converse_response()
+    response["stopReason"] = stop_reason
+    mock_client.converse.return_value = response
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        result = jsonable_encoder(await provider.chat(payload))
+
+    assert result["choices"][0]["finish_reason"] == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("stop_reason", "expected"), _STOP_REASON_CASES)
+async def test_bedrock_converse_chat_stream_finish_reason(stop_reason, expected):
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = {
+        "stream": iter([
+            {"contentBlockDelta": {"delta": {"text": "Hello"}}},
+            {"messageStop": {"stopReason": stop_reason}},
+        ])
+    }
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload)]
+
+    assert chunks[-1]["choices"][0]["finish_reason"] == expected
+
+
+def _tool_stream_events(*blocks):
+    events = [{"messageStart": {"role": "assistant"}}]
+    for i, block in enumerate(blocks):
+        if block == "text":
+            delta = {"text": "Let me check."}
+            events.append({"contentBlockDelta": {"contentBlockIndex": i, "delta": delta}})
+        else:
+            start = {"toolUse": {"toolUseId": f"tool_{i}", "name": block}}
+            events.append({"contentBlockStart": {"contentBlockIndex": i, "start": start}})
+            delta = {"toolUse": {"input": "{}"}}
+            events.append({"contentBlockDelta": {"contentBlockIndex": i, "delta": delta}})
+        events.append({"contentBlockStop": {"contentBlockIndex": i}})
+    events.append({"messageStop": {"stopReason": "tool_use"}})
+    return {"stream": iter(events)}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("blocks", "expected"),
+    [
+        (("text", "get_weather"), [(0, "tool_1"), (0, None)]),
+        (
+            ("text", "get_weather", "get_time"),
+            [(0, "tool_1"), (0, None), (1, "tool_2"), (1, None)],
+        ),
+    ],
+)
+async def test_bedrock_converse_chat_stream_tool_call_index(blocks, expected):
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = _tool_stream_events(*blocks)
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload)]
+
+    tool_calls = [tc for c in chunks for tc in c["choices"][0]["delta"].get("tool_calls") or []]
+    assert [(tc["index"], tc.get("id")) for tc in tool_calls] == expected
+    mock_client.converse_stream.assert_called_once()
+
+
 @pytest.mark.asyncio
 async def test_bedrock_embeddings():
 
@@ -612,6 +938,57 @@ async def test_bedrock_converse_chat_with_tool_call():
     assert tool_calls[0]["function"]["name"] == "add"
 
 
+_TOOL_PARAMS = {"type": "object", "properties": {"city": {"type": "string"}}}
+
+
+@pytest.mark.parametrize(
+    ("function", "expected_tool_spec"),
+    [
+        (
+            {"name": "get_weather", "parameters": _TOOL_PARAMS},
+            {"name": "get_weather", "inputSchema": {"json": _TOOL_PARAMS}},
+        ),
+        (
+            {"name": "get_time", "description": "Get the time"},
+            {
+                "name": "get_time",
+                "description": "Get the time",
+                "inputSchema": {"json": {"type": "object", "properties": {}}},
+            },
+        ),
+        (
+            {"name": "get_time"},
+            {"name": "get_time", "inputSchema": {"json": {"type": "object", "properties": {}}}},
+        ),
+        (
+            {"name": "get_weather", "description": "Get weather", "parameters": _TOOL_PARAMS},
+            {
+                "name": "get_weather",
+                "description": "Get weather",
+                "inputSchema": {"json": _TOOL_PARAMS},
+            },
+        ),
+    ],
+    ids=["no-description", "no-parameters", "name-only", "all-fields"],
+)
+@pytest.mark.asyncio
+async def test_bedrock_converse_tool_optional_fields(function, expected_tool_spec):
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "hi"}],
+            tools=[{"type": "function", "function": function}],
+        )
+        await provider.chat(payload)
+
+    mock_client.converse.assert_called_once()
+    call_kwargs = mock_client.converse.call_args.kwargs
+    assert call_kwargs["toolConfig"] == {"tools": [{"toolSpec": expected_tool_spec}]}
+
+
 @pytest.mark.asyncio
 async def test_bedrock_converse_serializes_assistant_tool_call_history():
     provider = _make_converse_provider()
@@ -656,6 +1033,68 @@ async def test_bedrock_converse_serializes_assistant_tool_call_history():
     assistant_blocks = call_kwargs["messages"][1]["content"]
     tool_uses = [b["toolUse"] for b in assistant_blocks if "toolUse" in b]
     assert tool_uses == [{"toolUseId": "tool_abc123", "name": "add", "input": {"a": 17, "b": 25}}]
+    tool_results = [
+        b["toolResult"] for b in call_kwargs["messages"][2]["content"] if "toolResult" in b
+    ]
+    assert tool_results == [{"toolUseId": "tool_abc123", "content": [{"text": "42"}]}]
+    mock_client.converse.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_groups_consecutive_tool_results_into_one_user_message():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[
+                {"role": "user", "content": "Compute both sums"},
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "tool_abc123",
+                            "type": "function",
+                            "function": {"name": "add", "arguments": '{"a": 17, "b": 25}'},
+                        },
+                        {
+                            "id": "tool_def456",
+                            "type": "function",
+                            "function": {"name": "add", "arguments": '{"a": 10, "b": 5}'},
+                        },
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "tool_abc123", "content": "42"},
+                {"role": "tool", "tool_call_id": "tool_def456", "content": "15"},
+            ],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "add",
+                        "description": "Add two integers.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+                            "required": ["a", "b"],
+                        },
+                    },
+                }
+            ],
+        )
+        await provider.chat(payload)
+
+    call_kwargs = mock_client.converse.call_args.kwargs
+    assert len(call_kwargs["messages"]) == 3
+    tool_results = [
+        b["toolResult"] for b in call_kwargs["messages"][2]["content"] if "toolResult" in b
+    ]
+    assert tool_results == [
+        {"toolUseId": "tool_abc123", "content": [{"text": "42"}]},
+        {"toolUseId": "tool_def456", "content": [{"text": "15"}]},
+    ]
     mock_client.converse.assert_called_once()
 
 
@@ -725,3 +1164,700 @@ async def test_bedrock_converse_rejects_assistant_tool_call_with_missing_name():
     assert exc_info.value.status_code == 422
     assert "tool_call_id=tool_missing_name" in exc_info.value.detail
     mock_client.converse.assert_not_called()
+
+
+# ---- Anthropic Messages passthrough tests ----
+
+_CLAUDE_MODEL_ID = "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+
+def _make_api_key_provider(model_name: str = _CLAUDE_MODEL_ID) -> AmazonBedrockProvider:
+    config = {
+        "name": "claude",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "bedrock",
+            "name": model_name,
+            "config": {
+                "aws_config": {"aws_bearer_token": "bedrock-api-key", "aws_region": "eu-west-1"}
+            },
+        },
+    }
+    return AmazonBedrockProvider(EndpointConfig(**config))
+
+
+def _anthropic_messages_response():
+    return {
+        "id": "msg_bdrk_01",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-sonnet-4-5-20250929",
+        "content": [
+            {"type": "thinking", "thinking": "The user said hello.", "signature": "sig"},
+            {"type": "text", "text": "Hello!"},
+        ],
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 10, "output_tokens": 20},
+    }
+
+
+def _anthropic_stream_events():
+    return [
+        {
+            "type": "message_start",
+            "message": {
+                "id": "msg_bdrk_01",
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+                "model": "claude-sonnet-4-5-20250929",
+                "usage": {"input_tokens": 12, "output_tokens": 1},
+            },
+        },
+        {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "thinking", "thinking": ""},
+        },
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "thinking_delta", "thinking": "The user said hello."},
+        },
+        {"type": "content_block_stop", "index": 0},
+        {
+            "type": "message_delta",
+            "delta": {"stop_reason": "end_turn"},
+            "usage": {"output_tokens": 30},
+        },
+        {"type": "message_stop"},
+    ]
+
+
+def _event_stream_message(headers: dict[str, str], payload: bytes) -> bytes:
+    # AWS event stream framing: a prelude (total length, headers length, prelude CRC),
+    # string-valued headers, the payload, then a CRC over the whole message.
+    encoded_headers = b"".join(
+        bytes([len(name)])
+        + name.encode()
+        + b"\x07"
+        + struct.pack(">H", len(value))
+        + value.encode()
+        for name, value in headers.items()
+    )
+    prelude = struct.pack(">II", 16 + len(encoded_headers) + len(payload), len(encoded_headers))
+    message = prelude + struct.pack(">I", zlib.crc32(prelude)) + encoded_headers + payload
+    return message + struct.pack(">I", zlib.crc32(message))
+
+
+def _bedrock_chunk(event: dict[str, Any]) -> bytes:
+    return _event_stream_message(
+        {":event-type": "chunk", ":content-type": "application/json", ":message-type": "event"},
+        json.dumps({"bytes": base64.b64encode(json.dumps(event).encode()).decode()}).encode(),
+    )
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_path"),
+    [
+        (_CLAUDE_MODEL_ID, _CLAUDE_MODEL_ID),
+        (
+            f"arn:aws:bedrock:eu-west-1:123456789012:inference-profile/{_CLAUDE_MODEL_ID}",
+            f"arn:aws:bedrock:eu-west-1:123456789012:inference-profile%2F{_CLAUDE_MODEL_ID}",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_posts_to_invoke(model_name, model_path):
+    provider = _make_api_key_provider(model_name)
+    payload = {
+        "model": "claude",
+        "messages": [{"role": "user", "content": "Hello"}],
+        "max_tokens": 2048,
+        "thinking": {"type": "adaptive"},
+        "output_config": {"effort": "high"},
+    }
+    captured_session_headers = {}
+    mock_client = mock_http_client(MockAsyncResponse(_anthropic_messages_response()))
+
+    def mock_client_session(headers=None, **kwargs):
+        captured_session_headers.update(headers or {})
+        return mock_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
+        response = await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES,
+            payload,
+            headers={
+                "authorization": "Bearer client-token",
+                "x-api-key": "client-key",
+                "user-agent": "claude-cli/2.0.37 (external, cli)",
+                "x-request-id": "req-1",
+                "host": "gateway.example.com",
+            },
+        )
+
+    assert response == _anthropic_messages_response()
+    mock_client.post.assert_called_once_with(
+        f"https://bedrock-runtime.eu-west-1.amazonaws.com/model/{model_path}/invoke",
+        json={
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 2048,
+            "thinking": {"type": "adaptive"},
+            "output_config": {"effort": "high"},
+            "anthropic_version": "bedrock-2023-05-31",
+        },
+        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
+    )
+    # FallbackProvider passes the same payload to the next provider if this one fails.
+    assert payload["model"] == "claude"
+    # A credential agent's own key is dropped too; Bedrock only accepts the endpoint's key.
+    assert captured_session_headers["Authorization"] == "Bearer bedrock-api-key"
+    assert "authorization" not in captured_session_headers
+    assert "x-api-key" not in captured_session_headers
+    assert "host" not in captured_session_headers
+    assert captured_session_headers["x-request-id"] == "req-1"
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_path"),
+    [
+        (_CLAUDE_MODEL_ID, _CLAUDE_MODEL_ID),
+        (
+            "arn:aws:bedrock:eu-west-1:123456789012:application-inference-profile/abc123",
+            "arn:aws:bedrock:eu-west-1:123456789012:application-inference-profile%2Fabc123",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_with_api_key_posts_to_converse(model_name, model_path):
+    provider = _make_api_key_provider(model_name)
+    mock_client = mock_http_client(MockAsyncResponse(_converse_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        response = await provider.chat(
+            chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        )
+
+    assert response.choices[0].message.content == "Hello from Bedrock!"
+    assert mock_client.post.call_args.args[0] == (
+        f"https://bedrock-runtime.eu-west-1.amazonaws.com/model/{model_path}/converse"
+    )
+
+
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_stream_converts_event_stream_to_sse():
+    provider = _make_api_key_provider()
+    events = _anthropic_stream_events()
+    data = b"".join(map(_bedrock_chunk, events))
+    # Frames arrive split at arbitrary byte offsets, not one frame per read.
+    chunks = [data[i : i + 37] for i in range(0, len(data), 37)]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
+    payload = {
+        "model": "claude",
+        "messages": [{"role": "user", "content": "Hello"}],
+        "max_tokens": 64,
+        "stream": True,
+    }
+
+    with (
+        mock.patch("aiohttp.ClientSession", return_value=mock_client),
+        mock.patch.object(provider, "_set_span_token_usage") as mock_set_span_token_usage,
+    ):
+        stream = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+        output = b"".join([chunk async for chunk in stream])
+
+    assert output == b"".join(
+        f"event: {event['type']}\ndata: {json.dumps(event)}\n\n".encode() for event in events
+    )
+    mock_client.post.assert_called_once()
+    assert mock_client.post.call_args[0][0] == (
+        f"https://bedrock-runtime.eu-west-1.amazonaws.com/model/{_CLAUDE_MODEL_ID}"
+        "/invoke-with-response-stream"
+    )
+    assert mock_client.post.call_args[1]["json"] == {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "max_tokens": 64,
+        "anthropic_version": "bedrock-2023-05-31",
+    }
+    # FallbackProvider passes the same payload to the next provider if this one fails.
+    assert payload == {
+        "model": "claude",
+        "messages": [{"role": "user", "content": "Hello"}],
+        "max_tokens": 64,
+        "stream": True,
+    }
+    mock_set_span_token_usage.assert_called_once_with({
+        "input_tokens": 12,
+        "output_tokens": 30,
+        "total_tokens": 42,
+    })
+
+
+@pytest.mark.parametrize(
+    ("exception_type", "status_code"),
+    [
+        ("throttlingException", 429),
+        ("serviceUnavailableException", 503),
+        ("modelTimeoutException", 408),
+        ("internalServerException", 502),
+    ],
+)
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_stream_raises_bedrock_exception(
+    exception_type, status_code
+):
+    provider = _make_api_key_provider()
+    data = _bedrock_chunk(_anthropic_stream_events()[0]) + _event_stream_message(
+        {
+            ":exception-type": exception_type,
+            ":content-type": "application/json",
+            ":message-type": "exception",
+        },
+        b'{"message": "The request could not be completed."}',
+    )
+    mock_client = mock_http_client(MockAsyncStreamingResponse([data]))
+    payload = {"messages": [{"role": "user", "content": "Hello"}], "max_tokens": 64, "stream": True}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+        with pytest.raises(HTTPException, match=f"{exception_type} while streaming") as exc_info:
+            [chunk async for chunk in stream]
+
+    assert exc_info.value.status_code == status_code
+    mock_client.post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_stream_raises_bedrock_error_frame():
+    # An error frame (":message-type: error") carries ":error-code"/":error-message" headers
+    # with an empty payload, rather than an ":exception-type" and a JSON body, so the status
+    # and detail come from those header fallbacks.
+    provider = _make_api_key_provider()
+    data = _bedrock_chunk(_anthropic_stream_events()[0]) + _event_stream_message(
+        {
+            ":error-code": "throttlingException",
+            ":error-message": "Rate exceeded.",
+            ":message-type": "error",
+        },
+        b"",
+    )
+    mock_client = mock_http_client(MockAsyncStreamingResponse([data]))
+    payload = {"messages": [{"role": "user", "content": "Hello"}], "max_tokens": 64, "stream": True}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+        with pytest.raises(
+            HTTPException, match="throttlingException while streaming: Rate exceeded."
+        ) as exc_info:
+            [chunk async for chunk in stream]
+
+    assert exc_info.value.status_code == 429
+    mock_client.post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_stream_requires_botocore():
+    provider = _make_api_key_provider()
+    mock_client = mock_http_client(MockAsyncStreamingResponse([]))
+    payload = {"messages": [{"role": "user", "content": "Hello"}], "max_tokens": 64, "stream": True}
+
+    with (
+        mock.patch("aiohttp.ClientSession", return_value=mock_client),
+        mock.patch.dict("sys.modules", {"botocore.eventstream": None}),
+    ):
+        stream = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+        with pytest.raises(ImportError, match="requires boto3"):
+            [chunk async for chunk in stream]
+
+    # The import fails before the request is sent, so nothing reaches Bedrock.
+    mock_client.post.assert_not_called()
+
+
+def test_bedrock_anthropic_passthrough_token_usage():
+    provider = _make_api_key_provider()
+    usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, _anthropic_messages_response()
+    )
+    assert usage == {"input_tokens": 10, "output_tokens": 20, "total_tokens": 30}
+
+
+def test_bedrock_anthropic_passthrough_token_usage_with_1h_cache_creation():
+    provider = _make_api_key_provider()
+    result = {
+        "usage": {
+            "input_tokens": 11,
+            "output_tokens": 4,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 5411,
+            "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 5411},
+        },
+    }
+    usage = provider._extract_passthrough_token_usage(PassthroughAction.ANTHROPIC_MESSAGES, result)
+    assert usage == {
+        "input_tokens": 5422,
+        "output_tokens": 4,
+        "total_tokens": 5426,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 5411,
+        "cache_creation_input_tokens_above_1hr": 5411,
+    }
+
+
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_rejects_non_anthropic_model():
+    provider = _make_api_key_provider("amazon.nova-pro-v1:0")
+    with pytest.raises(AIGatewayException, match="only supports Anthropic models") as exc_info:
+        await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES, {"messages": [], "max_tokens": 64}
+        )
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.parametrize("aws_config", [c for c, _ in bedrock_aws_configs])
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_requires_api_key_auth(aws_config):
+    config = {
+        "name": "claude",
+        "endpoint_type": "llm/v1/chat",
+        "model": {"provider": "bedrock", "name": _CLAUDE_MODEL_ID, "config": {}},
+    }
+    provider = AmazonBedrockProvider(
+        EndpointConfig(**_merge_model_and_aws_config(config, aws_config))
+    )
+    with pytest.raises(AIGatewayException, match="API key") as exc_info:
+        await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES, {"messages": [], "max_tokens": 64}
+        )
+    assert exc_info.value.status_code == 501
+
+
+@pytest.mark.asyncio
+async def test_bedrock_passthrough_rejects_unsupported_action():
+    provider = _make_api_key_provider()
+    with pytest.raises(AIGatewayException, match="Unsupported passthrough endpoint"):
+        await provider.passthrough(PassthroughAction.OPENAI_CHAT, {"messages": []})
+
+
+# ---- Prompt caching (cachePoint) tests ----
+
+
+def _make_converse_provider_for(model_name: str) -> AmazonBedrockProvider:
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "bedrock",
+            "name": model_name,
+            "config": {"aws_config": {"aws_region": "us-east-1"}},
+        },
+    }
+    return AmazonBedrockProvider(EndpointConfig(**config))
+
+
+async def _converse_kwargs(payload: dict[str, Any], model_name: str | None = None):
+    provider = _make_converse_provider_for(model_name) if model_name else _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        await provider.chat(chat.RequestPayload(**payload))
+    return mock_client.converse.call_args.kwargs
+
+
+def _cache_control_messages():
+    return [
+        {
+            "role": "system",
+            "content": [
+                {"type": "text", "text": "Rules", "cache_control": {"type": "ephemeral"}},
+                {"type": "text", "text": "More rules"},
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Doc part 1"},
+                {
+                    "type": "text",
+                    "text": "Doc part 2",
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                },
+                {"type": "text", "text": "Question"},
+            ],
+        },
+        {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Answer", "cache_control": {"type": "ephemeral"}}],
+        },
+        {"role": "user", "content": "Follow up"},
+    ]
+
+
+_EXPECTED_CACHED_SYSTEM = [
+    {"text": "Rules"},
+    {"cachePoint": {"type": "default"}},
+    {"text": "More rules"},
+]
+
+_EXPECTED_CACHED_MESSAGES = [
+    {
+        "role": "user",
+        "content": [
+            {"text": "Doc part 1\nDoc part 2"},
+            {"cachePoint": {"type": "default", "ttl": "1h"}},
+            {"text": "Question"},
+        ],
+    },
+    {
+        "role": "assistant",
+        "content": [{"text": "Answer"}, {"cachePoint": {"type": "default"}}],
+    },
+    {"role": "user", "content": [{"text": "Follow up"}]},
+]
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_adds_cache_points_after_marked_parts():
+    kwargs = await _converse_kwargs({"messages": _cache_control_messages()})
+
+    assert kwargs["system"] == _EXPECTED_CACHED_SYSTEM
+    assert kwargs["messages"] == _EXPECTED_CACHED_MESSAGES
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_stream_adds_cache_points_after_marked_parts():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = _converse_stream_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=_cache_control_messages(), stream=True)
+        [chunk async for chunk in provider.chat_stream(payload)]
+
+    kwargs = mock_client.converse_stream.call_args.kwargs
+    assert kwargs["system"] == _EXPECTED_CACHED_SYSTEM
+    assert kwargs["messages"] == _EXPECTED_CACHED_MESSAGES
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_with_api_key_adds_cache_points():
+    provider = _make_api_key_provider()
+    mock_client = mock_http_client(MockAsyncResponse(_converse_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        await provider.chat(chat.RequestPayload(messages=_cache_control_messages()))
+
+    body = mock_client.post.call_args.kwargs["json"]
+    assert body["system"] == _EXPECTED_CACHED_SYSTEM
+    assert body["messages"] == _EXPECTED_CACHED_MESSAGES
+
+
+@pytest.mark.parametrize(
+    ("cache_control", "expected_cache_point"),
+    [
+        ({"type": "ephemeral"}, {"type": "default"}),
+        # 5 minutes is the default, and models that only support it can reject `ttl`.
+        ({"type": "ephemeral", "ttl": "5m"}, {"type": "default"}),
+        ({"type": "ephemeral", "ttl": "1h"}, {"type": "default", "ttl": "1h"}),
+        # Other values are sent as is, so Bedrock reports the ones it does not support.
+        ({"type": "ephemeral", "ttl": "24h"}, {"type": "default", "ttl": "24h"}),
+    ],
+)
+@pytest.mark.asyncio
+async def test_bedrock_converse_cache_point_ttl(cache_control, expected_cache_point):
+    payload = {
+        "messages": [
+            {
+                "role": "system",
+                "content": [{"type": "text", "text": "Rules", "cache_control": cache_control}],
+            },
+            {"role": "user", "content": "Hello"},
+        ]
+    }
+
+    kwargs = await _converse_kwargs(payload)
+
+    assert kwargs["system"] == [{"text": "Rules"}, {"cachePoint": expected_cache_point}]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content",
+    [
+        # Marker on a part that is not the last text part: the cachePoint would land after it.
+        [
+            {"type": "text", "text": "static", "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": "dynamic"},
+        ],
+        # Two markers in one tool result: only one cachePoint can follow the result.
+        [
+            {"type": "text", "text": "a", "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": "b", "cache_control": {"type": "ephemeral", "ttl": "1h"}},
+        ],
+    ],
+)
+async def test_bedrock_converse_rejects_tool_result_markers_it_cannot_place(content):
+    payload = {
+        "messages": [
+            {"role": "user", "content": "add 17 and 25"},
+            {
+                "role": "assistant",
+                "content": "Calling add",
+                "tool_calls": [
+                    {
+                        "id": "tool_abc123",
+                        "type": "function",
+                        "function": {"name": "add", "arguments": '{"a": 17, "b": 25}'},
+                    }
+                ],
+            },
+            {"role": "tool", "tool_call_id": "tool_abc123", "content": content},
+        ]
+    }
+
+    with pytest.raises(AIGatewayException, match="single cache_control marker") as e:
+        await _converse_kwargs(payload)
+    assert e.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_adds_cache_point_after_marked_tool_result():
+    payload = {
+        "messages": [
+            {"role": "user", "content": "add 17 and 25"},
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "Calling add", "cache_control": {"type": "ephemeral"}}
+                ],
+                "tool_calls": [
+                    {
+                        "id": "tool_abc123",
+                        "type": "function",
+                        "function": {"name": "add", "arguments": '{"a": 17, "b": 25}'},
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "tool_abc123",
+                "content": [{"type": "text", "text": "42", "cache_control": {"type": "ephemeral"}}],
+            },
+        ]
+    }
+
+    kwargs = await _converse_kwargs(payload)
+
+    assert kwargs["messages"][1:] == [
+        {
+            "role": "assistant",
+            "content": [
+                {"text": "Calling add"},
+                {"cachePoint": {"type": "default"}},
+                {
+                    "toolUse": {
+                        "toolUseId": "tool_abc123",
+                        "name": "add",
+                        "input": {"a": 17, "b": 25},
+                    }
+                },
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"toolResult": {"toolUseId": "tool_abc123", "content": [{"text": "42"}]}},
+                {"cachePoint": {"type": "default"}},
+            ],
+        },
+    ]
+
+
+def _messages_without_cache_control():
+    return [
+        {
+            "role": "system",
+            "content": [{"type": "text", "text": "Rules"}, {"type": "text", "text": "More"}],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Describe"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}},
+            ],
+        },
+        {"role": "assistant", "content": "Sure"},
+        {"role": "user", "content": "Thanks"},
+    ]
+
+
+# The Converse request sent for `_messages_without_cache_control()`, as built before prompt
+# caching support: each message is a single text block.
+_EXPECTED_KWARGS_WITHOUT_CACHE_CONTROL = {
+    "modelId": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "system": [{"text": "Rules\nMore"}],
+    "messages": [
+        {"role": "user", "content": [{"text": "Describe"}]},
+        {"role": "assistant", "content": [{"text": "Sure"}]},
+        {"role": "user", "content": [{"text": "Thanks"}]},
+    ],
+    "inferenceConfig": {"maxTokens": 100},
+}
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_without_cache_control_is_unchanged():
+    kwargs = await _converse_kwargs({
+        "messages": _messages_without_cache_control(),
+        "max_tokens": 100,
+    })
+
+    assert kwargs == _EXPECTED_KWARGS_WITHOUT_CACHE_CONTROL
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_ignores_cache_control_on_dropped_image_parts():
+    messages = _messages_without_cache_control()
+    messages[1]["content"][1]["cache_control"] = {"type": "ephemeral"}
+
+    kwargs = await _converse_kwargs({"messages": messages, "max_tokens": 100})
+
+    assert kwargs == _EXPECTED_KWARGS_WITHOUT_CACHE_CONTROL
+
+
+@pytest.mark.parametrize(
+    ("model_name", "keeps_cache_points"),
+    [
+        ("anthropic.claude-sonnet-4-6", True),
+        ("us.anthropic.claude-3-5-sonnet-20241022-v2:0", True),
+        ("amazon.nova-pro-v1:0", True),
+        ("us.amazon.nova-lite-v1:0", True),
+        ("meta.llama3-70b-instruct-v1:0", False),
+        ("amazon.titan-text-express-v1", False),
+        ("arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123", False),
+    ],
+)
+@pytest.mark.asyncio
+async def test_bedrock_converse_cache_points_only_for_models_that_support_them(
+    model_name, keeps_cache_points
+):
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral"}},
+                    {"type": "text", "text": "Question"},
+                ],
+            }
+        ]
+    }
+
+    kwargs = await _converse_kwargs(payload, model_name=model_name)
+
+    if keeps_cache_points:
+        expected = [{"text": "Doc"}, {"cachePoint": {"type": "default"}}, {"text": "Question"}]
+    else:
+        expected = [{"text": "Doc\nQuestion"}]
+    assert kwargs["messages"] == [{"role": "user", "content": expected}]

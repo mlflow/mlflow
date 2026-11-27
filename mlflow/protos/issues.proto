@@ -30,7 +30,7 @@ message Issue {
   optional string severity = 6;
 
   // Analysis of the root causes of the issue.
-  repeated string root_causes = 7;
+  repeated string root_causes = 7 [deprecated = true];
 
   // MLflow run ID that discovered this issue.
   optional string source_run_id = 8;
@@ -49,6 +49,11 @@ message Issue {
 
   // Number of traces impacted by this issue. Only populated when explicitly requested.
   optional int32 trace_count = 13;
+
+  // Most recent observation, in milliseconds. Independent of user edits.
+  optional int64 last_seen_timestamp = 14;
+  optional string last_updated_by = 15;
+  map<string, string> metadata = 16;
 }
 
 // Request to create a new issue.
@@ -69,7 +74,7 @@ message CreateIssue {
   optional string severity = 5;
 
   // Analysis of the root causes of the issue.
-  repeated string root_causes = 6;
+  repeated string root_causes = 6 [deprecated = true];
 
   // MLflow run ID that discovered this issue.
   optional string source_run_id = 7;
@@ -79,6 +84,10 @@ message CreateIssue {
 
   // Categories of the issue.
   repeated string categories = 9;
+  // Optional caller-assigned iss-* ID. Reuse returns RESOURCE_ALREADY_EXISTS.
+  optional string issue_id = 10;
+  optional int64 last_seen_timestamp = 11;
+  map<string, string> metadata = 12;
 
   message Response {
     // The created issue.
@@ -102,6 +111,13 @@ message UpdateIssue {
 
   // Severity level indicator.
   optional string severity = 5;
+  // When supplied, replaces categories; an empty JSON array clears them.
+  repeated string categories = 6;
+  optional int64 last_seen_timestamp = 7;
+  optional string last_updated_by = 8;
+  // Merge entries; delete only the explicitly named keys below.
+  map<string, string> metadata = 9;
+  repeated string delete_metadata_keys = 10;
 
   message Response {
     // The updated issue.
@@ -136,6 +152,17 @@ message SearchIssues {
 
   // Whether to include the count of traces impacted by each issue.
   optional bool include_trace_count = 5;
+  // Case-insensitive literal substring of the issue name.
+  optional string name = 6;
+  // Values within each list are ORed; different fields are ANDed.
+  repeated string statuses = 7;
+  repeated string severities = 8;
+  repeated string categories = 9;
+  // Field and ASC/DESC, e.g. "last_seen_timestamp DESC".
+  repeated string order_by = 10;
+  optional bool include_total_count = 11;
+  // "basic" omits description, root_causes and metadata; default "full".
+  optional string view = 12;
 
   message Response {
     // List of issues.
@@ -143,5 +170,65 @@ message SearchIssues {
 
     // Token for next page.
     optional string next_page_token = 2;
+    optional int64 total_count = 3;
+  }
+}
+
+// An issue detection run: one analysis of an experiment's traces that files what it finds as
+// issues.
+message IssueDetectionRun {
+  // ID of the run. Issues the run creates carry it as their source_run_id.
+  optional string run_id = 1;
+
+  // Experiment ID.
+  optional string experiment_id = 2;
+
+  // One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+  // starts, including while its job waits for a worker.
+  optional string status = 3;
+
+  // Start time of the run, in milliseconds since the epoch.
+  optional int64 start_time = 4;
+
+  // End time of the run, in milliseconds since the epoch. Unset until the run ends.
+  optional int64 end_time = 5;
+
+  // Why the run failed. Unset unless the status is "failed".
+  optional string error_message = 6;
+}
+
+// Request to start an issue detection run over an experiment's traces. A finding that matches an
+// issue the experiment already has refreshes that issue instead of filing another. Matching is
+// best effort: runs in progress at the same time don't see the issues each other files, so each
+// can file an issue for the same finding.
+message DetectIssues {
+  // Experiment ID.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // Restricts the run to traces matching this filter, in the search_traces filter syntax. The run
+  // samples the matching traces: from the newest 500, it picks up to 100 sessions at random, a
+  // trace without a session counting as its own, and analyzes their traces. It doesn't promise to
+  // cover every match. When neither this nor trace_ids is set, it samples the experiment's newest
+  // traces the same way. Cannot be combined with trace_ids.
+  optional string filter_string = 2;
+
+  // The model the run analyzes traces with, as "<provider>:/<model>" or "gateway:/<endpoint>".
+  // When unset, the run uses the model saved in the experiment's issue detection schedule.
+  optional string model = 3;
+
+  // The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+  // with filter_string.
+  repeated string trace_ids = 4;
+
+  // A token the caller generates to make the request safe to retry, such as a random UUID: a new
+  // one for each run to start, and the same one when retrying that request. A request with the
+  // same token as the caller's earlier request in this experiment returns the run that request
+  // started, instead of starting another. Requests with different tokens, or without one, each
+  // start a run. At most 64 characters, with no control characters.
+  optional string idempotency_token = 5;
+
+  message Response {
+    // The run that started, or that an earlier request with the same idempotency_token started.
+    optional IssueDetectionRun issue_detection_run = 1;
   }
 }

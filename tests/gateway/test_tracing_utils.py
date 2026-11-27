@@ -1,11 +1,13 @@
 import asyncio
 import json
 from typing import Any
+from unittest import mock
 
 import pytest
 
 import mlflow
-from mlflow.entities import SpanType
+from mlflow.entities import SpanStatus, SpanStatusCode, SpanType
+from mlflow.entities.trace_state import TraceState
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.gateway.tracing_utils import (
@@ -16,6 +18,7 @@ from mlflow.gateway.tracing_utils import (
     aggregate_gemini_stream_generate_content_chunks,
     aggregate_openai_responses_stream_chunks,
     maybe_traced_gateway_call,
+    openai_responses_stream_status,
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.client import TracingClient
@@ -315,6 +318,58 @@ async def test_maybe_traced_gateway_call_with_output_reducer(endpoint_config):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("resolved_status", "expected_state"),
+    [
+        (SpanStatus(SpanStatusCode.ERROR, description="server_error: boom"), TraceState.ERROR),
+        (None, TraceState.OK),
+    ],
+)
+async def test_maybe_traced_gateway_call_with_stream_status_resolver(
+    endpoint_config, resolved_status, expected_state
+):
+    async def mock_async_stream(payload):
+        yield "Hello"
+        yield " world"
+
+    resolver = mock.Mock(return_value=resolved_status)
+    traced_func = maybe_traced_gateway_call(
+        mock_async_stream, endpoint_config, stream_status_resolver=resolver
+    )
+
+    chunks = [chunk async for chunk in traced_func({"input": "test"})]
+
+    assert chunks == ["Hello", " world"]
+    resolver.assert_called_once_with(["Hello", " world"])
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == expected_state
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
+    assert gateway_span.status == (resolved_status or SpanStatus(SpanStatusCode.OK))
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_ignores_stream_status_resolver_errors(endpoint_config):
+    async def mock_async_stream(payload):
+        yield "Hello"
+
+    resolver = mock.Mock(side_effect=ValueError("boom"))
+    traced_func = maybe_traced_gateway_call(
+        mock_async_stream, endpoint_config, stream_status_resolver=resolver
+    )
+
+    chunks = [chunk async for chunk in traced_func({"input": "test"})]
+
+    assert chunks == ["Hello"]
+    resolver.assert_called_once_with(["Hello"])
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.state == TraceState.OK
+
+
+@pytest.mark.asyncio
 async def test_maybe_traced_gateway_call_with_message_format(endpoint_config):
     async def mock_async_func(payload):
         return {"id": "msg_1", "type": "message", "role": "assistant", "content": []}
@@ -333,6 +388,30 @@ async def test_maybe_traced_gateway_call_with_message_format(endpoint_config):
     span_name_to_span = {span.name: span for span in trace.data.spans}
     gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
     assert gateway_span.get_attribute("mlflow.message.format") == "anthropic"
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_excludes_none_fields_from_pydantic_payload(
+    endpoint_config,
+):
+    from mlflow.gateway.schemas import chat
+
+    traced_func = maybe_traced_gateway_call(mock_async_func, endpoint_config)
+    payload = chat.RequestPayload(messages=[{"role": "user", "content": "hi"}])
+    await traced_func(payload)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
+
+    # Unset optional fields (max_tokens, temperature, ...) should not clutter the input
+    assert gateway_span.inputs == {
+        "messages": [{"role": "user", "content": "hi"}],
+        "n": 1,
+    }
 
 
 @pytest.mark.asyncio
@@ -806,6 +885,94 @@ def test_aggregate_anthropic_messages_stream_chunks_multiple_chunks_per_sse():
     assert result["usage"] == {"input_tokens": 5, "output_tokens": 2}
 
 
+def test_aggregate_anthropic_messages_stream_chunks_thinking():
+    chunks = [
+        _msg_start("msg_think", "claude-sonnet-4-5", input_tokens=12),
+        _sse({
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "thinking", "thinking": ""},
+        }),
+        _sse({
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "thinking_delta", "thinking": "Let me "},
+        }),
+        _sse({
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "thinking_delta", "thinking": "think."},
+        }),
+        _sse({
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "signature_delta", "signature": "sig"},
+        }),
+        _sse({"type": "content_block_stop", "index": 0}),
+        _sse({
+            "type": "content_block_start",
+            "index": 1,
+            "content_block": {"type": "redacted_thinking", "data": "encrypted"},
+        }),
+        _sse({"type": "content_block_stop", "index": 1}),
+        _text_block_start(2),
+        _text_delta(2, "Answer"),
+        _sse({"type": "content_block_stop", "index": 2}),
+        _msg_delta("end_turn", output_tokens=20),
+    ]
+    result = aggregate_anthropic_messages_stream_chunks(chunks)
+
+    assert result["content"] == [
+        {"type": "thinking", "thinking": "Let me think.", "signature": "sig"},
+        {"type": "redacted_thinking", "data": "encrypted"},
+        {"type": "text", "text": "Answer"},
+    ]
+
+
+def test_aggregate_anthropic_messages_stream_chunks_server_tool_use():
+    chunks = [
+        _msg_start("msg_srv", "claude-sonnet-4-5"),
+        _sse({
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {
+                "type": "server_tool_use",
+                "id": "srvtoolu_1",
+                "name": "web_search",
+                "input": {},
+            },
+        }),
+        _sse({
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "input_json_delta", "partial_json": '{"query": "q"}'},
+        }),
+        _sse({"type": "content_block_stop", "index": 0}),
+        _sse({
+            "type": "content_block_start",
+            "index": 1,
+            "content_block": {
+                "type": "web_search_tool_result",
+                "tool_use_id": "srvtoolu_1",
+                "content": [],
+            },
+        }),
+        _sse({"type": "content_block_stop", "index": 1}),
+        _msg_delta("end_turn", output_tokens=5),
+    ]
+    result = aggregate_anthropic_messages_stream_chunks(chunks)
+
+    assert result["content"] == [
+        {
+            "type": "server_tool_use",
+            "id": "srvtoolu_1",
+            "name": "web_search",
+            "input": {"query": "q"},
+        },
+        {"type": "web_search_tool_result", "tool_use_id": "srvtoolu_1", "content": []},
+    ]
+
+
 @pytest.mark.parametrize(
     ("raw_json", "expected_input"),
     [
@@ -945,6 +1112,85 @@ def test_aggregate_openai_responses_stream_chunks_returns_completed_response():
 
     assert result["status"] == "completed"
     assert result["usage"]["total_tokens"] == 48
+
+
+@pytest.mark.parametrize(
+    ("event_type", "status", "details"),
+    [
+        (
+            "response.incomplete",
+            "incomplete",
+            {"incomplete_details": {"reason": "max_output_tokens"}},
+        ),
+        (
+            "response.failed",
+            "failed",
+            {"error": {"code": "server_error", "message": "Upstream failure"}},
+        ),
+    ],
+)
+# An empty terminator exercises the trailing-bytes flush path.
+@pytest.mark.parametrize("terminator", ["\n", ""])
+def test_aggregate_openai_responses_stream_chunks_non_completed_terminal_events(
+    event_type: str, status: str, details: dict[str, Any], terminator: str
+):
+    response = {
+        "id": "resp_1",
+        "object": "response",
+        "status": status,
+        "output": [
+            {
+                "id": "msg_1",
+                "type": "message",
+                "status": "incomplete",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Hi", "annotations": []}],
+            }
+        ],
+        "usage": {"input_tokens": 37, "output_tokens": 1, "total_tokens": 38},
+        **details,
+    }
+    event = {"type": event_type, "response": response}
+    terminal = f"data: {json.dumps(event)}{terminator}".encode()
+    chunks = [_RESPONSES_CREATED, _RESPONSES_TEXT_DELTA, terminal]
+
+    assert aggregate_openai_responses_stream_chunks(chunks) == response
+
+
+@pytest.mark.parametrize(
+    ("event_type", "status", "details", "expected"),
+    [
+        ("response.completed", "completed", {}, None),
+        (
+            "response.incomplete",
+            "incomplete",
+            {"incomplete_details": {"reason": "max_output_tokens"}},
+            None,
+        ),
+        (
+            "response.failed",
+            "failed",
+            {"error": {"code": "server_error", "message": "Upstream failure"}},
+            SpanStatus(SpanStatusCode.ERROR, description="server_error: Upstream failure"),
+        ),
+        ("response.failed", "failed", {"error": None}, SpanStatus(SpanStatusCode.ERROR)),
+    ],
+    ids=["completed", "incomplete", "failed", "failed-without-error-details"],
+)
+def test_openai_responses_stream_status(
+    event_type: str, status: str, details: dict[str, Any], expected: SpanStatus | None
+):
+    event = {
+        "type": event_type,
+        "response": {"id": "resp_1", "status": status, "output": [], **details},
+    }
+    chunks = [_RESPONSES_CREATED, _RESPONSES_TEXT_DELTA, f"data: {json.dumps(event)}\n".encode()]
+
+    assert openai_responses_stream_status(chunks) == expected
+
+
+def test_openai_responses_stream_status_without_terminal_event():
+    assert openai_responses_stream_status([_RESPONSES_CREATED, _RESPONSES_TEXT_DELTA]) is None
 
 
 # ---------------------------------------------------------------------------

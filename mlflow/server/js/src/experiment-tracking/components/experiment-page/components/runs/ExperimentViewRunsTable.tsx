@@ -42,6 +42,7 @@ import { getDatasetsCellHeight } from './cells/DatasetsCellRenderer';
 import { PreviewSidebar } from '../../../../../common/components/PreviewSidebar';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
 import { Empty, useDesignSystemTheme } from '@databricks/design-system';
+import type { CursorPaginationProps } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
@@ -53,10 +54,17 @@ import { useToggleRowVisibilityCallback } from '../../hooks/useToggleRowVisibili
 import { ExperimentViewRunsTableHeaderContextProvider } from './ExperimentViewRunsTableHeaderContext';
 import { useRunsHighlightTableRow } from '../../../runs-charts/hooks/useRunsHighlightTableRow';
 import { debounce, isEmpty, isEqual } from 'lodash';
-import { columnStateToPrefs, prefsToColumnState } from './agGridColumnPrefsAdapter';
+import { columnStateToPrefs, getReorderCorrection, prefsToColumnState } from './agGridColumnPrefsAdapter';
 
 const ROW_BUFFER = 101; // How many rows to keep rendered, even ones not visible
 const LARGE_COLUMN_COUNT_THRESHOLD = 1000; // Threshold to determine if we should optimize column rendering
+
+// Pinned-left anchors that must stay leftmost, in restore order: Run Name, then Created
+// (`runDateAndNestInfo` is the Created column's colId).
+const LEADING_ANCHOR_COLUMN_IDS = [
+  makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.RUN_NAME),
+  'runDateAndNestInfo',
+];
 
 export interface ExperimentViewRunsTableProps {
   /**
@@ -77,6 +85,7 @@ export interface ExperimentViewRunsTableProps {
   moreRunsAvailable: boolean;
   onAddColumnClicked: () => void;
   loadMoreRunsFunc: () => void;
+  pageSizeSelect: NonNullable<CursorPaginationProps['pageSizeSelect']>;
   onDatasetSelected?: (dataset: RunDatasetWithTags, run: RunRowType) => void;
   expandRows: boolean;
   uiState: ExperimentPageUIState;
@@ -101,6 +110,7 @@ export const ExperimentViewRunsTable = React.memo(
     onAddColumnClicked,
     rowsData,
     loadMoreRunsFunc,
+    pageSizeSelect,
     onDatasetSelected,
     expandRows,
     viewState,
@@ -293,6 +303,21 @@ export const ExperimentViewRunsTable = React.memo(
           return;
         }
         if (event.source === 'uiColumnMoved' || event.source === 'uiColumnDragged') {
+          // Wait for allColumns to populate (one tick after grid-ready) before reasoning about
+          // order — otherwise a very fast first drag would skip the anchor correction and capture
+          // an unvalidated layout.
+          if (allColumnsRef.current.length === 0) {
+            return;
+          }
+          // Snap a column dropped in front of the pinned anchors back (see getReorderCorrection).
+          // The corrective applyColumnState re-fires with source 'api', which is ignored above, so
+          // there's no recursion and the rejected order is never persisted.
+          const currentOrder = event.columnApi.getColumnState().map((column) => column.colId);
+          const corrected = getReorderCorrection(currentOrder, LEADING_ANCHOR_COLUMN_IDS, allColumnsRef.current);
+          if (corrected) {
+            event.columnApi.applyColumnState({ state: corrected.map((colId) => ({ colId })), applyOrder: true });
+            return;
+          }
           captureColumnState(event.columnApi);
         }
       },
@@ -526,7 +551,6 @@ export const ExperimentViewRunsTable = React.memo(
                 components={getFrameworkComponents()}
                 suppressNoRowsOverlay
                 loadingOverlayComponent="loadingOverlayComponent"
-                loadingOverlayComponentParams={{ showImmediately: true }}
                 getRowId={getRowId}
                 rowBuffer={ROW_BUFFER}
                 onCellClicked={handleCellClicked}
@@ -561,7 +585,13 @@ export const ExperimentViewRunsTable = React.memo(
               isFiltered={isSearchFacetsFilterUsed(searchFacetsState)}
             />
           )}
-          {displayStatusBar && <ExperimentViewRunsTableStatusBar allRunsCount={allRunsCount} isLoading={isLoading} />}
+          {displayStatusBar && (
+            <ExperimentViewRunsTableStatusBar
+              allRunsCount={allRunsCount}
+              isLoading={isLoading}
+              pageSizeSelect={pageSizeSelect}
+            />
+          )}
         </div>
         {displayPreviewSidebar && (
           <PreviewSidebar

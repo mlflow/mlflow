@@ -1,5 +1,7 @@
+import copy
 import logging
 
+from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
@@ -69,19 +71,41 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
             manager_trace = self._trace_manager.pop_trace(span.context.trace_id)
             # Emit user-defined tags as individual span attributes so they survive OTLP export
             # and can be restored to trace tag rows on the server side.
-            if (
-                manager_trace is not None
-                and manager_trace.trace.info.tags
-                and span._attributes is not None
-            ):
-                for key, value in manager_trace.trace.info.tags.items():
-                    if not key.startswith("mlflow."):
-                        span._attributes[SpanAttributeKey.TRACE_TAG_PREFIX + key] = value
+            if manager_trace is not None:
+                try:
+                    span = self._with_trace_tag_attributes(span, manager_trace.trace.info.tags)
+                except Exception:
+                    _logger.debug("Failed to emit trace tags as span attributes", exc_info=True)
 
         if MLFLOW_ENABLE_OTEL_GENAI_SEMCONV.get():
             span = self._translate_span(span)
 
         super().on_end(span)
+
+    def _with_trace_tag_attributes(
+        self, span: OTelReadableSpan, tags: dict[str, str]
+    ) -> OTelReadableSpan:
+        tag_attributes = {
+            SpanAttributeKey.TRACE_TAG_PREFIX + key: value
+            for key, value in tags.items()
+            if not key.startswith("mlflow.")
+        }
+        if not tag_attributes:
+            return span
+        # The attributes object is shared with the live span and with every other span
+        # processor, and opentelemetry-sdk >= 1.43 freezes it before `on_end`. Export a copy
+        # carrying the tags instead of writing to the shared object. Keep the original limits
+        # and dropped count so the copy matches what an in-place write would have produced.
+        original = span._attributes
+        attributes = BoundedAttributes(
+            maxlen=getattr(original, "maxlen", None),
+            attributes={**(span.attributes or {}), **tag_attributes},
+            max_value_len=getattr(original, "max_value_len", None),
+        )
+        attributes.dropped += getattr(original, "dropped", 0)
+        span = copy.copy(span)
+        span._attributes = attributes
+        return span
 
     def _translate_span(self, span: OTelReadableSpan) -> OTelReadableSpan:
         try:

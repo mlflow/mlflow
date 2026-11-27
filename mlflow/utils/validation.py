@@ -6,11 +6,17 @@ import ipaddress
 import json
 import logging
 import numbers
+import os
 import posixpath
 import re
 import socket
+import stat
+import threading
 import urllib.parse
-from typing import Any
+from fnmatch import fnmatch
+from typing import Any, Iterator
+
+import requests
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
@@ -19,6 +25,12 @@ from mlflow.environment_variables import (
     _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS,
     _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
+    MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS,
+    MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES,
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE,
+    MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS,
+    MLFLOW_ICON_URL_ALLOWED_DOMAINS,
+    MLFLOW_ICON_URL_ALLOWED_SCHEMES,
     MLFLOW_TRUNCATE_LONG_VALUES,
 )
 from mlflow.exceptions import MlflowException
@@ -27,6 +39,12 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.string_utils import is_string_type
 
 _logger = logging.getLogger(__name__)
+
+_MAX_REGISTRY_ICONS_PER_LIST = 100
+_MAX_MCP_TOOLS_PER_LIST = 1000
+_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS = 5.0
+_MAX_CONCURRENT_HOSTNAME_RESOLUTIONS = 8
+_HOSTNAME_RESOLUTION_SEMAPHORE = threading.BoundedSemaphore(_MAX_CONCURRENT_HOSTNAME_RESOLUTIONS)
 
 # Regex for valid run IDs: must be an alphanumeric string of length 1 to 256.
 _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
@@ -55,12 +73,14 @@ MAX_PARAMS_TAGS_PER_BATCH = 100
 MAX_METRICS_PER_BATCH = 1000
 MAX_DATASETS_PER_BATCH = 1000
 MAX_ENTITIES_PER_BATCH = 1000
+MAX_DATASET_RECORDS_PER_UPSERT = 10_000
 MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
 MAX_PARAM_VAL_LENGTH = 6000
 MAX_TAG_VAL_LENGTH = 8000
 MAX_EXPERIMENT_NAME_LENGTH = 500
 MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
-MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
+MAX_EXPERIMENT_TAG_VAL_LENGTH = 20000
+MAX_CUSTOM_VIEWS_PER_EXPERIMENT = 50
 MAX_ENTITY_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 100_000
@@ -79,6 +99,9 @@ MAX_REGISTERED_MODEL_ALIAS_LENGTH = 255
 MAX_TRACE_TAG_KEY_LENGTH = 250
 MAX_TRACE_TAG_VAL_LENGTH = 8000
 MAX_TRACE_ARCHIVAL_RETENTION_LENGTH = 32
+MAX_USERNAME_LENGTH = 255
+MAX_ROLE_NAME_LENGTH = 255
+MAX_ROLE_DESCRIPTION_LENGTH = 1024
 _TRACE_ARCHIVAL_RETENTION_REGEX = re.compile(r"^[1-9][0-9]*[mhd]$")
 
 PARAM_VALIDATION_MSG = """
@@ -308,11 +331,11 @@ def validate_param_and_metric_name(name):
     # In windows system valid param and metric names: may only contain slashes, alphanumerics,
     # underscores, periods, dashes, and spaces.
     if is_windows():
-        return re.match(r"^[/\w.\- ]*$", name)
+        return re.fullmatch(r"^[/\w.\- ]*$", name)
 
     # For other system valid param and metric names: may only contain slashes, alphanumerics,
     # underscores, periods, dashes, colons, and spaces.
-    return re.match(r"^[/\w.\- :]*$", name)
+    return re.fullmatch(r"^[/\w.\- :]*$", name)
 
 
 def bad_character_message():
@@ -547,18 +570,45 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
     )
 
 
+def _validate_text_field(field: str, value: str | None, limit: int) -> None:
+    """Reject values the database would refuse, so callers get a 400 instead of a DB error."""
+    if value is None:
+        return
+    if "\x00" in value:
+        raise MlflowException.invalid_parameter_value(
+            f"'{field}' cannot contain NUL (0x00) characters"
+        )
+    _validate_length_limit(field, limit, value)
+
+
 def _validate_run_id(run_id, path="run_id"):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
-    if _RUN_ID_REGEX.match(run_id) is None:
+    if _RUN_ID_REGEX.fullmatch(run_id) is None:
         raise MlflowException(invalid_value(path, run_id), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_experiment_id(exp_id):
     """Check that `experiment_id`is a valid string or None, raise an exception if it isn't."""
-    if exp_id is not None and _EXPERIMENT_ID_REGEX.match(exp_id) is None:
+    if exp_id is not None and _EXPERIMENT_ID_REGEX.fullmatch(exp_id) is None:
         raise MlflowException(
             f"Invalid experiment ID: '{exp_id}'", error_code=INVALID_PARAMETER_VALUE
         )
+
+
+def _parse_experiment_id(experiment_id: str | int) -> int:
+    """Parse a non-None experiment ID into an integer."""
+    try:
+        return int(experiment_id)
+    except (ValueError, TypeError):
+        raise MlflowException(
+            f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid integer.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _parse_experiment_ids(experiment_ids: list[str | int]) -> list[int]:
+    """Parse non-None experiment IDs into integers."""
+    return [_parse_experiment_id(experiment_id) for experiment_id in experiment_ids]
 
 
 def _validate_batch_limit(entity_name, limit, length):
@@ -606,7 +656,7 @@ def _validate_batch_log_api_req(json_req):
 
 def _validate_experiment_name(experiment_name):
     """Check that `experiment_name` is a valid string and raise an exception if it isn't."""
-    if experiment_name == "" or experiment_name is None:
+    if experiment_name is None or (is_string_type(experiment_name) and not experiment_name.strip()):
         raise MlflowException(
             f"Invalid experiment name: '{experiment_name}'",
             error_code=INVALID_PARAMETER_VALUE,
@@ -683,41 +733,130 @@ def _validate_model_renaming(model_new_name: str) -> None:
 
 def _validate_model_version(model_version):
     try:
-        model_version = int(model_version)
+        return int(model_version)
     except ValueError:
         raise MlflowException(
             not_integer_value("version", model_version), error_code=INVALID_PARAMETER_VALUE
         )
 
 
-def _validate_model_alias_name(model_alias_name):
-    if model_alias_name is None or model_alias_name == "":
+def _validate_alias_name(alias, resource_type="Registered model"):
+    if alias is None or alias == "":
         raise MlflowException(
-            "Registered model alias name cannot be empty.", INVALID_PARAMETER_VALUE
+            f"{resource_type} alias name cannot be empty.", INVALID_PARAMETER_VALUE
         )
-    if not _REGISTERED_MODEL_ALIAS_REGEX.match(model_alias_name):
+    if not _REGISTERED_MODEL_ALIAS_REGEX.fullmatch(alias):
         raise MlflowException(
-            f"Invalid alias name: '{model_alias_name}'. {_BAD_ALIAS_CHARACTERS_MESSAGE}",
+            f"Invalid alias name: '{alias}'. {_BAD_ALIAS_CHARACTERS_MESSAGE}",
             INVALID_PARAMETER_VALUE,
         )
     _validate_length_limit(
-        "Registered model alias name",
+        f"{resource_type} alias name",
         MAX_REGISTERED_MODEL_ALIAS_LENGTH,
-        model_alias_name,
+        alias,
     )
 
 
-def _validate_model_alias_name_reserved(model_alias_name):
-    if model_alias_name.lower() == "latest":
+def _validate_alias_name_reserved(alias):
+    if alias.lower() == "latest":
         raise MlflowException(
             "'latest' alias name (case insensitive) is reserved.",
             INVALID_PARAMETER_VALUE,
         )
-    if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.match(model_alias_name):
+    if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.fullmatch(alias):
         raise MlflowException(
-            f"Version alias name '{model_alias_name}' is reserved.",
+            f"Version alias name '{alias}' is reserved.",
             INVALID_PARAMETER_VALUE,
         )
+
+
+MAX_SKILL_NAME_LENGTH = 64
+MAX_ORGANIZATION_NAME_LENGTH = 64
+MAX_SKILL_VERSION = 2_147_483_647
+_MAX_BULK_REGISTER_SKILLS = 500
+
+# Skill names: lowercase ASCII letters, digits, and single hyphens; alphanumeric first
+# and last characters; no consecutive hyphens.
+_SKILL_NAME_REGEX = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+# Organization names additionally allow single periods between alphanumeric groups.
+_ORGANIZATION_NAME_REGEX = re.compile(r"^[a-z0-9]+([-.][a-z0-9]+)*$")
+
+
+def _validate_skill_name(name):
+    if not name:
+        raise MlflowException.invalid_parameter_value("Skill name must not be empty.")
+    if _SKILL_NAME_REGEX.fullmatch(name) is None:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid skill name {name!r}. Names must be 1-64 lowercase ASCII letters, digits, "
+            "and hyphens; cannot begin or end with a hyphen; and cannot contain consecutive "
+            "hyphens."
+        )
+    _validate_length_limit("Skill name", MAX_SKILL_NAME_LENGTH, name)
+
+
+def _validate_organization_name(organization):
+    if organization == "":
+        return
+    if (
+        not isinstance(organization, str)
+        or _ORGANIZATION_NAME_REGEX.fullmatch(organization) is None
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid organization name {organization!r}. Organizations must be 1-64 lowercase "
+            "ASCII letters, digits, hyphens, and periods; must have alphanumeric first and last "
+            "characters; and cannot contain consecutive hyphens or periods."
+        )
+    _validate_length_limit("Organization name", MAX_ORGANIZATION_NAME_LENGTH, organization)
+
+
+def _parse_skill_identities(identities: list[str] | None) -> list[tuple[str, str]] | None:
+    """Validate a search selector and resolve ``name`` or ``@organization/name`` identities."""
+    if identities is None:
+        return None
+    if not isinstance(identities, list) or any(not isinstance(key, str) for key in identities):
+        raise MlflowException.invalid_parameter_value(
+            "include_skill_identities must be a list of Skill identity strings."
+        )
+    result = []
+    for identity in identities:
+        organization = ""
+        name = identity
+        if identity.startswith("@"):
+            organization, separator, name = identity[1:].partition("/")
+            if not separator or not organization:
+                raise MlflowException.invalid_parameter_value(
+                    "Skill identities must be 'name' or '@organization/name'."
+                )
+        _validate_organization_name(organization)
+        _validate_skill_name(name)
+        result.append((organization, name))
+    return result
+
+
+def _validate_skill_version(version):
+    if (
+        isinstance(version, bool)
+        or not isinstance(version, int)
+        or not 1 <= version <= MAX_SKILL_VERSION
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"Skill version must be a positive integer <= {MAX_SKILL_VERSION}, got {version!r}."
+        )
+
+
+def _validate_skill_alias(alias, *, allow_latest=False):
+    _validate_alias_name(alias, resource_type="Skill")
+    if not (allow_latest and alias.lower() == "latest"):
+        _validate_alias_name_reserved(alias)
+
+
+def _validate_skill_tag(key, value):
+    _validate_tag_name(key)
+    _validate_tag_value(value)
+    return RunTag(
+        _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key),
+        _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value),
+    )
 
 
 def _validate_experiment_artifact_location(artifact_location):
@@ -828,9 +967,7 @@ def _validate_username(username):
 
 def _validate_password(password) -> None:
     if password is None or len(password) < 12:
-        raise MlflowException.invalid_parameter_value(
-            "Password must be a string longer than 12 characters."
-        )
+        raise MlflowException.invalid_parameter_value("Password must be at least 12 characters.")
 
 
 def _validate_trace_tag(key, value):
@@ -886,6 +1023,722 @@ def _validate_webhook_name(name: str) -> None:
         )
 
 
+_NAT64_PREFIX = ipaddress.IPv6Network("64:ff9b::/96")
+
+
+def _embedded_ipv4(
+    ip: ipaddress.IPv4Address | ipaddress.IPv6Address,
+) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+    """Decode IPv6 transition formats that carry an embedded IPv4 address.
+
+    This normalizes IPv6-transition addresses (IPv4-mapped, 6to4, NAT64) to their
+    embedded IPv4 address so that a wrapped private/CGNAT/link-local address cannot
+    masquerade as global.
+    """
+    if isinstance(ip, ipaddress.IPv6Address):
+        embedded = ip.ipv4_mapped or ip.sixtofour
+        if embedded is None and ip in _NAT64_PREFIX:
+            embedded = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+        if embedded is not None:
+            return embedded
+    return ip
+
+
+def _is_public_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Check if an IP is public, accounting for IPv6-transition address formats."""
+    return _embedded_ipv4(ip).is_global
+
+
+def _is_ip_literal_like(hostname: str) -> bool:
+    """Mirror aiohttp's heuristic for hosts it dials as IP literals without a DNS lookup."""
+    return ":" in hostname or hostname.replace(".", "").isdigit()
+
+
+def _validate_canonical_ip_literal(hostname: str, field_name: str) -> None:
+    """Reject numeric hosts that are not canonical IP literals.
+
+    ``socket`` maps legacy spellings like ``127.1`` or ``0177.0.0.1`` onto an address at
+    connect time, and validators may parse them differently (``0177.0.0.1`` is loopback to
+    ``inet_aton`` but ``177.0.0.1`` to ``getaddrinfo``).
+    """
+    if not _is_ip_literal_like(hostname):
+        return
+    try:
+        ipaddress.ip_address(hostname)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} host {hostname!r} is not a canonical IP address literal."
+        ) from e
+
+
+def _resolve_hostname_with_timeout(hostname: str, field_name: str):
+    acquired = _HOSTNAME_RESOLUTION_SEMAPHORE.acquire(timeout=_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS)
+    if not acquired:
+        raise MlflowException.invalid_parameter_value(
+            f"Timed out waiting to resolve {field_name} hostname {hostname!r} because "
+            "too many hostname resolutions are already in progress"
+        )
+
+    result: dict[str, Any] = {}
+
+    def _resolve():
+        try:
+            result["addr_infos"] = socket.getaddrinfo(hostname, None)
+        except Exception as e:
+            result["error"] = e
+        finally:
+            _HOSTNAME_RESOLUTION_SEMAPHORE.release()
+
+    thread = threading.Thread(target=_resolve, daemon=True, name="mlflow-hostname-resolution")
+    thread.start()
+    thread.join(timeout=_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS)
+    if thread.is_alive():
+        raise MlflowException.invalid_parameter_value(
+            f"Timed out resolving {field_name} hostname {hostname!r} after "
+            f"{_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS:g} seconds"
+        )
+    if "error" in result:
+        raise result["error"]
+    return result["addr_infos"]
+
+
+def _validate_hostname_resolves_to_public_ips(hostname: str, field_name: str) -> None:
+    try:
+        addr_infos = _resolve_hostname_with_timeout(hostname, field_name)
+    except (socket.gaierror, UnicodeError, ValueError) as e:
+        raise MlflowException.invalid_parameter_value(
+            f"Cannot resolve {field_name} hostname {hostname!r}: {e}"
+        ) from e
+
+    for addr_info in addr_infos:
+        try:
+            ip = ipaddress.ip_address(addr_info[4][0])
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(
+                f"{field_name} hostname {hostname!r} resolved to an invalid IP address: {e}"
+            ) from e
+        if not _is_public_ip(ip):
+            raise MlflowException.invalid_parameter_value(
+                f"{field_name} must not resolve to a non-public IP address. "
+                f"{hostname!r} resolves to {ip}."
+            )
+
+
+def _validate_public_https_url(
+    url: str,
+    field_name: str = "URL",
+    allowed_schemes: list[str] | tuple[str, ...] | set[str] = ("https",),
+    allow_private_ips: bool = False,
+) -> None:
+    if not isinstance(url, str):
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must be a string, got {type(url).__name__!r}"
+        )
+
+    if not url.strip():
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} cannot be empty or just whitespace: {url!r}"
+        )
+
+    try:
+        parsed_url = urllib.parse.urlparse(url)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(f"Invalid {field_name} {url!r}: {e!r}") from e
+
+    normalized_allowed_schemes = {scheme.lower() for scheme in allowed_schemes}
+    if parsed_url.scheme not in normalized_allowed_schemes:
+        scheme_list = ", ".join(f"{scheme!r}" for scheme in sorted(normalized_allowed_schemes))
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid {field_name} scheme: {parsed_url.scheme!r}. Allowed schemes are: "
+            f"{scheme_list}."
+        )
+
+    if parsed_url.username or parsed_url.password:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must not include embedded credentials: {url!r}"
+        )
+
+    hostname = parsed_url.hostname
+    if not hostname:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must include a hostname: {url!r}"
+        )
+
+    _validate_canonical_ip_literal(hostname, field_name)
+
+    if not allow_private_ips:
+        _validate_hostname_resolves_to_public_ips(hostname, field_name)
+
+
+def _validate_gateway_api_base(url: str) -> None:
+    """Validate an AI Gateway secret's ``api_base``: public HTTPS only by default.
+
+    The gateway sends requests to this URL, so it follows the webhook and icon URL SSRF
+    policy. ``MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES`` and
+    ``MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS`` relax it.
+    """
+    _validate_public_https_url(
+        url,
+        field_name="Gateway secret api_base",
+        allowed_schemes=MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES.get(),
+        allow_private_ips=MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS.get(),
+    )
+
+
+# LiteLLM keyword arguments that choose where a request is sent. The LiteLLM provider spreads
+# a secret's ``auth_config`` into litellm kwargs, so each of these is as sensitive as
+# ``api_base``: ``base_url`` is litellm's alias for ``api_base``, ``model_list`` and
+# ``fallbacks`` carry per-deployment ``api_base`` values, ``custom_llm_provider`` swaps
+# the provider and with it the default endpoint, and the ``aws_*_endpoint`` options override
+# the AWS endpoints litellm would otherwise derive from the region. ``sagemaker_base_url``
+# replaces the whole SageMaker runtime URL, which litellm then SigV4-signs with the stored AWS
+# credentials. OAuth destinations such as ``gigachat_auth_url`` receive provider credentials and
+# must follow the same policy.
+GATEWAY_DESTINATION_KEYS = frozenset({
+    "api_base",
+    "base_url",
+    "model_list",
+    "fallbacks",
+    "custom_llm_provider",
+    "aws_bedrock_runtime_endpoint",
+    "aws_sts_endpoint",
+    "sagemaker_base_url",
+    "gigachat_auth_url",
+})
+# ``api_base`` is the one validated way to choose the upstream, so the aliases are rejected in
+# ``auth_config`` and nothing egress-controlling may hide in the encrypted, unvalidated
+# ``secret_value`` map.
+_GATEWAY_AUTH_CONFIG_RESERVED_KEYS = GATEWAY_DESTINATION_KEYS - {"api_base"}
+_GATEWAY_SECRET_VALUE_RESERVED_KEYS = GATEWAY_DESTINATION_KEYS
+
+
+# Keys whose value becomes part of a provider's request host, such as
+# ``bedrock-runtime.{aws_region_name}.amazonaws.com``. The native providers and LiteLLM both build
+# hosts this way, so each value must be a bare region name.
+# ``vertex_ai_location`` is litellm's alias for ``vertex_location``.
+GATEWAY_REGION_KEYS = frozenset({"aws_region_name", "vertex_location", "vertex_ai_location"})
+
+
+def _validate_region_name(value: Any, field_name: str, *, show_value: bool = True) -> Any:
+    """Raise ``ValueError`` unless ``value`` is unset or a bare region name like ``us-east-1``."""
+    if value is None or value == "":
+        return value
+    if not (isinstance(value, str) and re.fullmatch(r"[a-z0-9-]+", value)):
+        got = f"; got {value!r}" if show_value else ""
+        raise ValueError(
+            f"{field_name} must contain only lowercase letters, digits, and hyphens{got}"
+        )
+    return value
+
+
+def _validate_gateway_region_keys(
+    config: dict[str, Any] | None, source: str, *, show_value: bool = True
+) -> None:
+    for key in sorted(GATEWAY_REGION_KEYS & set(config or {})):
+        try:
+            _validate_region_name(config[key], f"{source} {key!r}", show_value=show_value)
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(str(e)) from None
+
+
+# Keys holding a Google Cloud service account key: the native Vertex AI provider reads
+# ``vertex_credentials`` and LiteLLM also accepts ``vertex_ai_credentials``.
+GATEWAY_VERTEX_CREDENTIAL_KEYS = frozenset({"vertex_credentials", "vertex_ai_credentials"})
+
+
+def _is_google_auth_url(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        parsed = urllib.parse.urlparse(value)
+        hostname = parsed.hostname
+        # Reading the port raises ValueError when it is malformed.
+        parsed.port
+    except ValueError:
+        return False
+    return (
+        parsed.scheme == "https"
+        and parsed.username is None
+        and hostname is not None
+        and re.fullmatch(r"[a-z0-9.-]+", hostname) is not None
+        and (hostname == "accounts.google.com" or hostname.endswith(".googleapis.com"))
+    )
+
+
+# The token endpoints a service account key can name: the current one, its mTLS host, its
+# Private Service Connect hosts (``oauth2-<endpoint>.p.googleapis.com``) and the one older keys
+# carry. The whole URL is matched, not just the host, because google-auth follows redirects and
+# other paths on these hosts can redirect elsewhere, such as the OAuth authorization endpoint
+# on accounts.google.com.
+_GOOGLE_TOKEN_URL_REGEX = re.compile(
+    r"https://(oauth2(\.mtls|-[a-z0-9-]+\.p)?\.googleapis\.com/token"
+    r"|accounts\.google\.com/o/oauth2/token)"
+)
+
+
+def _is_google_token_url(value: Any) -> bool:
+    return isinstance(value, str) and _GOOGLE_TOKEN_URL_REGEX.fullmatch(value) is not None
+
+
+def _validate_vertex_service_account_info(info: Any, field_name: str) -> None:
+    """Raise unless ``info`` is a service account key whose URLs all point to Google.
+
+    google-auth sends the signed token request to ``token_uri`` through ``requests``, outside
+    the gateway's SSRF-guarded transport and with redirects followed, so a stored key must not
+    choose where it goes: ``token_uri`` must be one of Google's token endpoints, which don't
+    redirect. It is required, since google-auth can't load a key without it. Every other
+    ``*_uri``/``*_url`` field must be on a Google host, and other credential types are refused
+    because they carry further URLs and local file sources.
+    """
+    if not isinstance(info, dict) or info.get("type") != "service_account":
+        raise MlflowException.invalid_parameter_value(
+            f'{field_name} must be a service account key: a JSON object with "type": '
+            '"service_account"'
+        )
+    if not _is_google_token_url(info.get("token_uri")):
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} field 'token_uri' must be a Google OAuth token endpoint, such as "
+            "https://oauth2.googleapis.com/token"
+        )
+    for key in sorted(k for k in info if k.endswith(("_uri", "_url"))):
+        if not _is_google_auth_url(info[key]):
+            raise MlflowException.invalid_parameter_value(
+                f"{field_name} field {key!r} must be an https URL on accounts.google.com or "
+                "*.googleapis.com"
+            )
+
+
+# Service account keys are a few KiB.
+_MAX_VERTEX_CREDENTIALS_FILE_BYTES = 64 * 1024
+
+
+def _read_vertex_credentials_file(path: str) -> str:
+    # O_NONBLOCK keeps opening a FIFO from waiting for a writer. Only regular files are read,
+    # and only up to a bound, so a FIFO or a device such as /dev/zero can't stall the server
+    # or exhaust its memory.
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError("Not a regular file")
+        with os.fdopen(fd, "rb", closefd=False) as f:
+            data = f.read(_MAX_VERTEX_CREDENTIALS_FILE_BYTES + 1)
+    finally:
+        os.close(fd)
+    if len(data) > _MAX_VERTEX_CREDENTIALS_FILE_BYTES:
+        raise ValueError("File too large")
+    return data.decode("utf-8")
+
+
+def _load_gateway_vertex_credentials(
+    value: Any, field_name: str, *, allow_file: bool = True
+) -> dict[str, Any]:
+    """Parse and validate a Vertex AI service account key.
+
+    The key is given inline. A file path is read only when
+    ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE`` is ``true``, as for API keys, since the server
+    would otherwise load files from its own filesystem on a caller's behalf. Pass
+    ``allow_file=False`` when the caller can't replace the value with the returned document: a
+    path left in place is read again later, without these checks. Values are never echoed,
+    since they hold private keys.
+    """
+    info = value
+    if isinstance(value, str):
+        try:
+            info = json.loads(value)
+        # A plain ValueError covers integers over the digit limit, which aren't a
+        # JSONDecodeError, and deeply nested input raises RecursionError.
+        except (ValueError, RecursionError):
+            if not (allow_file and MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE.get()):
+                raise MlflowException.invalid_parameter_value(
+                    f"{field_name} must contain the service account key JSON itself, not a "
+                    "file path"
+                ) from None
+            try:
+                info = json.loads(_read_vertex_credentials_file(value))
+            except (OSError, ValueError, RecursionError):
+                raise MlflowException.invalid_parameter_value(
+                    f"{field_name} must be a service account key JSON or a path to a JSON file"
+                ) from None
+    _validate_vertex_service_account_info(info, field_name)
+    return info
+
+
+def _validate_gateway_vertex_credentials(
+    config: dict[str, Any] | None, source: str, *, allow_file: bool = True
+) -> None:
+    for key in sorted(GATEWAY_VERTEX_CREDENTIAL_KEYS & set(config or {})):
+        if config[key]:
+            _load_gateway_vertex_credentials(
+                config[key], f"{source} {key!r}", allow_file=allow_file
+            )
+
+
+def _validate_gateway_secret_auth_config(
+    auth_config: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Validate a gateway secret's ``auth_config`` on write and return a normalized copy.
+
+    ``api_base`` is the only key naming an outbound target. A blank value is dropped rather
+    than stored, since providers fall back to their default by truthiness.
+    """
+    if not auth_config:
+        return None
+    normalized = dict(auth_config)
+    if reserved := sorted(_GATEWAY_AUTH_CONFIG_RESERVED_KEYS & set(normalized)):
+        raise MlflowException.invalid_parameter_value(
+            f"auth_config must not contain {', '.join(map(repr, reserved))}: these LiteLLM "
+            "options choose where the gateway sends requests. Set the upstream with "
+            "'api_base', which is validated."
+        )
+    # auth_config is stored unencrypted and returned by the secret APIs, and a service account
+    # key holds a private key.
+    if credential_keys := sorted(GATEWAY_VERTEX_CREDENTIAL_KEYS & set(normalized)):
+        raise MlflowException.invalid_parameter_value(
+            f"auth_config must not contain {', '.join(map(repr, credential_keys))}: "
+            "auth_config is stored unencrypted and returned by the API. Put the service account "
+            "key in secret_value."
+        )
+    _validate_gateway_region_keys(normalized, "auth_config")
+    if auth_url := normalized.get("auth_url"):
+        _validate_gateway_api_base(auth_url)
+    api_base = normalized.get("api_base")
+    if isinstance(api_base, str):
+        api_base = api_base.strip()
+    if not api_base:
+        normalized.pop("api_base", None)
+        return normalized
+    _validate_gateway_api_base(api_base)
+    normalized["api_base"] = api_base
+    return normalized
+
+
+def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
+    """Reject ``secret_value`` keys that would steer gateway egress (see reserved keys)."""
+    if not secret_value:
+        return
+    if reserved := sorted(_GATEWAY_SECRET_VALUE_RESERVED_KEYS & set(secret_value)):
+        raise MlflowException.invalid_parameter_value(
+            f"secret_value must not contain {', '.join(map(repr, reserved))}: these keys "
+            "choose where the gateway sends requests. Set the upstream with 'api_base' in "
+            "auth_config, where it is validated."
+        )
+    # The LiteLLM provider merges secret_value into its kwargs too. Values aren't echoed, since
+    # they sit next to secrets.
+    _validate_gateway_region_keys(secret_value, "secret_value", show_value=False)
+    _validate_gateway_vertex_credentials(secret_value, "secret_value")
+
+
+def _find_destination_keys(value: Any) -> set[str]:
+    if isinstance(value, dict):
+        found = GATEWAY_DESTINATION_KEYS & set(value)
+        for nested in value.values():
+            found |= _find_destination_keys(nested)
+        return found
+    if isinstance(value, list):
+        found: set[str] = set()
+        for nested in value:
+            # `dict()` also accepts a list of two-item pairs, which is how nested option maps
+            # such as trulens' `completion_kwargs` are materialized.
+            if isinstance(nested, list) and len(nested) == 2 and isinstance(nested[0], str):
+                found |= GATEWAY_DESTINATION_KEYS & {nested[0]}
+            found |= _find_destination_keys(nested)
+        return found
+    return set()
+
+
+def _iter_key_values(value: Any, keys: frozenset[str]) -> Iterator[tuple[str, Any]]:
+    """Yield ``(key, value)`` for every one of ``keys`` nested anywhere in ``value``.
+
+    Like ``_find_destination_keys``, this also reads the two-item pairs ``dict()`` accepts.
+    """
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if key in keys:
+                yield key, nested
+            yield from _iter_key_values(nested, keys)
+    elif isinstance(value, list):
+        for nested in value:
+            if (
+                isinstance(nested, list)
+                and len(nested) == 2
+                and isinstance(nested[0], str)
+                and nested[0] in keys
+            ):
+                yield nested[0], nested[1]
+            yield from _iter_key_values(nested, keys)
+
+
+def _iter_third_party_scorer_data(value: Any) -> Iterator[dict[str, Any]]:
+    """Yield every ``third_party_scorer_data`` mapping nested anywhere in a serialized scorer.
+
+    Containers such as ensembles (``ensemble_scorer_data.scorers``) and MemAlign judges
+    (``memory_augmented_judge_data.base_judge``) embed whole serialized scorers that
+    ``Scorer.model_validate`` rebuilds recursively, so the walk does not assume a fixed shape.
+    """
+    if isinstance(value, dict):
+        data = value.get("third_party_scorer_data")
+        if isinstance(data, dict):
+            yield data
+        for nested in value.values():
+            yield from _iter_third_party_scorer_data(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from _iter_third_party_scorer_data(nested)
+
+
+def _validate_third_party_scorer_data(
+    serialized_scorer: dict[str, Any], *, show_value: bool = True
+) -> None:
+    """Reject third-party scorer ``kwargs`` that would steer the judge's outbound requests.
+
+    ``third_party_scorer_data`` is rebuilt by reflective instantiation and its ``kwargs`` reach
+    the wrapped library's LLM client unchanged: the TruLens LiteLLM fallback forwards them into
+    every ``litellm.completion()`` call, so ``api_base`` and its aliases let a caller pick the
+    host the server connects to. The server is the trust boundary for these payloads, so the
+    gateway destination keys are rejected here at any nesting depth (``completion_kwargs``,
+    ``model_kwargs``, ...) and inside any wrapping scorer. Providers build request hosts from
+    the region keys, so those must be bare region names at any nesting depth too, and Vertex AI
+    service account keys must pass ``_load_gateway_vertex_credentials``.
+    ``show_value=False`` leaves a rejected region value out of the error message.
+    """
+    for data in _iter_third_party_scorer_data(serialized_scorer):
+        kwargs = data.get("kwargs")
+        # Deserialization runs `dict(kwargs or {})`, so only a mapping (or null) is a valid shape.
+        if kwargs is not None and not isinstance(kwargs, dict):
+            raise MlflowException.invalid_parameter_value(
+                "third_party_scorer_data.kwargs must be a JSON object, got "
+                f"{type(kwargs).__name__}."
+            )
+        if found := sorted(_find_destination_keys(kwargs)):
+            raise MlflowException.invalid_parameter_value(
+                f"third_party_scorer_data.kwargs must not contain {', '.join(map(repr, found))}: "
+                "these options choose where the scorer's LLM client sends requests. Configure "
+                "the judge endpoint on the server instead, for example through a gateway "
+                "endpoint ('gateway:/<name>') or the provider's environment variables."
+            )
+        for key, value in _iter_key_values(kwargs, GATEWAY_REGION_KEYS):
+            try:
+                _validate_region_name(
+                    value, f"third_party_scorer_data.kwargs {key!r}", show_value=show_value
+                )
+            except ValueError as e:
+                raise MlflowException.invalid_parameter_value(str(e)) from None
+        # The kwargs reach the scorer's LLM client as stored, so a path is never accepted here.
+        for key, value in _iter_key_values(kwargs, GATEWAY_VERTEX_CREDENTIAL_KEYS):
+            if value:
+                _load_gateway_vertex_credentials(
+                    value, f"third_party_scorer_data.kwargs {key!r}", allow_file=False
+                )
+
+
+# Serialized judges whose data carries ``inference_params``: ``InstructionsJudge`` (``make_judge``)
+# and the built-in scorers.
+_JUDGE_PYDANTIC_DATA_FIELDS = ("instructions_judge_pydantic_data", "builtin_scorer_pydantic_data")
+
+
+def _iter_judge_pydantic_data(value: Any) -> Iterator[tuple[str, dict[str, Any]]]:
+    """Yield ``(field, data)`` for every judge's data nested anywhere in a serialized scorer.
+
+    Like ``_iter_third_party_scorer_data``, this reaches judges wrapped by ensembles and MemAlign.
+    """
+    if isinstance(value, dict):
+        for field in _JUDGE_PYDANTIC_DATA_FIELDS:
+            data = value.get(field)
+            if isinstance(data, dict):
+                yield field, data
+        for nested in value.values():
+            yield from _iter_judge_pydantic_data(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from _iter_judge_pydantic_data(nested)
+
+
+def _validate_judge_inference_params(
+    serialized_scorer: dict[str, Any], *, show_value: bool = True
+) -> None:
+    """Reject judge ``inference_params`` that set where the judge's requests are sent.
+
+    The LiteLLM judge adapter merges ``inference_params`` into the ``litellm.completion()``
+    kwargs last, so they would take precedence over the endpoint the server configured. The
+    judge endpoint is configured on the server, so the gateway destination keys rejected for
+    third-party scorer kwargs are rejected here too, at any nesting depth and inside any
+    wrapping scorer. Providers build request hosts from the region keys, so those must be bare
+    region names, and Vertex AI service account keys must pass
+    ``_load_gateway_vertex_credentials``. ``show_value=False`` leaves a rejected region value
+    out of the error message.
+    """
+    for field, data in _iter_judge_pydantic_data(serialized_scorer):
+        params = data.get("inference_params")
+        # The adapter applies these with `dict.update`, which also accepts a list of key/value
+        # pairs, so only a mapping (or null) is a valid shape.
+        if params is not None and not isinstance(params, dict):
+            raise MlflowException.invalid_parameter_value(
+                f"{field}.inference_params must be a JSON object, got {type(params).__name__}."
+            )
+        if found := sorted(_find_destination_keys(params)):
+            raise MlflowException.invalid_parameter_value(
+                f"{field}.inference_params must not contain {', '.join(map(repr, found))}: "
+                "these options choose where the judge's LLM client sends requests. Configure "
+                "the judge endpoint on the server instead, for example through a gateway "
+                "endpoint ('gateway:/<name>') or the provider's environment variables."
+            )
+        _validate_gateway_region_keys(params, f"{field}.inference_params", show_value=show_value)
+        # Like third-party scorer kwargs, these are used as stored, so a path is never accepted.
+        _validate_gateway_vertex_credentials(params, f"{field}.inference_params", allow_file=False)
+
+
+def _validate_scorer_destination_options(
+    serialized_scorer: Any, *, show_value: bool = True
+) -> None:
+    """Reject a serialized scorer whose options set where its LLM client sends requests.
+
+    Runs the third-party scorer ``kwargs`` and judge ``inference_params`` checks. Pass
+    ``show_value=False`` when checking a stored scorer whose error is logged, so that rejected
+    stored values stay out of the server logs.
+    """
+    _validate_third_party_scorer_data(serialized_scorer, show_value=show_value)
+    _validate_judge_inference_params(serialized_scorer, show_value=show_value)
+
+
+def _validate_icon_url(url: str) -> None:
+    """Validate a registry icon URL on write/update requests.
+
+    Default behavior accepts only public HTTPS targets. This follows the
+    existing webhook pattern for scheme and private-IP controls, with an
+    optional hostname allowlist layered on top for stricter deployments.
+
+    Operators can further configure:
+    - ``MLFLOW_ICON_URL_ALLOWED_SCHEMES`` to allow schemes like ``http``
+    - ``MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS=true`` to allow localhost /
+      loopback / private-network targets
+    - ``MLFLOW_ICON_URL_ALLOWED_DOMAINS`` for a strict hostname allowlist
+    """
+    allowed_schemes = MLFLOW_ICON_URL_ALLOWED_SCHEMES.get()
+    allow_private_ips = MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS.get()
+    _validate_public_https_url(
+        url,
+        field_name="Icon URL",
+        allowed_schemes=allowed_schemes,
+        allow_private_ips=allow_private_ips,
+    )
+
+    allowed_domains = MLFLOW_ICON_URL_ALLOWED_DOMAINS.get()
+    if not allowed_domains:
+        return
+
+    hostname = urllib.parse.urlparse(url).hostname
+    if not hostname:
+        raise MlflowException.invalid_parameter_value(f"Icon URL must include a hostname: {url!r}")
+
+    normalized_hostname = hostname.lower()
+    normalized_allowed_domains = [pattern.lower() for pattern in allowed_domains]
+    if not any(fnmatch(normalized_hostname, pattern) for pattern in normalized_allowed_domains):
+        raise MlflowException.invalid_parameter_value(
+            f"Icon URL host {hostname!r} is not in the allowed domain list: "
+            f"{', '.join(allowed_domains)}."
+        )
+
+
+def _validate_icon_mime_type(mime_type: str | None) -> None:
+    if mime_type is None:
+        return
+
+    if not isinstance(mime_type, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid icon mimeType {mime_type!r}. Allowed values must use the 'image/*' media "
+            "type."
+        )
+
+    normalized = mime_type.strip().lower()
+    if not normalized.startswith("image/") or normalized == "image/":
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid icon mimeType {mime_type!r}. Allowed values must use the 'image/*' "
+            "media type."
+        )
+
+
+def _validate_list_max_length(items: list[Any], field_name: str, max_length: int) -> None:
+    if len(items) > max_length:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid {field_name}. It must contain at most {max_length} items."
+        )
+
+
+def _validate_mcp_initial_status(status: Any, field_name: str = "status") -> None:
+    normalized_status = getattr(status, "value", status)
+    if normalized_status not in {"draft", "active"}:
+        raise MlflowException.invalid_parameter_value(
+            f"Initial MCP server registration {field_name} must be 'draft' or 'active'."
+        )
+
+
+def _validate_icon_payloads(icons: Any, field_name: str = "icons") -> None:
+    if icons is None:
+        return
+
+    if not isinstance(icons, list):
+        raise MlflowException.invalid_parameter_value(f"Invalid {field_name}. Expected a list.")
+
+    _validate_list_max_length(icons, field_name, _MAX_REGISTRY_ICONS_PER_LIST)
+
+    for idx, icon in enumerate(icons):
+        icon_field_name = f"{field_name}[{idx}]"
+        if not isinstance(icon, dict):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid {icon_field_name}. Expected an object."
+            )
+        if "src" not in icon:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid {icon_field_name}. Missing required key 'src'."
+            )
+
+        _validate_icon_url(icon["src"])
+        _validate_icon_mime_type(icon.get("mimeType"))
+
+
+def _strip_mcp_icon_response_fields(
+    icons: list[dict[str, Any]] | None,
+    field_name: str = "icons",
+) -> list[dict[str, Any]] | None:
+    """Sanitize response-only icon fields before persisting write payloads.
+
+    ``source="server"`` is ignored (stripped) so clients can echo resolved server
+    icons on update. ``source="version"`` is rejected because writing it would
+    persist a version-resolved icon as an explicit server override.
+    """
+    if icons is None:
+        return None
+
+    sanitized: list[dict[str, Any]] = []
+    for idx, icon in enumerate(icons):
+        if not isinstance(icon, dict):
+            sanitized.append(icon)
+            continue
+
+        source = icon.get("source")
+        if source == "version":
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid {field_name}[{idx}].source: 'version' is response-only and "
+                "cannot be written. Writing it would persist a version-resolved icon "
+                "as a server override. Omit source, or send source='server' when "
+                "echoing a server icon."
+            )
+
+        # Ignore response-only source="server" (and drop any other source key).
+        sanitized.append({key: value for key, value in icon.items() if key != "source"})
+    return sanitized
+
+
+def _validate_mcp_tool_payloads(tools: Any, field_name: str = "tools") -> None:
+    if tools is None:
+        return
+
+    if not isinstance(tools, list):
+        raise MlflowException.invalid_parameter_value(f"Invalid {field_name}. Expected a list.")
+
+    _validate_list_max_length(tools, field_name, _MAX_MCP_TOOLS_PER_LIST)
+
+
 def _validate_webhook_url(url: str) -> None:
     if not isinstance(url, str):
         raise MlflowException.invalid_parameter_value(
@@ -908,32 +1761,35 @@ def _validate_webhook_url(url: str) -> None:
             f"Allowed schemes are: {', '.join(schemes)}."
         )
 
-    hostname = parsed_url.hostname
-    if not hostname:
+    # urllib3 (used by requests for delivery) ends the authority at a backslash while
+    # urllib.parse does not, so the two would disagree on which host the URL targets.
+    if "\\" in parsed_url.netloc:
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook URL must not contain a backslash in its network location: {url!r}"
+        )
+
+    if not parsed_url.hostname:
         raise MlflowException.invalid_parameter_value(
             f"Webhook URL must include a hostname: {url!r}"
         )
 
+    delivery_hostname = _get_webhook_delivery_hostname(url)
     if not _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS.get():
-        try:
-            addr_infos = socket.getaddrinfo(hostname, None)
-        except socket.gaierror as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Cannot resolve webhook URL hostname {hostname!r}: {e}"
-            ) from e
+        _validate_hostname_resolves_to_public_ips(delivery_hostname, "Webhook URL")
 
-        for addr_info in addr_infos:
-            try:
-                ip = ipaddress.ip_address(addr_info[4][0])
-            except ValueError as e:
-                raise MlflowException.invalid_parameter_value(
-                    f"Webhook URL hostname {hostname!r} resolved to an invalid IP address: {e}"
-                ) from e
-            if not ip.is_global:
-                raise MlflowException.invalid_parameter_value(
-                    f"Webhook URL must not resolve to a non-public IP address. "
-                    f"{hostname!r} resolves to {ip}."
-                )
+
+def _get_webhook_delivery_hostname(url: str) -> str | None:
+    # Webhooks are delivered with requests, which normalizes the host before connecting
+    # (e.g. IDNA 2008 encoding and percent-encoding), so the name it resolves can differ
+    # from `urllib.parse.urlparse(url).hostname`. Validate the name requests will use.
+    prepared = requests.PreparedRequest()
+    # Malformed URLs can surface as a plain ValueError from urllib3 rather than a
+    # RequestException; report both as invalid input instead of a server error.
+    try:
+        prepared.prepare_url(url, None)
+        return urllib.parse.urlparse(prepared.url).hostname
+    except (requests.exceptions.RequestException, ValueError) as e:
+        raise MlflowException.invalid_parameter_value(f"Invalid webhook URL {url!r}: {e!r}") from e
 
 
 def _validate_webhook_events(events: list[WebhookEvent]) -> None:

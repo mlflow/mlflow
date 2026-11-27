@@ -10,6 +10,7 @@ from mlflow import __version__ as VERSION
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
+from mlflow.gateway.utils import _DATABRICKS_AI_GATEWAY_PATH, _is_unity_catalog_model_name
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
@@ -40,6 +41,10 @@ if TYPE_CHECKING:
     from mlflow.genai.judges.base import Judge
 
 _logger = logging.getLogger(__name__)
+
+# OpenAI-compatible base path for Databricks model serving endpoints.
+_DATABRICKS_SERVING_ENDPOINTS_PATH = "serving-endpoints"
+# _DATABRICKS_AI_GATEWAY_PATH and _is_unity_catalog_model_name imported from mlflow.gateway.utils
 
 
 @contextmanager
@@ -143,24 +148,34 @@ def _get_api_base_key(model: str) -> tuple[str | None, str | None]:
         Tuple of (api_base, api_key) - both None if not applicable
     """
     try:
-        scheme, _ = _parse_model_uri(model)
+        scheme, path = _parse_model_uri(model)
         if scheme in ("endpoints", "databricks"):
-            return _get_databricks_api_base_key()
+            return _get_databricks_api_base_key(path)
         return None, None
     except Exception:
         return None, None
 
 
-def _get_databricks_api_base_key() -> tuple[str | None, str | None]:
+def _get_databricks_api_base_key(model_name: str) -> tuple[str | None, str | None]:
     """
-    Get the api_base URL and api_key for Databricks serving endpoints.
+    Get the api_base URL and api_key for a Databricks-hosted model.
 
-    For Databricks endpoints with OpenAI-compatible API, the URL format is:
-    - api_base: https://host/serving-endpoints
-    - model: endpoint-name (passed in request body)
+    Databricks serves OpenAI-compatible models through two surfaces, selected by the shape
+    of ``model_name``:
 
-    LiteLLM appends /chat/completions to api_base, making the final URL:
-    https://host/serving-endpoints/chat/completions with model=endpoint-name in body.
+    * Legacy model serving (``https://<host>/serving-endpoints``) for serving endpoints
+      referenced by their simple name (e.g. ``databricks-claude-haiku-4-5``).
+    * Mosaic AI Gateway (``https://<host>/ai-gateway/mlflow/v1``) for foundation models
+      referenced by their Unity Catalog name (e.g. ``system.ai.claude-haiku-4-5``).
+
+    In both cases LiteLLM appends ``/chat/completions`` (or ``/embeddings``) to ``api_base``
+    and passes ``model_name`` in the request body, so the final URL is, e.g.,
+    ``https://<host>/ai-gateway/mlflow/v1/chat/completions`` with
+    ``model=system.ai.claude-haiku-4-5``.
+
+    Args:
+        model_name: The model/endpoint name parsed from the MLflow URI (the part after
+            ``databricks:/`` or ``endpoints:/``).
 
     Returns:
         Tuple of (api_base, api_key) - both None if credentials cannot be determined
@@ -188,10 +203,18 @@ def _get_databricks_api_base_key() -> tuple[str | None, str | None]:
             if "Authorization" in headers:
                 api_key = headers["Authorization"].replace("Bearer ", "")
 
+    if not host:
+        return None, None
+
     host = host.rstrip("/")
-    # Return api_base with just /serving-endpoints
-    # LiteLLM will append /chat/completions and pass the endpoint name as model
-    return f"{host}/serving-endpoints", api_key
+    # Unity Catalog models live behind the AI Gateway; everything else is a serving endpoint.
+    # LiteLLM appends /chat/completions (or /embeddings) and passes the model name in the body.
+    base_path = (
+        _DATABRICKS_AI_GATEWAY_PATH
+        if _is_unity_catalog_model_name(model_name)
+        else _DATABRICKS_SERVING_ENDPOINTS_PATH
+    )
+    return f"{host}/{base_path}", api_key
 
 
 def _to_attrdict(obj):

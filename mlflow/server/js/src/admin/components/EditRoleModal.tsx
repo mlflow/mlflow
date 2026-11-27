@@ -23,6 +23,7 @@ import {
   useUpdateRole,
   useUsersQuery,
 } from '../hooks';
+import { useWorkspacesEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { formatResourcePattern, parseResourcePattern } from '../types';
 import { RolePermissionsSection, type StagedRolePermission } from './RolePermissionsSection';
 import { RoleUsersSection } from './RoleUsersSection';
@@ -66,7 +67,10 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   // --- Current state from backend ---
   const { data: roleData, isLoading: roleLoading } = useRoleDetailQuery(roleId);
   const { data: assignmentsData, isLoading: assignmentsLoading } = useRoleUsersQuery(roleId);
-  const { data: usersData, isLoading: usersLoading } = useUsersQuery();
+  const { workspacesEnabled } = useWorkspacesEnabled();
+  const { data: usersData, isLoading: usersLoading } = useUsersQuery(
+    workspacesEnabled ? roleData?.role?.workspace : undefined,
+  );
 
   const userIdToUsername = useMemo(() => {
     const m = new Map<number, string>();
@@ -77,6 +81,11 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
   const currentName = roleData?.role?.name ?? '';
   const currentDescription = roleData?.role?.description ?? '';
   const currentWorkspace = roleData?.role?.workspace ?? '';
+  // In single-tenant mode there is no workspace dimension — pass ``undefined``
+  // to the resource picker so the ``X-MLFLOW-WORKSPACE`` header is omitted
+  // (the server rejects any workspace header, including ``default``, when
+  // workspaces are disabled).
+  const resourcePickerWorkspace = workspacesEnabled ? currentWorkspace : undefined;
 
   const currentPermissions = useMemo<StagedRolePermission[]>(() => {
     return (roleData?.role?.permissions ?? []).map((p) => ({
@@ -419,7 +428,7 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
                   key={String(open)}
                   value={permissions}
                   onChange={setPermissions}
-                  workspace={currentWorkspace}
+                  workspace={resourcePickerWorkspace}
                   disabled={submitting}
                   onUnsavedDraftChange={setHasUnsavedDraft}
                 />
@@ -428,7 +437,12 @@ export const EditRoleModal = ({ open, onClose, roleId }: EditRoleModalProps) => 
                 <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
                   Currently assigned users are pre-filled. Remove a user to unassign; use the form below to assign more.
                 </Typography.Text>
-                <RoleUsersSection value={usernames} onChange={setUsernames} disabled={submitting} />
+                <RoleUsersSection
+                  value={usernames}
+                  onChange={setUsernames}
+                  disabled={submitting}
+                  workspace={resourcePickerWorkspace}
+                />
               </LongFormSection>
             </>
           )}

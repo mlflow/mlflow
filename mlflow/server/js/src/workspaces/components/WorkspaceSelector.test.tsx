@@ -223,6 +223,28 @@ describe('WorkspaceSelector', () => {
     expect(trigger).toBeInTheDocument();
   });
 
+  it.each(['/skills', '/skills/my-skill', '/skills/@acme/my-skill', '/skills/models', '/skills/@acme/prompts'])(
+    'stays in the Skills section when switching workspace from %s',
+    async (pathname) => {
+      fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }] });
+      useLocationMock.mockReturnValue({
+        pathname,
+        search: '?workspace=default',
+        hash: '',
+        state: null,
+        key: 'default',
+      });
+
+      renderWithProviders(<WorkspaceSelector />);
+
+      await userEvent.click(screen.getByRole('combobox'));
+      await userEvent.click(await screen.findByText('team-a'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/skills?workspace=team-a');
+      expect(getActiveWorkspace()).toBe('team-a');
+    },
+  );
+
   it('calls refetch when combobox is opened', async () => {
     let fetchCount = 0;
     fetchAPIMock.mockImplementation(() => {
@@ -436,5 +458,29 @@ describe('WorkspaceSelector', () => {
 
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(getActiveWorkspace()).toBe('team-a');
+  });
+
+  it('updates ?workspace= in place on a global route that carries it', async () => {
+    fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'team-a' }, { name: 'team-b' }] });
+    useLocationMock.mockReturnValue({
+      pathname: '/admin/ws',
+      search: '?workspace=team-a&tab=roles',
+      hash: '',
+      state: null,
+      key: 'default',
+    });
+    useSearchParamsMock.mockReturnValue([new URLSearchParams('workspace=team-a&tab=roles'), jest.fn()]);
+
+    renderWithProviders(<WorkspaceSelector />);
+
+    await waitFor(() => {
+      expect(screen.getByText('team-a')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('combobox'));
+    await userEvent.click(screen.getByText('team-b'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/ws?workspace=team-b&tab=roles');
+    expect(getActiveWorkspace()).toBe('team-b');
   });
 });

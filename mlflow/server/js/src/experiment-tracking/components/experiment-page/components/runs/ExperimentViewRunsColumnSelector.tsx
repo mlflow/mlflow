@@ -2,8 +2,8 @@ import {
   Button,
   ChevronDownIcon,
   ColumnsIcon,
-  Dropdown,
   Input,
+  Popover,
   SearchIcon,
   Tree,
   useDesignSystemTheme,
@@ -11,6 +11,7 @@ import {
 import { Theme } from '@emotion/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
+import { useMediaQuery } from '@databricks/web-shared/hooks';
 import Utils from '../../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
@@ -41,6 +42,15 @@ const GROUP_KEY_ATTRIBUTES = makeCanonicalSortKey(GROUP_KEY, COLUMN_TYPES.ATTRIB
 const GROUP_KEY_PARAMS = makeCanonicalSortKey(GROUP_KEY, COLUMN_TYPES.PARAMS);
 const GROUP_KEY_METRICS = makeCanonicalSortKey(GROUP_KEY, COLUMN_TYPES.METRICS);
 const GROUP_KEY_TAGS = makeCanonicalSortKey(GROUP_KEY, COLUMN_TYPES.TAGS);
+
+// Tree row height from design-system Tree. The previous selector capped the list
+// at 15 rows and otherwise shrink-wrapped, so a one-result search stayed short.
+const TREE_ROW_HEIGHT = 32;
+const MAX_VISIBLE_TREE_ROWS = 15;
+const DEFAULT_TREE_MAX_HEIGHT = MAX_VISIBLE_TREE_ROWS * TREE_ROW_HEIGHT;
+const DEFAULT_PANEL_WIDTH = 400;
+// Native CSS resize grip hit target in the panel's bottom-right corner.
+const RESIZE_GRIP_SIZE = 16;
 
 /**
  * Returns all usable attribute columns basing on view mode and enabled flagged features
@@ -116,10 +126,17 @@ export const ExperimentViewRunsColumnSelector = React.memo(
     const experimentIds = useExperimentIds();
     const [filter, setFilter] = useState('');
     const { theme } = useDesignSystemTheme();
+    // Matches design-system `theme.responsive.mediaQueries.xs` (max-width: 575.98px).
+    const isXsViewport = useMediaQuery('(max-width: 575.98px)');
 
     const searchInputRef = useRef<any>(null);
     const scrollableContainerRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+    const resizePointerUpRef = useRef<(() => void) | null>(null);
+    // Null until the user drags the resize grip. While null, the panel
+    // shrink-wraps its content (tree capped at 15 rows) instead of a fixed height.
+    const [userPanelSize, setUserPanelSize] = useState<{ width: number; height: number } | null>(null);
 
     // Extract all attribute columns
     const attributeColumnNames = useMemo(() => getAttributeColumns(experimentIds.length > 1), [experimentIds.length]);
@@ -232,6 +249,61 @@ export const ExperimentViewRunsColumnSelector = React.memo(
     );
 
     useEffect(() => {
+      if (!columnSelectorVisible) {
+        setUserPanelSize(null);
+      }
+    }, [columnSelectorVisible]);
+
+    useEffect(() => {
+      return () => {
+        if (resizePointerUpRef.current) {
+          window.removeEventListener('pointerup', resizePointerUpRef.current);
+        }
+      };
+    }, []);
+
+    const onPanelResizePointerDown = useCallback(
+      (event: React.PointerEvent<HTMLDivElement>) => {
+        if (isXsViewport) {
+          return;
+        }
+        const panel = panelRef.current;
+        if (!panel) {
+          return;
+        }
+        const rect = panel.getBoundingClientRect();
+        const onGrip =
+          event.clientX >= rect.right - RESIZE_GRIP_SIZE && event.clientY >= rect.bottom - RESIZE_GRIP_SIZE;
+        if (!onGrip) {
+          return;
+        }
+
+        const startWidth = rect.width;
+        const startHeight = rect.height;
+        if (resizePointerUpRef.current) {
+          window.removeEventListener('pointerup', resizePointerUpRef.current);
+        }
+        const handlePointerUp = () => {
+          window.removeEventListener('pointerup', handlePointerUp);
+          if (resizePointerUpRef.current === handlePointerUp) {
+            resizePointerUpRef.current = null;
+          }
+          const nextRect = panelRef.current?.getBoundingClientRect();
+          if (!nextRect) {
+            return;
+          }
+          if (Math.abs(nextRect.width - startWidth) <= 1 && Math.abs(nextRect.height - startHeight) <= 1) {
+            return;
+          }
+          setUserPanelSize({ width: nextRect.width, height: nextRect.height });
+        };
+        resizePointerUpRef.current = handlePointerUp;
+        window.addEventListener('pointerup', handlePointerUp);
+      },
+      [isXsViewport],
+    );
+
+    useEffect(() => {
       if (columnSelectorVisible) {
         setFilter('');
 
@@ -278,28 +350,42 @@ export const ExperimentViewRunsColumnSelector = React.memo(
       }
     }, []);
 
-    // A JSX block containing the dropdown
-    const dropdownContent = (
+    // Prefer the `style` prop over Emotion `css` for sizing so desktop `resize`
+    // is inspectable in tests and so xs can disable resize without !important.
+    // Height stays unset until the user drags the grip so the panel shrink-wraps
+    // the way the old max-height list did. A fixed height left a ~600px popover
+    // even when search returned one row.
+    const panelStyle: React.CSSProperties = isXsViewport
+      ? {
+          width: '100vw',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          resize: 'none',
+        }
+      : {
+          width: userPanelSize?.width ?? DEFAULT_PANEL_WIDTH,
+          ...(userPanelSize ? { height: userPanelSize.height } : {}),
+          minWidth: 320,
+          minHeight: 240,
+          maxWidth: 'min(90vw, 800px)',
+          maxHeight: 'min(85vh, 800px)',
+          boxSizing: 'border-box',
+          resize: 'both',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        };
+
+    // A JSX block containing the panel body rendered inside the popover.
+    const columnListPanel = (
       <div
-        css={{
-          backgroundColor: theme.colors.backgroundPrimary,
-          width: 400,
-          border: `1px solid`,
-          borderColor: theme.colors.border,
-          [theme.responsive.mediaQueries.xs]: {
-            width: '100vw',
-          },
-        }}
-        onKeyDown={(e) => {
-          // Since we're controlling the visibility of the dropdown,
-          // we need to handle the escape key to close it.
-          if (e.key === 'Escape') {
-            onChangeColumnSelectorVisible(false);
-            buttonRef.current?.focus();
-          }
-        }}
+        data-testid="column-selector-panel"
+        ref={panelRef}
+        style={panelStyle}
+        onPointerDown={onPanelResizePointerDown}
       >
-        <div css={(theme) => ({ padding: theme.spacing.md })}>
+        <div css={(theme) => ({ padding: theme.spacing.md, flex: '0 0 auto' })}>
           <Input
             componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscolumnselector.tsx_300"
             value={filter}
@@ -315,11 +401,14 @@ export const ExperimentViewRunsColumnSelector = React.memo(
         </div>
         <div
           ref={scrollableContainerRef}
+          data-testid="column-selector-list"
+          // Cap the shrink-wrapped list at 15 rows. After the user resizes the
+          // panel, drop the cap so the tree fills the dragged height.
+          style={isXsViewport || userPanelSize ? undefined : { maxHeight: DEFAULT_TREE_MAX_HEIGHT }}
           css={{
-            // Maximum height of 15 elements times 32 pixels as defined in
-            // design-system/src/design-system/Tree/Tree.tsx
-            maxHeight: 15 * 32,
-            overflowY: 'scroll',
+            flex: '1 1 auto',
+            minHeight: 0,
+            overflowY: 'auto',
             overflowX: 'hidden',
             paddingBottom: theme.spacing.md,
             'span[title]': {
@@ -327,9 +416,11 @@ export const ExperimentViewRunsColumnSelector = React.memo(
               textOverflow: 'ellipsis',
               overflow: 'hidden',
             },
-            [theme.responsive.mediaQueries.xs]: {
-              maxHeight: 'calc(100vh - 100px)',
-            },
+            ...(isXsViewport
+              ? {
+                  maxHeight: 'calc(100vh - 100px)',
+                }
+              : {}),
           }}
         >
           <Tree
@@ -346,9 +437,13 @@ export const ExperimentViewRunsColumnSelector = React.memo(
         <div
           css={{
             borderTop: `1px solid ${theme.colors.border}`,
+            // Extra bottom/right padding keeps the native CSS resize grip clickable.
             padding: theme.spacing.sm,
+            paddingRight: theme.spacing.lg,
+            paddingBottom: theme.spacing.md,
             display: 'flex',
             justifyContent: 'flex-end',
+            flex: '0 0 auto',
           }}
         >
           <Button
@@ -370,27 +465,39 @@ export const ExperimentViewRunsColumnSelector = React.memo(
     );
 
     return (
-      <Dropdown
-        overlay={dropdownContent}
-        placement="bottomLeft"
-        trigger={['click']}
-        visible={columnSelectorVisible}
-        onVisibleChange={onChangeColumnSelectorVisible}
+      <Popover.Root
+        componentId="mlflow.experiment_page.runs_table.column_selector"
+        open={columnSelectorVisible}
+        onOpenChange={onChangeColumnSelectorVisible}
       >
-        <Button
-          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscolumnselector.tsx_315"
-          ref={buttonRef}
-          style={{ display: 'flex', alignItems: 'center' }}
-          data-testid="column-selection-dropdown"
-          icon={<ColumnsIcon />}
+        <Popover.Trigger asChild>
+          <Button
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscolumnselector.tsx_315"
+            ref={buttonRef}
+            style={{ display: 'flex', alignItems: 'center' }}
+            data-testid="column-selection-dropdown"
+            icon={<ColumnsIcon />}
+          >
+            <FormattedMessage
+              defaultMessage="Columns"
+              description="Dropdown text to display columns names that could to be rendered for the experiment runs table"
+            />{' '}
+            <ChevronDownIcon />
+          </Button>
+        </Popover.Trigger>
+        <Popover.Content
+          align="start"
+          // The panel manages its own inner padding, so reset the popover's
+          // default padding via inline style (using `css` here would replace the
+          // design-system Content styles wholesale, dropping the surface/border).
+          style={{ padding: 0 }}
+          // Keep focus inside the search input rather than auto-focusing the
+          // popover container, matching the previous open behavior.
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <FormattedMessage
-            defaultMessage="Columns"
-            description="Dropdown text to display columns names that could to be rendered for the experiment runs table"
-          />{' '}
-          <ChevronDownIcon />
-        </Button>
-      </Dropdown>
+          {columnListPanel}
+        </Popover.Content>
+      </Popover.Root>
     );
   },
 );

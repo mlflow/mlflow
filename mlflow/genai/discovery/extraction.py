@@ -1,23 +1,31 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.discovery.constants import (
     FAILURE_LABEL_SYSTEM_PROMPT,
 )
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _TriageResult
 from mlflow.genai.utils.llm_utils import _call_llm, _TokenCounter
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
 
 # Span types that represent generic LLM plumbing, not meaningful execution steps.
 _GENERIC_SPAN_TYPES = {SpanType.LLM, SpanType.CHAT_MODEL, SpanType.EMBEDDING}
+
+# Trailing whitespace is required so a symptom that legitimately starts with a hyphen
+# (e.g. "-1 returned instead of an error") keeps it.
+_BULLET_PREFIX = re.compile(r"^\s*[-*+]\s+")
 
 
 def _has_error(span: Span) -> bool:
@@ -141,26 +149,97 @@ def extract_span_errors(trace: Trace, max_length: int = 500) -> str:
     return "; ".join(errors)[:max_length]
 
 
-def extract_assessment_rationale(trace: Trace, scorer_name: str) -> str:
-    assessments = trace.search_assessments(scorer_name, type="feedback")
-    return next((a.rationale for a in assessments if a.rationale), "")
+def _is_session_scoped(assessment) -> bool:
+    """Whether an assessment applies to the whole conversation rather than one turn."""
+    metadata = getattr(assessment, "metadata", None) or {}
+    return TraceMetadataKey.TRACE_SESSION in metadata
+
+
+def extract_assessment_rationale(
+    trace: Trace, scorer_name: str, *, session_scoped=None, run_id: str | None = None
+) -> str:
+    """
+    The most recent usable rationale among a trace's assessments for one scorer.
+
+    An assessment carrying an error is skipped: the scorer failed, so its rationale describes
+    that failure rather than the trace. The rationale is what is read rather than the value,
+    because a bare label such as ``"no"`` is ambiguous without the scorer's criterion.
+
+    The newest is taken rather than the first found, because re-evaluating a session leaves
+    several assessments from the same scorer on the same trace. Taking whichever came back
+    first let a superseded verdict -- including a passing one from before the regression --
+    describe the session that is being analyzed now.
+
+    Args:
+        trace: The trace to read.
+        scorer_name: The scorer whose assessments to read.
+        session_scoped: When True, return only conversation-scoped rationales; when False,
+            only per-turn ones. ``None`` reads both.
+        run_id: The evaluation run whose rationales to read, alongside human ones, as
+            :func:`extract_failing_traces` reads verdicts. ``None`` reads every run's.
+    """
+    usable = [
+        assessment
+        for assessment in trace.search_assessments(scorer_name, type="feedback")
+        if _counts_for_run(assessment, run_id)
+        and getattr(assessment, "error", None) is None
+        and assessment.rationale
+        and (session_scoped is None or _is_session_scoped(assessment) == session_scoped)
+    ]
+    if not usable:
+        return ""
+    # An assessment with no recorded time sorts oldest: it cannot be shown to supersede one
+    # that is timestamped, and preferring it would reintroduce the arbitrary pick.
+    newest = max(usable, key=lambda assessment: getattr(assessment, "create_time_ms", None) or 0)
+    return newest.rationale
 
 
 def collect_session_rationales(
     traces: list[Trace],
     rationale_map: dict[str, str],
     scorer_name: str,
+    session_traces: list[Trace] | None = None,
+    run_id: str | None = None,
 ) -> str:
-    """Combine triage rationales, human feedback, and span errors for a session.
+    """Combine triage rationales, feedback, and span errors for a session.
+
+    Conversation-scoped feedback -- an assessment whose metadata carries
+    ``mlflow.trace.session`` -- applies to the whole session, so it is collected once from
+    the session's first trace and labelled as such, rather than being attributed to whichever
+    turn happened to fail. Per-turn feedback stays attached to its own trace.
 
     Deduplicates identical text across traces and returns a semicolon-separated string.
+
+    Args:
+        traces: The failing traces whose per-turn signal is collected.
+        rationale_map: Trace ID to triage rationale.
+        scorer_name: The scorer whose feedback to read.
+        session_traces: Every trace in the session, in order. Session-scoped feedback is read
+            from its first trace, which may itself have passed triage. Defaults to ``traces``.
+        run_id: The evaluation run whose feedback to read, alongside human feedback. ``None``
+            reads every run's.
     """
     seen: set[str] = set()
     parts: list[str] = []
+
+    # Session-level first: it frames the turns that follow, and reading it from the session's
+    # own first trace means it is not missed when that turn passed triage.
+    if ordered_session := (session_traces if session_traces is not None else traces):
+        if session_feedback := extract_assessment_rationale(
+            ordered_session[0], scorer_name, session_scoped=True, run_id=run_id
+        ):
+            seen.add(session_feedback)
+            parts.append(f"[session feedback] {session_feedback}")
+
     for trace in traces:
         for text, prefix in [
             (rationale_map.get(trace.info.trace_id, ""), ""),
-            (extract_assessment_rationale(trace, scorer_name), "[human feedback] "),
+            (
+                extract_assessment_rationale(
+                    trace, scorer_name, session_scoped=False, run_id=run_id
+                ),
+                "[human feedback] ",
+            ),
             (extract_span_errors(trace), "[span errors] "),
         ]:
             if text and text not in seen:
@@ -206,9 +285,12 @@ def extract_failure_labels(
                 {"role": "user", "content": rationale},
             ],
             token_counter=token_counter,
+            gateway_caller=GatewayCaller.ISSUE_DETECTION,
         )
         content = response.choices[0].message.content.strip()
-        symptoms = [line.lstrip("- ").strip() for line in content.splitlines() if line.strip()]
+        symptoms = [
+            _BULLET_PREFIX.sub("", line).strip() for line in content.splitlines() if line.strip()
+        ]
         return [f"[{analysis.execution_path}] {symptom}" for symptom in (symptoms or [content])]
 
     # Generate labels in parallel — each analysis is an independent LLM call
@@ -247,9 +329,25 @@ def _parse_assessment_value(value) -> tuple[bool, list[str]]:
     return bool(value), []
 
 
+def _counts_for_run(assessment, run_id: str | None) -> bool:
+    """
+    Whether a verdict counts for triage scoped to ``run_id``: from that run, or from a human.
+
+    The run is read from the assessment's metadata, where evaluation records it, rather than
+    ``Assessment.run_id``. The SQL store fills that field from a column evaluation leaves empty,
+    so a verdict read straight from the database, as a detection job reads it, has no run there.
+    """
+    if run_id is None:
+        return True
+    if (assessment.metadata or {}).get(AssessmentMetadataKey.SOURCE_RUN_ID) == run_id:
+        return True
+    return assessment.source.source_type == AssessmentSourceType.HUMAN
+
+
 def extract_failing_traces(
     scored_traces: list[Trace],
     scorer_names: str | list[str],
+    run_id: str | None = None,
 ) -> _TriageResult:
     """
     Extract failing traces and their rationales from scored trace objects.
@@ -262,9 +360,24 @@ def extract_failing_traces(
     considered failing if ANY scorer's most-recent Feedback has a falsy
     value, and rationales from all failing scorers are combined.
 
+    A scorer that errored says nothing about the trace: the judge failed, so the trace is
+    recorded as a scorer problem rather than classified. A scorer that returned no value
+    leaves the trace unclassified. Neither is a pass, and both are counted so a run cannot
+    report a clean scan over a sample it never judged.
+
+    With ``run_id``, only the verdicts that run logged count, plus any a human gave. A trace
+    keeps every earlier run's verdicts, so without it a trace this run didn't judge is read on a
+    verdict an earlier run gave, possibly under different categories, instructions or model,
+    instead of being reported as unclassified. A human's verdict, such as a correction of the
+    judge, is kept: it carries no run, and it judges the trace rather than repeating an earlier
+    run's criteria. The scope is the run, so a run reused for several evaluations reads all of
+    their verdicts.
+
     Args:
         scored_traces: Traces with scorer assessments attached.
         scorer_names: One or more scorer names to check for failures.
+        run_id: The evaluation run whose verdicts to read, alongside human ones. ``None`` reads
+            every run's.
     """
     if isinstance(scorer_names, str):
         scorer_names = [scorer_names]
@@ -272,18 +385,37 @@ def extract_failing_traces(
     failing: list[Trace] = []
     rationale_map: dict[str, str] = {}
     categories_map: dict[str, list[str]] = {}
+    scorer_error_ids: list[str] = []
+    unclassified_ids: list[str] = []
+    scorer_errors: dict[str, str] = {}
 
     for trace in scored_traces:
         row_rationales: list[str] = []
         row_categories: list[str] = []
         is_failing = False
+        judged = False
+        errors: list[str] = []
         for scorer_name in scorer_names:
-            assessments = trace.search_assessments(scorer_name, type="feedback")
+            assessments = [
+                assessment
+                for assessment in trace.search_assessments(scorer_name, type="feedback")
+                if _counts_for_run(assessment, run_id)
+            ]
             assessment = assessments[-1] if assessments else None
             if assessment is None:
                 continue
+            # An assessment error means the scorer or judge failed. Record it against the
+            # scorer and do not let it stand in for a verdict on the trace.
+            if getattr(assessment, "error", None) is not None:
+                error = assessment.error
+                message = getattr(error, "error_message", None) or str(error)
+                # Every failing scorer is recorded: knowing one of three failed says less
+                # than knowing which, and a run log is where that is read.
+                errors.append(f"{scorer_name}: {message}" if message else scorer_name)
+                continue
             if assessment.value is None:
                 continue
+            judged = True
             passed, cats = _parse_assessment_value(assessment.value)
             row_categories.extend(cats)
             if not passed:
@@ -291,12 +423,29 @@ def extract_failing_traces(
                 if assessment.rationale:
                     row_rationales.append(assessment.rationale)
 
+        trace_id = trace.info.trace_id
+        # A scorer error only counts as one when no other scorer reached a verdict; a trace
+        # judged by one scorer is classified even if another failed on it.
+        if not judged:
+            if errors:
+                scorer_error_ids.append(trace_id)
+                scorer_errors[trace_id] = "; ".join(errors)
+            else:
+                unclassified_ids.append(trace_id)
+            continue
+
         if not is_failing:
             continue
 
-        trace_id = trace.info.trace_id
         failing.append(trace)
         rationale_map[trace_id] = "; ".join(row_rationales)
         categories_map[trace_id] = list(dict.fromkeys(row_categories))
 
-    return _TriageResult(failing, rationale_map, categories_map)
+    return _TriageResult(
+        failing,
+        rationale_map,
+        categories_map,
+        scorer_error_trace_ids=scorer_error_ids,
+        unclassified_trace_ids=unclassified_ids,
+        scorer_errors=scorer_errors,
+    )

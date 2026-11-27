@@ -65,6 +65,7 @@ from mlflow.telemetry.events import (
     AiCommandRunEvent,
     AlignJudgeEvent,
     AutologgingEvent,
+    CompareEvaluationsEvent,
     CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
@@ -105,6 +106,9 @@ from mlflow.telemetry.events import (
     LogMetricEvent,
     LogParamEvent,
     MakeJudgeEvent,
+    McpRegistryCreateAccessEndpointEvent,
+    McpRegistryCreateServerVersionEvent,
+    McpRegistryRegisterServerFromUrlEvent,
     McpRunEvent,
     MergeRecordsEvent,
     PromptOptimizationEvent,
@@ -351,6 +355,28 @@ def test_create_model_version(mock_requests, mlflow_client, mock_telemetry_clien
         mock_requests,
         event_name,
         {"is_prompt": True},
+    )
+
+
+def test_log_model(mock_requests, mock_telemetry_client: TelemetryClient):
+    # End-to-end Model.log event, distinct from the create_logged_model sub-step.
+    mlflow.pyfunc.log_model(name="model", python_model=TestModel())
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        "log_model",
+        {"flavor": "pyfunc", "registered": False},
+    )
+
+
+def test_register_model(mock_requests, mlflow_client, mock_telemetry_client: TelemetryClient):
+    model_info = mlflow.pyfunc.log_model(name="model", python_model=TestModel())
+    mlflow.register_model(model_info.model_uri, "test_model")
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        "register_model",
+        {"env_pack": None, "source_scheme": "models"},
     )
 
 
@@ -1407,7 +1433,41 @@ def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
     )
 
 
-def test_discover_issues(mock_requests, mock_telemetry_client: TelemetryClient):
+def test_compare_evaluations(mock_requests, mock_telemetry_client: TelemetryClient):
+    with patch("mlflow.genai.evaluation.comparison.comparison._load_eval_rows", return_value=[]):
+        mlflow.genai.compare_evaluations("candidate", "baseline", greater_is_better={"a": False})
+
+    expected_params = {
+        "greater_is_better_provided": True,
+        "log_results": False,
+    }
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, CompareEvaluationsEvent.name, expected_params
+    )
+
+
+@pytest.mark.parametrize(
+    ("job_name", "trigger", "job_id"),
+    [
+        (None, "sdk", None),
+        ("invoke_issue_detection", "adhoc", "job-123"),
+        ("invoke_issue_detection", "adhoc", None),
+        ("scheduled_issue_detection", "schedule", "job-123"),
+        ("another_job", "unknown", "job-123"),
+        ("", "unknown", "job-123"),
+    ],
+)
+def test_discover_issues(
+    mock_requests, mock_telemetry_client: TelemetryClient, monkeypatch, job_name, trigger, job_id
+):
+    if job_name is None:
+        monkeypatch.delenv("_MLFLOW_SERVER_JOB_NAME", raising=False)
+    else:
+        monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
+    if job_id is None:
+        monkeypatch.delenv("_MLFLOW_SERVER_JOB_ID", raising=False)
+    else:
+        monkeypatch.setenv("_MLFLOW_SERVER_JOB_ID", job_id)
     traces = [
         mock.MagicMock(spec=Trace),
         mock.MagicMock(spec=Trace),
@@ -1439,17 +1499,75 @@ def test_discover_issues(mock_requests, mock_telemetry_client: TelemetryClient):
         )
 
     expected_params = {
+        "trigger": trigger,
         "model": "openai:/gpt-4",
         "trace_count": 3,
-        "categories": ["hallucination", "accuracy"],
-        "source_run_id": None,
+        "categories": ["Custom"],
         "issue_count": 0,
+        "issue_counts_by_category": {},
         "total_traces_analyzed": 3,
         "total_cost_usd": None,
-        "triage_run_id": mock_triage_run_id,
     }
+    if trigger != "sdk" and job_id:
+        expected_params["job_id"] = job_id
+    mock_telemetry_client.flush()
+    assert (
+        sum(record["data"]["event_name"] == DiscoverIssuesEvent.name for record in mock_requests)
+        == 1
+    )
     validate_telemetry_record(
         mock_telemetry_client, mock_requests, DiscoverIssuesEvent.name, expected_params
+    )
+
+
+@pytest.mark.parametrize(
+    ("error_type", "status"), [(ValueError, "failure"), (KeyboardInterrupt, "canceled")]
+)
+@pytest.mark.parametrize(
+    ("job_name", "trigger"),
+    [(None, "sdk"), ("invoke_issue_detection", "adhoc"), ("scheduled_issue_detection", "schedule")],
+)
+def test_discover_issues_records_failure_or_cancellation(
+    mock_requests, mock_telemetry_client, monkeypatch, error_type, status, job_name, trigger
+):
+    if job_name is None:
+        monkeypatch.delenv("_MLFLOW_SERVER_JOB_NAME", raising=False)
+    else:
+        monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
+    monkeypatch.delenv("_MLFLOW_SERVER_JOB_ID", raising=False)
+    with patch(
+        "mlflow.genai.discovery.pipeline.sample_traces", side_effect=error_type("sampling failed")
+    ) as mock_sample:
+        with pytest.raises(error_type, match="sampling failed"):
+            discover_issues(
+                experiment_id="exp",
+                model="openai:/gpt-4",
+                categories=["correctness", "private category"],
+                run_id="source-run-id",
+            )
+
+    mock_sample.assert_called_once()
+    expected_params = {
+        "trigger": trigger,
+        "model": "openai:/gpt-4",
+        "trace_count": 0,
+        "categories": ["correctness", "Custom"],
+        "issue_count": None,
+        "issue_counts_by_category": None,
+        "total_traces_analyzed": None,
+        "total_cost_usd": None,
+    }
+    mock_telemetry_client.flush()
+    assert (
+        sum(record["data"]["event_name"] == DiscoverIssuesEvent.name for record in mock_requests)
+        == 1
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        DiscoverIssuesEvent.name,
+        expected_params,
+        status=status,
     )
 
 
@@ -2523,3 +2641,129 @@ def test_update_issue_telemetry(mock_requests, mock_telemetry_client: TelemetryC
             "source_run_id": None,
         },
     )
+
+
+def test_mcp_registry_create_server_version_telemetry(
+    mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
+):
+    from mlflow.entities.mcp_server import MCPStatus, MCPTool
+
+    db_path = tmp_path / "mlflow.db"
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+
+    store.create_mcp_server_version(
+        server_json={
+            "name": "io.test/my-server",
+            "version": "1.0.0",
+            "remotes": [{"url": "https://mcp.example.com"}],
+        },
+        source="https://github.com/test/repo",
+        status=MCPStatus.DRAFT,
+        tools=[MCPTool(name="search", description="Search the web")],
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        McpRegistryCreateServerVersionEvent.name,
+        {
+            "status": "draft",
+            "has_source": True,
+            "num_tools": 1,
+            "has_remotes": True,
+        },
+    )
+
+    store.create_mcp_server_version(
+        server_json={"name": "io.test/simple-server", "version": "0.1.0"},
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        McpRegistryCreateServerVersionEvent.name,
+        {
+            "status": "draft",
+            "has_source": False,
+            "num_tools": None,
+            "has_remotes": False,
+        },
+    )
+
+
+def test_mcp_registry_create_access_endpoint_telemetry(
+    mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
+):
+    from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus
+
+    db_path = tmp_path / "mlflow.db"
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+
+    store.create_mcp_server_version(
+        server_json={"name": "io.test/my-server", "version": "1.0.0"},
+        status=MCPStatus.ACTIVE,
+    )
+    mock_telemetry_client.flush()
+    mock_requests.clear()
+
+    store.create_mcp_access_endpoint(
+        server_name="io.test/my-server",
+        url="https://mcp.example.com",
+        transport_type=MCPRemoteTransportType.STREAMABLE_HTTP,
+        server_version="1.0.0",
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        McpRegistryCreateAccessEndpointEvent.name,
+        {"transport_type": "streamable-http", "uses_alias": False},
+    )
+
+    store.set_mcp_server_alias(name="io.test/my-server", alias="production", version="1.0.0")
+    store.create_mcp_access_endpoint(
+        server_name="io.test/my-server",
+        url="https://mcp-prod.example.com",
+        transport_type=MCPRemoteTransportType.SSE,
+        server_alias="production",
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        McpRegistryCreateAccessEndpointEvent.name,
+        {"transport_type": "sse", "uses_alias": True},
+    )
+
+
+def test_mcp_registry_register_server_from_url_telemetry(
+    mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
+):
+    import mlflow.genai
+
+    server_json = {"name": "io.test/url-server", "version": "1.0.0"}
+    json_path = tmp_path / "server.json"
+    json_path.write_text(json.dumps(server_json))
+
+    mlflow.genai.register_mcp_server_from_url(url=str(json_path))
+
+    mock_telemetry_client.flush()
+
+    from_url_events = [
+        record
+        for record in mock_requests
+        if record["data"]["event_name"] == McpRegistryRegisterServerFromUrlEvent.name
+    ]
+    assert len(from_url_events) == 1
+    params = json.loads(from_url_events[0]["data"]["params"])
+    assert params == {"url_scheme": "file"}
+
+    create_version_events = [
+        record
+        for record in mock_requests
+        if record["data"]["event_name"] == McpRegistryCreateServerVersionEvent.name
+    ]
+    assert len(create_version_events) == 1
+    params = json.loads(create_version_events[0]["data"]["params"])
+    assert params == {
+        "status": "draft",
+        "has_source": True,
+        "num_tools": None,
+        "has_remotes": False,
+    }

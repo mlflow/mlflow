@@ -125,6 +125,58 @@ def test_emit_metric_usage_event_custom_scorers_only(mock_http_request):
     }
 
 
+def test_emit_metric_usage_event_ignores_metrics_without_aggregation(mock_http_request):
+    emit_metric_usage_event(
+        scorers=[is_concise],
+        trace_count=3,
+        session_count=0,
+        aggregated_metrics={"is_concise/mean": 0.5, "predict_error_count": 1},
+    )
+
+    mock_http_request.assert_called_once()
+    payload = mock_http_request.call_args[1]["json"]
+
+    assert payload == {
+        "agent_evaluation_client_usage_events": [
+            {
+                "custom_metric_usage_event": {
+                    "eval_count": 3,
+                    "metrics": [{"name": mock.ANY, "average": 0.5, "count": 3}],
+                }
+            }
+        ]
+    }
+
+
+def test_emit_metric_usage_event_counts_only_scored_traces(mock_http_request):
+    emit_metric_usage_event(
+        scorers=[is_concise, Correctness()],
+        trace_count=3,
+        session_count=0,
+        aggregated_metrics={"is_concise/mean": 0.5, "predict_error_count": 1},
+        scored_trace_count=2,
+    )
+
+    mock_http_request.assert_called_once()
+    payload = mock_http_request.call_args[1]["json"]
+
+    assert payload == {
+        "agent_evaluation_client_usage_events": [
+            {
+                "custom_metric_usage_event": {
+                    "eval_count": 3,
+                    "metrics": [{"name": mock.ANY, "average": 0.5, "count": 2}],
+                }
+            },
+            {
+                "builtin_scorer_usage_event": {
+                    "metrics": [{"name": "Correctness", "count": 2}],
+                }
+            },
+        ]
+    }
+
+
 def test_emit_metric_usage_event_builtin_scorers_only(mock_http_request):
     emit_metric_usage_event(
         scorers=[Correctness(), Guidelines(guidelines="Be concise")],
@@ -294,6 +346,47 @@ def test_emit_metric_usage_event_mixed_session_and_trace_level_scorers(mock_http
             {
                 "builtin_scorer_usage_event": {
                     "metrics": [{"name": "Correctness", "count": 10}],
+                }
+            },
+        ]
+    }
+
+
+def test_emit_metric_usage_event_uses_per_scorer_session_counts(mock_http_request):
+    trip_judge = make_judge(
+        name="trip_quality",
+        instructions="Evaluate if the {{ conversation }} is coherent and complete.",
+        feedback_value_type=bool,
+        session_level="trip",
+    )
+    episode_frustration = UserFrustration(session_level="episode")
+    emit_metric_usage_event(
+        scorers=[session_level_judge, trip_judge, episode_frustration],
+        trace_count=10,
+        session_count=11,
+        aggregated_metrics={},
+        session_count_by_scorer={
+            id(session_level_judge): 4,
+            id(trip_judge): 3,
+            id(episode_frustration): 4,
+        },
+    )
+
+    payload = mock_http_request.call_args[1]["json"]
+    assert payload == {
+        "agent_evaluation_client_usage_events": [
+            {
+                "custom_metric_usage_event": {
+                    "eval_count": 10,
+                    "metrics": [
+                        {"name": mock.ANY, "average": None, "count": 4},
+                        {"name": mock.ANY, "average": None, "count": 3},
+                    ],
+                }
+            },
+            {
+                "builtin_scorer_usage_event": {
+                    "metrics": [{"name": "UserFrustration", "count": 4}],
                 }
             },
         ]

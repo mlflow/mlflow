@@ -251,4 +251,63 @@ describe('useGroupedChartRunData', () => {
 
     expect(last(groupedData)).toEqual(ungroupedDataTrace);
   });
+
+  // The backend samples each run independently, so runs with differing history lengths can come
+  // back with misaligned steps. Aggregation keys off the step value (not the index), so each step
+  // is aggregated from whichever runs actually reported it.
+  it('should aggregate runs with misaligned steps without producing NaN or Infinity', () => {
+    const misalignedGroup: RunsChartsRunData[] = [
+      {
+        groupParentInfo: { runUuids: ['run_a', 'run_b'] },
+        displayName: 'Misaligned group',
+        uuid: 'group-misaligned',
+      } as any,
+    ];
+
+    const misalignedMetrics = {
+      run_a: {
+        runUuid: 'run_a',
+        metric_1: {
+          metricsHistory: [
+            { key: 'metric_1', value: 10, step: 0, timestamp: 1 },
+            { key: 'metric_1', value: 20, step: 2, timestamp: 2 },
+            { key: 'metric_1', value: 30, step: 4, timestamp: 3 },
+          ],
+        },
+      } as any,
+      run_b: {
+        runUuid: 'run_b',
+        metric_1: {
+          metricsHistory: [
+            { key: 'metric_1', value: 100, step: 0, timestamp: 1 },
+            { key: 'metric_1', value: 200, step: 3, timestamp: 2 },
+            { key: 'metric_1', value: 300, step: 4, timestamp: 3 },
+          ],
+        },
+      } as any,
+    } satisfies Record<string, SampledMetricsByRun>;
+
+    const result = renderConfiguredHook({
+      ungroupedRunsData: misalignedGroup,
+      sampledDataResultsByRunUuid: misalignedMetrics,
+      enabled: true,
+      aggregateFunction: RunGroupingAggregateFunction.Average,
+      metricKeys: ['metric_1'],
+    });
+
+    const aggregated = result.result.current[0].aggregatedMetricsHistory?.['metric_1'];
+
+    // The union of both runs' steps is covered, in ascending order
+    expect(aggregated?.average.map(({ step }) => step)).toEqual([0, 2, 3, 4]);
+
+    // Steps reported by both runs average across them; steps reported by a single run
+    // take that run's value rather than degrading to NaN/Infinity
+    expect(aggregated?.average.map(({ value }) => value)).toEqual([55, 20, 200, 165]);
+    expect(aggregated?.min.map(({ value }) => value)).toEqual([10, 20, 200, 30]);
+    expect(aggregated?.max.map(({ value }) => value)).toEqual([100, 20, 200, 300]);
+
+    for (const entry of [...aggregated!.average, ...aggregated!.min, ...aggregated!.max]) {
+      expect(Number.isFinite(entry.value)).toBe(true);
+    }
+  });
 });

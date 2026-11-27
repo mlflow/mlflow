@@ -14,6 +14,15 @@ completeness of the claim. Do not make assumptions, approximations, or bring in 
 <document>{{input}} - {{output}}</document>\
 """
 
+CORRECTNESS_TYPESAFE_PROMPT_INSTRUCTIONS = (
+    CORRECTNESS_PROMPT_INSTRUCTIONS
+    + """
+
+The result is "yes" if every statement in the claim is supported by the document in the context \
+of the question, and "no" otherwise.\
+"""
+)
+
 CORRECTNESS_PROMPT_OUTPUT = """
 
 Please indicate whether each statement in the claim is supported by the document in the context of the question using only the following json format. Do not use any markdown formatting or output additional lines.

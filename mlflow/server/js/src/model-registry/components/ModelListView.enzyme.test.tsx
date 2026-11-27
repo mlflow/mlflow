@@ -8,6 +8,7 @@
 import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { ModelListView, ModelListViewImpl } from './ModelListView';
+import { ModelsNextUIPromoModalAuto } from './ModelsNextUIPromoModalAuto';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import Utils from '../../common/utils/Utils';
 import configureStore from 'redux-mock-store';
@@ -67,6 +68,10 @@ describe('ModelListView', () => {
       showOnboardingHelper: false,
     });
     expect(wrapper.find("[data-testid='showOnboardingHelper']").length).toBe(0);
+  });
+  test('renders the new models UI promo modal even when there are no registered models', () => {
+    wrapper = setupModelListViewWithIntl(minimalProps);
+    expect(wrapper.find(ModelsNextUIPromoModalAuto).length).toBeGreaterThan(0);
   });
   test('Page title is set', () => {
     const mockUpdatePageTitle = jest.fn();
