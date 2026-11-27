@@ -71,6 +71,8 @@ export interface UseEvalRunTracesV4ControllerResult {
   filterModel: TraceFilterModel;
   setFilterModel: (next: TraceFilterModel) => void;
   activeFilterCount: number;
+  /** True while the current query is fetching or still showing a prior query's rows. */
+  isResultsPending: boolean;
   /** Selected trace id, exposed only after the trace is known to belong to this run. */
   activeTraceId?: string;
   selectedTraceValidation: {
@@ -226,7 +228,8 @@ export const useEvalRunTracesV4Controller = ({
     [page.isPreviousData, page.traces, selectedTraceId],
   );
   const isSelectedTraceOnPage = Boolean(selectedTraceOnPage);
-  const isPageSettled = !page.isLoading && !page.isFetching;
+  const isResultsPending = page.isFetching || page.isPreviousData;
+  const isPageSettled = !page.isLoading && !isResultsPending;
   const selectedTraceValidationEnabled = isPageSettled && isSelectedTraceIdValid && !isSelectedTraceOnPage;
   const selectedTraceValidationQuery = useQuery<ModelTraceInfoV3 | null, Error>({
     queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY, 'eval-run-selected-trace-id', experimentId, runUuid, selectedTraceId],
@@ -319,7 +322,7 @@ export const useEvalRunTracesV4Controller = ({
 
   const activeFilterCount = countActiveFilters(filterModel) + url.tagFilters.length;
   const hasActiveFilters = url.search.trim().length > 0 || activeFilterCount > 0;
-  const hasNoResults = !page.isLoading && !page.isFetching && page.traces.length === 0;
+  const hasNoResults = !page.isLoading && !isResultsPending && page.traces.length === 0;
   const isEmptyPageBeyondFirst = hasNoResults && url.pageIndex > 1;
   const hasNoTracesAtAll = hasNoResults && !hasActiveFilters && !isEmptyPageBeyondFirst;
   const hasNoSearchResults = hasNoResults && hasActiveFilters && !isEmptyPageBeyondFirst;
@@ -335,6 +338,7 @@ export const useEvalRunTracesV4Controller = ({
     filterModel,
     setFilterModel,
     activeFilterCount,
+    isResultsPending,
     activeTraceId,
     selectedTraceValidation: {
       isLoading: selectedTraceValidationEnabled && selectedTraceValidationQuery.isLoading,

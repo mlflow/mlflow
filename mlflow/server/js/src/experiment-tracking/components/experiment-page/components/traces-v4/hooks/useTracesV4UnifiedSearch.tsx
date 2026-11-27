@@ -20,7 +20,7 @@ interface RenderSearchControlParams {
   inputRef: RefObject<InputRef>;
   /** Resets the in-memory recent searches when it changes (e.g. another experiment or run). */
   resetKey: string;
-  isSearchPending?: boolean;
+  isSearchPending: boolean;
 }
 
 const isSameClause = (left: FilterClause, right: FilterClause) =>
