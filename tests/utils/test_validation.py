@@ -1567,6 +1567,26 @@ def test_validate_scorer_destination_options_checks_vertex_credentials(make_scor
 
 
 @pytest.mark.parametrize(
+    "make_scorer",
+    [
+        lambda v: _trulens_scorer({"completion_kwargs": {"vertex_credentials": v}}),
+        lambda v: _instructions_judge({"vertex_credentials": v}),
+        lambda v: _builtin_judge({"vertex_ai_credentials": v}),
+    ],
+)
+def test_validate_scorer_destination_options_rejects_vertex_credentials_file_with_opt_in(
+    make_scorer, tmp_path, monkeypatch
+):
+    # Scorer options keep the path, so the file would be read again when the scorer runs.
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
+    path = tmp_path / "key.json"
+    path.write_text(service_account_key())
+    _validate_gateway_secret_value({"vertex_credentials": str(path)})
+    with pytest.raises(MlflowException, match="must contain the service account key JSON"):
+        _validate_scorer_destination_options(make_scorer(str(path)))
+
+
+@pytest.mark.parametrize(
     ("serialized_scorer", "field"),
     [
         (

@@ -1327,13 +1327,17 @@ def _read_vertex_credentials_file(path: str) -> str:
     return data.decode("utf-8")
 
 
-def _load_gateway_vertex_credentials(value: Any, field_name: str) -> dict[str, Any]:
+def _load_gateway_vertex_credentials(
+    value: Any, field_name: str, *, allow_file: bool = True
+) -> dict[str, Any]:
     """Parse and validate a Vertex AI service account key.
 
     The key is given inline. A file path is read only when
     ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE`` is ``true``, as for API keys, since the server
-    would otherwise load files from its own filesystem on a caller's behalf. Values are never
-    echoed, since they hold private keys.
+    would otherwise load files from its own filesystem on a caller's behalf. Pass
+    ``allow_file=False`` when the caller can't replace the value with the returned document: a
+    path left in place is read again later, without these checks. Values are never echoed,
+    since they hold private keys.
     """
     info = value
     if isinstance(value, str):
@@ -1342,7 +1346,7 @@ def _load_gateway_vertex_credentials(value: Any, field_name: str) -> dict[str, A
         # A plain ValueError covers integers over the digit limit, which aren't a
         # JSONDecodeError, and deeply nested input raises RecursionError.
         except (ValueError, RecursionError):
-            if not MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE.get():
+            if not (allow_file and MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE.get()):
                 raise MlflowException.invalid_parameter_value(
                     f"{field_name} must contain the service account key JSON itself, not a "
                     "file path"
@@ -1357,10 +1361,14 @@ def _load_gateway_vertex_credentials(value: Any, field_name: str) -> dict[str, A
     return info
 
 
-def _validate_gateway_vertex_credentials(config: dict[str, Any], source: str) -> None:
-    for key in sorted(GATEWAY_VERTEX_CREDENTIAL_KEYS & set(config)):
+def _validate_gateway_vertex_credentials(
+    config: dict[str, Any] | None, source: str, *, allow_file: bool = True
+) -> None:
+    for key in sorted(GATEWAY_VERTEX_CREDENTIAL_KEYS & set(config or {})):
         if config[key]:
-            _load_gateway_vertex_credentials(config[key], f"{source} {key!r}")
+            _load_gateway_vertex_credentials(
+                config[key], f"{source} {key!r}", allow_file=allow_file
+            )
 
 
 def _validate_gateway_secret_auth_config(
@@ -1506,9 +1514,12 @@ def _validate_third_party_scorer_data(
                 )
             except ValueError as e:
                 raise MlflowException.invalid_parameter_value(str(e)) from None
+        # The kwargs reach the scorer's LLM client as stored, so a path is never accepted here.
         for key, value in _iter_key_values(kwargs, GATEWAY_VERTEX_CREDENTIAL_KEYS):
             if value:
-                _load_gateway_vertex_credentials(value, f"third_party_scorer_data.kwargs {key!r}")
+                _load_gateway_vertex_credentials(
+                    value, f"third_party_scorer_data.kwargs {key!r}", allow_file=False
+                )
 
 
 # Serialized judges whose data carries ``inference_params``: ``InstructionsJudge`` (``make_judge``)
@@ -1563,7 +1574,8 @@ def _validate_judge_inference_params(
                 "endpoint ('gateway:/<name>') or the provider's environment variables."
             )
         _validate_gateway_region_keys(params, f"{field}.inference_params", show_value=show_value)
-        _validate_gateway_vertex_credentials(params or {}, f"{field}.inference_params")
+        # Like third-party scorer kwargs, these are used as stored, so a path is never accepted.
+        _validate_gateway_vertex_credentials(params, f"{field}.inference_params", allow_file=False)
 
 
 def _validate_scorer_destination_options(
