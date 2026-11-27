@@ -1,4 +1,4 @@
-import { create } from '../../zustand/index';
+import { create } from 'zustand';
 
 import type { Assessment } from '../ModelTrace.types';
 

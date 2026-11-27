@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { create } from '@databricks/web-shared/zustand';
+import { create } from 'zustand';
 import { usePageTitle, useParams, useSearchParams } from '../common/utils/RoutingUtils';
 import type { RowSelectionState } from '@tanstack/react-table';
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 import type { RefObject } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { create } from '@databricks/web-shared/zustand';
+import { create } from 'zustand';
 
 interface FloatingObstructionStore {
   /** id -> width (px) reserved on the right edge by an open surface (e.g. a drawer). */
