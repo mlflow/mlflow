@@ -387,7 +387,9 @@ from mlflow.store.artifact.artifact_repo import (
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.host_policy import (
     host_addressed_rejection_message,
+    local_artifact_rejection_message,
     rejected_host_addressed_scheme,
+    rejected_local_artifact_path,
     validate_artifact_uri_host,
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -1580,6 +1582,16 @@ def _validate_artifact_uri_scheme(uri: str, field_name: str) -> None:
         )
 
 
+def _validate_client_local_artifact_location(uri: str, field_name: str) -> None:
+    # Only locations a client submits are checked. Stored local locations stay servable, since
+    # experiments created directly against the backend store keep local locations of their own.
+    path = rejected_local_artifact_path(uri)
+    if path is not None:
+        raise MlflowException.invalid_parameter_value(
+            local_artifact_rejection_message(path, field_name=field_name)
+        )
+
+
 def _get_artifact_repository_for_uri(artifact_uri: str) -> ArtifactRepository:
     """
     Build the artifact repository for a stored location the server did not configure itself,
@@ -1938,6 +1950,9 @@ def _create_experiment():
 
     if request_message.artifact_location:
         _validate_storage_location_uri(request_message.artifact_location, "artifact_location")
+        _validate_client_local_artifact_location(
+            request_message.artifact_location, "artifact_location"
+        )
     experiment_id = _get_tracking_store().create_experiment(
         request_message.name, request_message.artifact_location, tags
     )
