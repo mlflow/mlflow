@@ -246,12 +246,10 @@ jobs:
           # main after reviewing the diff. We'll migrate to release tags once
           # the bump cadence is stable.
           #
-          # The pinned revision also decides the model: this one reviews with
-          # Claude Sonnet 5.5 (`databricks-claude-sonnet-5-5` on the AI
-          # Gateway). The orchestrator names exact model versions, so a newer
-          # model doesn't get picked up on its own; moving to one takes an
-          # orchestrator change and another bump here.
-          ref: e74c27337cf4b7e69a4b4896b70725b340de53c7
+          # This revision replaces the custom review engine with Claude Code
+          # Sonnet 5.5 + Codex Sol and frozen 2025 memory. The installer
+          # below belongs to the same pinned implementation.
+          ref: d2a1953946769dab0cd711f331ace12c530a4356
           sparse-checkout: |
             nailaopus
           path: internal
@@ -269,6 +267,9 @@ jobs:
           tar xzf /tmp/rg.tar.gz -C /tmp
           sudo mv /tmp/ripgrep-15.2.0-x86_64-unknown-linux-musl/rg /usr/local/bin/rg
           rg --version
+
+      - name: Install native review CLIs
+        run: bash internal/nailaopus/scripts/install_native_reviewers.sh
 
       - name: Parse review flags
         id: flags
