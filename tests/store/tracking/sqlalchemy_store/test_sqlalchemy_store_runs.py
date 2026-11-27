@@ -2676,6 +2676,67 @@ def test_log_batch_metrics(store: SqlAlchemyStore):
         assert run.data.metrics["NegInf"] == -1.7976931348623157e308
 
 
+@pytest.mark.parametrize("count", [1000, 1001])
+def test_log_batch_metric_history_uses_multirow_inserts(store: SqlAlchemyStore, count):
+    if store.db_type != POSTGRES or store.engine.dialect.driver != "psycopg":
+        pytest.skip("PostgreSQL history batching with psycopg 3")
+
+    run_id = _run_factory(store).info.run_id
+    statements = []
+    batches = []
+
+    def execute(_cursor, statement, *_args):
+        if statement.startswith("INSERT INTO metrics "):
+            statements.append(statement)
+
+    def executemany(_cursor, statement, *_args):
+        if statement.startswith("INSERT INTO metrics "):
+            batches.append(statement)
+
+    dialect = store.engine.dialect
+    sqlalchemy.event.listen(dialect, "do_execute", execute)
+    sqlalchemy.event.listen(dialect, "do_executemany", executemany)
+    try:
+        store._log_metrics(run_id, [Metric(f"metric-{i}", float(i), i, i) for i in range(count)])
+    finally:
+        sqlalchemy.event.remove(dialect, "do_execute", execute)
+        sqlalchemy.event.remove(dialect, "do_executemany", executemany)
+
+    assert batches == []
+    assert len(statements) == math.ceil(count / dialect.insertmanyvalues_page_size)
+    with store.ManagedSessionMaker() as session:
+        history = (
+            session
+            .query(
+                SqlMetric.key,
+                SqlMetric.value,
+                SqlMetric.timestamp,
+                SqlMetric.step,
+                SqlMetric.is_nan,
+            )
+            .filter(SqlMetric.run_uuid == run_id)
+            .all()
+        )
+    assert set(history) == {(f"metric-{i}", float(i), i, i, False) for i in range(count)}
+
+
+def test_log_batch_metric_history_without_bulk_returning(store: SqlAlchemyStore):
+    if store.db_type != POSTGRES or store.engine.dialect.driver != "psycopg":
+        pytest.skip("PostgreSQL bulk RETURNING fallback with psycopg 3")
+
+    run_id = _run_factory(store).info.run_id
+    metrics = [Metric("metric", float(i), i, i) for i in range(3)]
+    with mock.patch.object(
+        type(store.engine.dialect),
+        "insert_executemany_returning",
+        new_callable=mock.PropertyMock,
+        return_value=False,
+    ):
+        store.log_batch(run_id, metrics=metrics, params=[], tags=[])
+    assert set(store.get_metric_history(run_id, "metric")) == set(metrics)
+    assert store.get_run(run_id).data.metrics == {"metric": 2.0}
+
+
 def test_log_batch_same_metric_repeated_single_req(store: SqlAlchemyStore):
     run = _run_factory(store)
     metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
