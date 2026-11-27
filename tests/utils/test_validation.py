@@ -1095,7 +1095,7 @@ def test_validate_gateway_secret_value_rejects_litellm_destination_aliases(key):
 
 @pytest.mark.parametrize("key", ["vertex_credentials", "vertex_ai_credentials"])
 @pytest.mark.parametrize("value", ["", service_account_key()])
-def test_validate_gateway_vertex_credentials_acceptsservice_account_key(key, value):
+def test_validate_gateway_vertex_credentials_accepts_service_account_key(key, value):
     assert _validate_gateway_secret_auth_config({key: value}) == {key: value}
     _validate_gateway_secret_value({key: value})
 
@@ -1140,6 +1140,16 @@ def test_validate_gateway_vertex_credentials_reads_file_only_with_opt_in(tmp_pat
         _validate_gateway_secret_value({"vertex_credentials": str(path)})
     path.write_text(service_account_key())
     _validate_gateway_secret_value({"vertex_credentials": str(path)})
+
+
+@pytest.mark.parametrize("kind", ["missing", "not_json"])
+def test_validate_gateway_vertex_credentials_rejects_unreadable_file(kind, tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
+    path = tmp_path / "key.json"
+    if kind == "not_json":
+        path.write_text("not json")
+    with pytest.raises(MlflowException, match="must be a service account key JSON or a path"):
+        _validate_gateway_secret_value({"vertex_credentials": str(path)})
 
 
 @pytest.mark.skipif(is_windows(), reason="FIFOs and /dev/zero are POSIX-only")

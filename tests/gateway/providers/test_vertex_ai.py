@@ -1233,7 +1233,7 @@ def _make_provider_with_credentials(vertex_credentials):
 # Operator-owned configurations (the YAML gateway, client-side judges) may give a path. Stored
 # gateway secrets are validated in mlflow.server.gateway_api before they reach the provider.
 @pytest.mark.parametrize("from_file", [False, True])
-def test_credentials_withservice_account_key(from_file, tmp_path):
+def test_credentials_with_service_account_key(from_file, tmp_path):
     creds_json = service_account_key()
     vertex_credentials = creds_json
     if from_file:
