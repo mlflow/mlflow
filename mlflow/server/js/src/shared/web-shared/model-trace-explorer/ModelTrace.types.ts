@@ -325,8 +325,8 @@ export type ModelTraceStatus =
  * Cost information for a span in USD.
  */
 export interface SpanCostInfo {
-  input_cost: number;
-  output_cost: number;
+  input_cost?: number;
+  output_cost?: number;
   total_cost: number;
 }
 

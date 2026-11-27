@@ -9,15 +9,13 @@ import { estimatedCostMessages } from './EstimatedCostValue';
 import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 
 export interface TraceCost {
-  input_cost: number;
-  output_cost: number;
+  input_cost?: number;
+  output_cost?: number;
   total_cost: number;
 }
 
 export const isTraceCostType = (value?: unknown): value is TraceCost => {
-  return (
-    value !== undefined && isObject(value) && 'input_cost' in value && 'output_cost' in value && 'total_cost' in value
-  );
+  return isObject(value) && typeof (value as { total_cost?: unknown }).total_cost === 'number';
 };
 
 export const ModelTraceExplorerCostHoverCard = ({ cost }: { cost: TraceCost }) => {
@@ -30,8 +28,14 @@ export const ModelTraceExplorerCostHoverCard = ({ cost }: { cost: TraceCost }) =
     () => (isNewEvalRunsUi ? formatEstimatedCostUSD(cost.total_cost) : formatCostUSD(cost.total_cost)),
     [cost.total_cost, isNewEvalRunsUi],
   );
-  const inputCost = useMemo(() => formatCostUSD(cost.input_cost), [cost.input_cost]);
-  const outputCost = useMemo(() => formatCostUSD(cost.output_cost), [cost.output_cost]);
+  const inputCost = useMemo(
+    () => (cost.input_cost === undefined ? undefined : formatCostUSD(cost.input_cost)),
+    [cost.input_cost],
+  );
+  const outputCost = useMemo(
+    () => (cost.output_cost === undefined ? undefined : formatCostUSD(cost.output_cost)),
+    [cost.output_cost],
+  );
   // aria-label announces the plain dollar amount so screen readers say "Estimated cost: $X" rather than the ≈ glyph.
   const estimatedAriaLabel = isNewEvalRunsUi
     ? intl.formatMessage(estimatedCostMessages.ariaLabel, { cost: formatCostUSD(cost.total_cost) })
@@ -78,36 +82,40 @@ export const ModelTraceExplorerCostHoverCard = ({ cost }: { cost: TraceCost }) =
               gap: theme.spacing.sm,
             }}
           >
-            <div
-              css={{
-                display: 'flex',
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Typography.Text size="md">
-                <FormattedMessage defaultMessage="Input cost" description="Label for input cost" />
-              </Typography.Text>
-              <Tag componentId="shared.model-trace-explorer.cost-hovercard.input-cost.tag">
-                <span>{inputCost}</span>
-              </Tag>
-            </div>
-            <div
-              css={{
-                display: 'flex',
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Typography.Text size="md">
-                <FormattedMessage defaultMessage="Output cost" description="Label for output cost" />
-              </Typography.Text>
-              <Tag componentId="shared.model-trace-explorer.cost-hovercard.output-cost.tag">
-                <span>{outputCost}</span>
-              </Tag>
-            </div>
+            {inputCost && (
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography.Text size="md">
+                  <FormattedMessage defaultMessage="Input cost" description="Label for input cost" />
+                </Typography.Text>
+                <Tag componentId="shared.model-trace-explorer.cost-hovercard.input-cost.tag">
+                  <span>{inputCost}</span>
+                </Tag>
+              </div>
+            )}
+            {outputCost && (
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography.Text size="md">
+                  <FormattedMessage defaultMessage="Output cost" description="Label for output cost" />
+                </Typography.Text>
+                <Tag componentId="shared.model-trace-explorer.cost-hovercard.output-cost.tag">
+                  <span>{outputCost}</span>
+                </Tag>
+              </div>
+            )}
             <div
               css={{
                 display: 'flex',
