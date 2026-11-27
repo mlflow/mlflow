@@ -54,7 +54,7 @@ do not leak into tests:
 | Provider  | Variables                                                                                     | Example model                      |
 | --------- | --------------------------------------------------------------------------------------------- | ---------------------------------- |
 | OpenAI    | `OPENAI_BASE_URL=http://localhost:8080/openai/v1`, `OPENAI_API_KEY=$ANTHROPIC_AUTH_TOKEN`     | `databricks-gpt-6-luna`            |
-| Gemini    | `GOOGLE_GEMINI_BASE_URL=http://localhost:8080/gemini`, `GEMINI_API_KEY=$ANTHROPIC_AUTH_TOKEN` | `databricks-gemini-3-1-flash-lite` |
+| Gemini    | `GOOGLE_GEMINI_BASE_URL=http://localhost:8080/gemini`, `GOOGLE_API_KEY=$ANTHROPIC_AUTH_TOKEN` | `databricks-gemini-3-1-flash-lite` |
 | Anthropic | `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`, already set                                  | `databricks-claude-haiku-5-5`      |
 
 Model names take a `databricks-` prefix; the provider's own model names do not resolve. The
@@ -65,6 +65,13 @@ retrying. Keep calls few and small: a handful of short requests is enough to rep
 Leave `localhost` out of `NO_PROXY` on that command, or the call cannot reach the gateway. If
 the command also talks to a local MLflow server, exempt only the server's port, e.g.
 `NO_PROXY=localhost:5000,127.0.0.1:5000`.
+
+Some clients need more than the variables above to reach the gateway:
+
+- The legacy `google-generativeai` SDK ignores `GOOGLE_GEMINI_BASE_URL`. Point it at the gateway
+  in code: `genai.configure(transport="rest", client_options={"api_endpoint": "http://localhost:8080/gemini"})`.
+- Node's built-in `fetch`, which the JavaScript provider SDKs use, bypasses the sandbox proxy
+  unless the command sets `NODE_USE_ENV_PROXY=1`.
 
 ### Running the UI
 
