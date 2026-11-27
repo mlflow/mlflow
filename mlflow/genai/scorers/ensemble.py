@@ -109,15 +109,28 @@ def _require_complete(values: list[Any]) -> None:
         )
 
 
-def majority_vote(values: list[Any]) -> Feedback:
-    _require_complete(values)
+def _most_common(values: list[Any]) -> Any:
     counts = Counter(values)
     top = max(counts.values())
     # Deterministic tie-break: lexicographic order of the string form of each tied value.
     # This is intended for categorical/bool values. For numerics the string ordering is NOT
     # numeric ordering (e.g. str(10) < str(9), and False sorts before True), so majority_vote
     # is not appropriate for continuous numerics -- use mean/minimum/maximum for those.
-    winner = min((v for v, c in counts.items() if c == top), key=lambda v: str(v))
+    return min((v for v, c in counts.items() if c == top), key=lambda v: str(v))
+
+
+def majority_vote(values: list[Any]) -> Feedback:
+    _require_complete(values)
+    counts = Counter(values)
+    bools = [_coerce_to_bool(v) for v in values]
+    if all(b is not None for b in bools):
+        # Judges return "yes"/"no" while code scorers usually return True/False, so vote on
+        # the shared yes/no reading rather than the raw values. Ties go to the negative side.
+        # Return the most common original value on the winning side to preserve its type.
+        passed = sum(bools) > len(bools) / 2
+        winner = _most_common([v for v, b in zip(values, bools) if b is passed])
+    else:
+        winner = _most_common(values)
     return Feedback(
         value=winner,
         rationale=f"Majority vote over {len(values)} scorers: {dict(counts)}",
