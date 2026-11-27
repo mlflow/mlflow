@@ -1,4 +1,5 @@
 import { context, propagation, trace as otelTrace } from '@opentelemetry/api';
+import { B3Propagator } from '@opentelemetry/propagator-b3';
 import { BasicTracerProvider } from '@opentelemetry/sdk-trace-base';
 import { MlflowClient } from '../../src/clients';
 import { init } from '../../src/core/config';
@@ -329,6 +330,17 @@ describe('global propagator', () => {
     initWith({ OTEL_PROPAGATORS: 'tracecontext' });
     expect(propagation.fields()).toEqual(['traceparent', 'tracestate']);
   });
+
+  it.each([true, false])(
+    'keeps a host propagator registered after its own on reinitialization with global registration %s',
+    (registerGlobal) => {
+      initWith({ OTEL_PROPAGATORS: undefined });
+      propagation.disable();
+      propagation.setGlobalPropagator(new B3Propagator());
+      initWith({ OTEL_PROPAGATORS: undefined }, registerGlobal);
+      expect(propagation.fields()).toEqual(['b3']);
+    },
+  );
 
   it('registers no propagator with registerGlobalTracerProvider: false', () => {
     initWith({ OTEL_PROPAGATORS: undefined }, false);

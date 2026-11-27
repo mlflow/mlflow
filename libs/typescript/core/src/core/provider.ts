@@ -43,7 +43,7 @@ import { asyncExportEnabled } from './utils/env';
 
 let provider: NodeTracerProvider | null = null;
 let globalRegistration: TracerProvider | null = null;
-let globalPropagator: TextMapPropagator | null = null;
+let globalPropagator: OwnedPropagator | null = null;
 // Keep a reference to the active span processor for flushing.
 let processor: SpanProcessor | null = null;
 const noopProvider = new ProxyTracerProvider();
@@ -69,10 +69,10 @@ export function initializeSDK(): void {
     trace.disable();
   }
   globalRegistration = null;
-  if (globalPropagator) {
+  if (globalPropagator?.isGlobal()) {
     propagation.disable();
-    globalPropagator = null;
   }
+  globalPropagator = null;
   if (provider) {
     provider.shutdown().catch((error) => {
       console.error('Error shutting down existing SDK:', error);
@@ -229,10 +229,42 @@ function registerPropagator(): void {
   if (propagators.length === 0) {
     return;
   }
-  const propagator =
-    propagators.length === 1 ? propagators[0] : new CompositePropagator({ propagators });
+  const propagator = new OwnedPropagator(
+    propagators.length === 1 ? propagators[0] : new CompositePropagator({ propagators }),
+  );
   if (propagation.setGlobalPropagator(propagator)) {
     globalPropagator = propagator;
+  }
+}
+
+/**
+ * Returns the same fields array on every call, so a later `init()` can tell
+ * whether the global propagator is still this one and not one the host
+ * registered since.
+ */
+class OwnedPropagator implements TextMapPropagator {
+  private readonly ownFields: string[];
+
+  constructor(private readonly delegate: TextMapPropagator) {
+    this.ownFields = delegate.fields();
+  }
+
+  inject(...args: Parameters<TextMapPropagator['inject']>): void {
+    this.delegate.inject(...args);
+  }
+
+  extract(
+    ...args: Parameters<TextMapPropagator['extract']>
+  ): ReturnType<TextMapPropagator['extract']> {
+    return this.delegate.extract(...args);
+  }
+
+  fields(): string[] {
+    return this.ownFields;
+  }
+
+  isGlobal(): boolean {
+    return propagation.fields() === this.ownFields;
   }
 }
 

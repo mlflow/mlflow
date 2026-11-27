@@ -176,8 +176,11 @@ let globalAuthProvider: AuthProvider | null = null;
  * Configure the MLflow tracing SDK with tracking location settings.
  * This must be called before using other tracing functions.
  *
- * Calling `init()` again replaces the tracer provider. Flush pending traces
- * before reconfiguring if you need to wait for their export.
+ * Calling `init()` again replaces the tracer provider. Tracers that other
+ * libraries obtained from the global OpenTelemetry API before the call keep
+ * exporting through the previous provider. A trace still open at the call is
+ * exported to the previous destination, or dropped when asynchronous export is
+ * enabled. End open traces and flush before reconfiguring.
  *
  * ## Authentication
  *
