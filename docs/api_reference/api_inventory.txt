@@ -1015,6 +1015,7 @@ mlflow.genai.databricks.review_queues.ReviewQueueType
 mlflow.genai.databricks.review_queues.ReviewStatus
 mlflow.genai.databricks.review_queues.add_review_queue_items
 mlflow.genai.databricks.review_queues.add_review_queue_member
+mlflow.genai.databricks.review_queues.add_review_queue_members
 mlflow.genai.databricks.review_queues.create_review_question
 mlflow.genai.databricks.review_queues.create_review_queue
 mlflow.genai.databricks.review_queues.delete_review_question
@@ -1046,6 +1047,7 @@ mlflow.genai.databricks.review_queues.remove_review_queue_items
 mlflow.genai.databricks.review_queues.remove_review_queue_member
 mlflow.genai.databricks.review_queues.resolve_effective_review_questions
 mlflow.genai.databricks.review_queues.set_review_queue_item_status
+mlflow.genai.databricks.review_queues.set_review_queue_members
 mlflow.genai.databricks.review_queues.update_review_question
 mlflow.genai.databricks.review_queues.update_review_queue
 mlflow.genai.datasets.EvaluationDataset

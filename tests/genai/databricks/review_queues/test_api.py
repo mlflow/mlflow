@@ -10,11 +10,13 @@ from mlflow.genai.databricks.review_queues import (
     InputText,
     ItemKind,
     QuestionType,
+    ReviewQueueMember,
     ReviewQueueType,
     ReviewStatus,
     _client,
     add_review_queue_items,
     add_review_queue_member,
+    add_review_queue_members,
     create_review_question,
     create_review_queue,
     delete_review_question,
@@ -30,9 +32,13 @@ from mlflow.genai.databricks.review_queues import (
     remove_review_queue_member,
     resolve_effective_review_questions,
     set_review_queue_item_status,
+    set_review_queue_members,
     update_review_question,
     update_review_queue,
 )
+from mlflow.genai.labeling import LabelingSession
+from mlflow.genai.labeling.stores import DatabricksLabelingStore
+from mlflow.protos.databricks_pb2 import INVALID_STATE
 
 _CALL = "mlflow.genai.databricks.review_queues._client.call"
 
@@ -178,6 +184,41 @@ def test_create_review_queue_user_sets_owner():
     assert queue.queue_type == ReviewQueueType.USER
 
 
+def test_create_review_queue_with_members():
+    responses = [_QUEUE, {"user": "alice@example.com"}, {"user": "bob@example.com"}]
+    with mock.patch(_CALL, side_effect=responses) as mock_call:
+        queue = create_review_queue(
+            "1", "My queue", members=["alice@example.com", "bob@example.com"]
+        )
+    members_path = "experiments/1/reviewQueues/rq1/members"
+    assert mock_call.call_args_list == [
+        mock.call(
+            "POST",
+            "experiments/1/reviewQueues",
+            json={"display_name": "My queue", "queue_type": "CUSTOM"},
+        ),
+        mock.call("POST", members_path, json={"user": "alice@example.com"}),
+        mock.call("POST", members_path, json={"user": "bob@example.com"}),
+    ]
+    assert queue.queue_id == "rq1"
+
+
+def test_create_review_queue_names_the_queue_when_a_member_fails():
+    failure = MlflowException("Not a workspace user.", INVALID_STATE)
+    with mock.patch(_CALL, side_effect=[_QUEUE, failure]):
+        with pytest.raises(MlflowException, match="Created review queue 'rq1'") as e:
+            create_review_queue("1", "My queue", members=["nobody@example.com"])
+    assert "Not a workspace user." in e.value.message
+    assert e.value.error_code == "INVALID_STATE"
+
+
+def test_create_review_queue_checks_members_before_creating():
+    with mock.patch(_CALL) as mock_call:
+        with pytest.raises(MlflowException, match="must be a list of users"):
+            create_review_queue("1", "My queue", members="alice@example.com")
+    mock_call.assert_not_called()
+
+
 def test_get_review_queue():
     with mock.patch(_CALL, return_value=_QUEUE) as mock_call:
         queue = get_review_queue("1", "rq1")
@@ -256,6 +297,276 @@ def test_list_review_queue_members():
     )
     assert [m.user for m in members] == ["alice@example.com"]
     assert members.token is None
+
+
+_STORE = "mlflow.genai.labeling.stores._get_labeling_store"
+_MEMBERS = "experiments/1/reviewQueues/rq1/members"
+
+
+def _session(assigned_users, labeling_session_id="ls1"):
+    return LabelingSession(
+        name="My session",
+        assigned_users=list(assigned_users),
+        agent=None,
+        label_schemas=[],
+        labeling_session_id=labeling_session_id,
+        mlflow_run_id="run1",
+        review_app_id="app1",
+        experiment_id="1",
+        url="https://example.com/review",
+        enable_multi_turn_chat=False,
+        custom_inputs=None,
+    )
+
+
+@pytest.fixture
+def labeling_store():
+    store = mock.create_autospec(DatabricksLabelingStore, instance=True)
+    store.set_session_assigned_users.side_effect = lambda session, users: _session(users)
+    with mock.patch(_STORE, return_value=store):
+        yield store
+
+
+@pytest.mark.parametrize(
+    ("args", "kwargs"),
+    [
+        (("1", "rq1", "alice@example.com"), {}),
+        (("1", "rq1"), {"user": "alice@example.com"}),
+        ((), {"experiment_id": "1", "queue_id": "rq1", "user": "alice@example.com"}),
+    ],
+)
+def test_add_review_queue_member_existing_call_forms(args, kwargs):
+    with mock.patch(_CALL, return_value={"user": "alice@example.com"}) as mock_call:
+        member = add_review_queue_member(*args, **kwargs)
+    mock_call.assert_called_once_with("POST", _MEMBERS, json={"user": "alice@example.com"})
+    assert member.user == "alice@example.com"
+
+
+@pytest.mark.parametrize(
+    ("args", "kwargs"),
+    [
+        (("1", "rq1", "alice@example.com"), {}),
+        ((), {"experiment_id": "1", "queue_id": "rq1", "user": "alice@example.com"}),
+    ],
+)
+def test_remove_review_queue_member_existing_call_forms(args, kwargs):
+    with mock.patch(_CALL, return_value={}) as mock_call:
+        remove_review_queue_member(*args, **kwargs)
+    mock_call.assert_called_once_with(
+        "DELETE",
+        f"{_MEMBERS}/alice@example.com",
+        params={"parent": "experiments/1/reviewQueues/rq1"},
+    )
+
+
+def test_list_review_queue_members_existing_keyword_call_form():
+    with mock.patch(_CALL, return_value={"review_queue_members": []}) as mock_call:
+        list_review_queue_members(experiment_id="1", queue_id="rq1", max_results=5)
+    mock_call.assert_called_once_with("GET", _MEMBERS, params={"page_size": 5, "page_token": None})
+
+
+@pytest.mark.parametrize(
+    ("func", "args", "match"),
+    [
+        (add_review_queue_member, ("1",), "`queue_id` is required"),
+        (add_review_queue_member, ("1", "rq1"), "`user` is required"),
+        (remove_review_queue_member, ("1", "rq1"), "`user` is required"),
+        (list_review_queue_members, ("1",), "`queue_id` is required"),
+        (add_review_queue_members, ("1", "rq1"), "`users` is required"),
+        (set_review_queue_members, ("1",), "`queue_id` is required"),
+    ],
+)
+def test_member_functions_require_queue_arguments(func, args, match):
+    with mock.patch(_CALL) as mock_call:
+        with pytest.raises(MlflowException, match=match):
+            func(*args)
+    mock_call.assert_not_called()
+
+
+def test_add_review_queue_member_to_labeling_session(labeling_store):
+    # The caller's object is stale: someone else has since assigned carol.
+    current = _session(["alice@example.com", "carol@example.com"])
+    labeling_store.get_labeling_sessions.return_value = [_session([], "ls2"), current]
+
+    with mock.patch(_CALL) as mock_call:
+        member = add_review_queue_member(_session(["alice@example.com"]), user="bob@example.com")
+
+    labeling_store.get_labeling_sessions.assert_called_once_with("1")
+    labeling_store.set_session_assigned_users.assert_called_once_with(
+        current, ["alice@example.com", "carol@example.com", "bob@example.com"]
+    )
+    mock_call.assert_not_called()
+    assert member == ReviewQueueMember(user="bob@example.com")
+
+
+def test_add_review_queue_member_to_labeling_session_already_assigned(labeling_store):
+    labeling_store.get_labeling_sessions.return_value = [_session(["alice@example.com"])]
+    member = add_review_queue_member(_session([]), user="alice@example.com")
+    labeling_store.set_session_assigned_users.assert_not_called()
+    assert member.user == "alice@example.com"
+
+
+def test_labeling_session_not_found(labeling_store):
+    labeling_store.get_labeling_sessions.return_value = [_session([], "ls2")]
+    with pytest.raises(MlflowException, match="'ls1' was not found in experiment '1'") as e:
+        add_review_queue_member(_session([]), user="alice@example.com")
+    assert e.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    labeling_store.set_session_assigned_users.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("func", "args", "match"),
+    [
+        (add_review_queue_member, ("alice@example.com",), "Pass `user` by keyword"),
+        (remove_review_queue_member, ("alice@example.com",), "Pass `user` by keyword"),
+        (add_review_queue_members, (["alice@example.com"],), "Pass `users` by keyword"),
+        (set_review_queue_members, (["alice@example.com"],), "Pass `users` by keyword"),
+        (list_review_queue_members, ("rq1",), "takes no `queue_id`"),
+    ],
+)
+def test_labeling_session_rejects_positional_arguments(labeling_store, func, args, match):
+    with mock.patch(_CALL) as mock_call:
+        with pytest.raises(MlflowException, match=match):
+            func(_session([]), *args)
+    mock_call.assert_not_called()
+    labeling_store.get_labeling_sessions.assert_not_called()
+    labeling_store.set_session_assigned_users.assert_not_called()
+
+
+def test_remove_review_queue_member_from_labeling_session(labeling_store):
+    current = _session(["alice@example.com", "bob@example.com"])
+    labeling_store.get_labeling_sessions.return_value = [current]
+
+    remove_review_queue_member(_session(["alice@example.com"]), user="bob@example.com")
+
+    labeling_store.set_session_assigned_users.assert_called_once_with(
+        current, ["alice@example.com"]
+    )
+
+
+def test_remove_review_queue_member_from_labeling_session_not_assigned(labeling_store):
+    labeling_store.get_labeling_sessions.return_value = [_session(["alice@example.com"])]
+    remove_review_queue_member(_session([]), user="bob@example.com")
+    labeling_store.set_session_assigned_users.assert_not_called()
+
+
+def test_list_review_queue_members_of_labeling_session(labeling_store):
+    labeling_store.get_labeling_sessions.return_value = [
+        _session(["alice@example.com", "bob@example.com"])
+    ]
+    with mock.patch(_CALL) as mock_call:
+        members = list_review_queue_members(_session(["alice@example.com"]))
+    mock_call.assert_not_called()
+    assert [m.user for m in members] == ["alice@example.com", "bob@example.com"]
+    assert members.token is None
+
+
+@pytest.mark.parametrize("kwargs", [{"max_results": 5}, {"page_token": "tok"}])
+def test_list_review_queue_members_of_labeling_session_rejects_paging(labeling_store, kwargs):
+    with pytest.raises(MlflowException, match="apply only to review queues"):
+        list_review_queue_members(_session([]), **kwargs)
+    labeling_store.get_labeling_sessions.assert_not_called()
+
+
+def test_add_review_queue_members_to_queue():
+    responses = [{"user": "alice@example.com"}, {"user": "bob@example.com"}]
+    with mock.patch(_CALL, side_effect=responses) as mock_call:
+        members = add_review_queue_members(
+            "1", "rq1", ["alice@example.com", "bob@example.com", "alice@example.com"]
+        )
+    assert mock_call.call_args_list == [
+        mock.call("POST", _MEMBERS, json={"user": "alice@example.com"}),
+        mock.call("POST", _MEMBERS, json={"user": "bob@example.com"}),
+    ]
+    assert [m.user for m in members] == ["alice@example.com", "bob@example.com"]
+
+
+def test_add_review_queue_members_to_queue_names_members_added_before_a_failure():
+    cap = MlflowException("Queue rq1 already has the maximum of 10 reviewers.", INVALID_STATE)
+    with mock.patch(_CALL, side_effect=[{"user": "alice@example.com"}, cap]):
+        with pytest.raises(MlflowException, match="Couldn't add 'bob@example.com'") as e:
+            add_review_queue_members("1", "rq1", ["alice@example.com", "bob@example.com"])
+    assert "before this one: ['alice@example.com']" in e.value.message
+    assert "maximum of 10 reviewers" in e.value.message
+    assert e.value.error_code == "INVALID_STATE"
+
+
+def test_add_review_queue_members_rejects_a_string():
+    with mock.patch(_CALL) as mock_call:
+        with pytest.raises(MlflowException, match="must be a list of users, not a string"):
+            add_review_queue_members("1", "rq1", "alice@example.com")
+    mock_call.assert_not_called()
+
+
+def test_add_review_queue_members_to_labeling_session(labeling_store):
+    current = _session(["alice@example.com"])
+    labeling_store.get_labeling_sessions.return_value = [current]
+
+    members = add_review_queue_members(
+        _session([]), users=["bob@example.com", "alice@example.com", "carol@example.com"]
+    )
+
+    labeling_store.set_session_assigned_users.assert_called_once_with(
+        current, ["alice@example.com", "bob@example.com", "carol@example.com"]
+    )
+    assert [m.user for m in members] == [
+        "bob@example.com",
+        "alice@example.com",
+        "carol@example.com",
+    ]
+
+
+def test_set_review_queue_members_on_queue():
+    pages = [
+        {
+            "review_queue_members": [
+                {"user": "alice@example.com", "added_by": "owner@example.com"},
+                {"user": "bob@example.com"},
+            ],
+            "next_page_token": "tok",
+        },
+        {"review_queue_members": [{"user": "carol@example.com"}]},
+    ]
+    with mock.patch(_CALL, side_effect=[*pages, {}, {}, {"user": "dave@example.com"}]) as mock_call:
+        members = set_review_queue_members("1", "rq1", ["dave@example.com", "alice@example.com"])
+
+    parent = {"parent": "experiments/1/reviewQueues/rq1"}
+    assert mock_call.call_args_list == [
+        mock.call("GET", _MEMBERS, params={"page_size": None, "page_token": None}),
+        mock.call("GET", _MEMBERS, params={"page_size": None, "page_token": "tok"}),
+        # Unassign before assigning, so a full replacement never hits the reviewer limit.
+        mock.call("DELETE", f"{_MEMBERS}/bob@example.com", params=parent),
+        mock.call("DELETE", f"{_MEMBERS}/carol@example.com", params=parent),
+        mock.call("POST", _MEMBERS, json={"user": "dave@example.com"}),
+    ]
+    assert members == [
+        ReviewQueueMember(user="dave@example.com"),
+        ReviewQueueMember(user="alice@example.com", added_by="owner@example.com"),
+    ]
+
+
+def test_set_review_queue_members_on_queue_names_steps_done_before_a_failure():
+    listing = {"review_queue_members": [{"user": "bob@example.com"}]}
+    failure = MlflowException("Not allowed.", INVALID_STATE)
+    with mock.patch(_CALL, side_effect=[listing, {}, failure]):
+        with pytest.raises(MlflowException, match="stopped partway") as e:
+            set_review_queue_members("1", "rq1", ["alice@example.com"])
+    assert "Removed so far: ['bob@example.com']. Added so far: []" in e.value.message
+    assert e.value.error_code == "INVALID_STATE"
+
+
+def test_set_review_queue_members_on_labeling_session(labeling_store):
+    session = _session(["alice@example.com"])
+    with mock.patch(_CALL) as mock_call:
+        members = set_review_queue_members(
+            session, users=["bob@example.com", "carol@example.com", "bob@example.com"]
+        )
+    labeling_store.set_session_assigned_users.assert_called_once_with(
+        session, ["bob@example.com", "carol@example.com"]
+    )
+    labeling_store.get_labeling_sessions.assert_not_called()
+    mock_call.assert_not_called()
+    assert [m.user for m in members] == ["bob@example.com", "carol@example.com"]
 
 
 def test_add_review_queue_items():
