@@ -885,7 +885,7 @@ Required Permissions for accessing scorers:
       <td>List Scorers</td>
       <td>`3.0/mlflow/scorers/list`</td>
       <td>`GET`</td>
-      <td>can_read (on experiment)</td>
+      <td>can_read (on experiment and scorer), and no `DENY` on scorer versions (see below)</td>
     </tr>
     <tr>
       <td>Get Scorer</td>
@@ -919,6 +919,17 @@ Required Permissions for accessing scorers:
     </tr>
   </tbody>
 </table>
+
+### Scorer listing authorization
+
+For non-admin users, both the experiment and scorer permission checks must pass under the effective
+workspace policy. A `DENY` on the experiment, scorer, or scorer versions blocks the listing of that scorer.
+Adding a grant for one scorer does not hide siblings already readable under the `READ` default.
+
+Restricted scorer listings return HTTP 501 if the tracking backend cannot enforce scorer-level
+authorization. REST clients connected to a supported server are unaffected.
+
+### Authentication API permission requirements
 
 MLflow Authentication provides API endpoints to manage users and permissions.
 
