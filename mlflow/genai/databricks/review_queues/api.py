@@ -247,13 +247,14 @@ def create_review_queue(
     queue = ReviewQueue.from_dict(resp)
     if member_users:
         try:
-            # A new queue has no items yet, so there are no dataset tables to grant.
+            # A new CUSTOM queue has no items yet, so there are no dataset tables to grant. A USER
+            # queue that already exists is returned as it is, and may hold dataset records.
             _add_queue_members(
                 experiment_id,
                 queue.queue_id,
                 member_users,
                 grant_access=grant_access,
-                new_queue=True,
+                new_queue=queue_type == ReviewQueueType.CUSTOM,
             )
         except MlflowException as e:
             raise MlflowException(
@@ -538,7 +539,8 @@ def add_review_queue_member(
 
     Grants are made as the caller, so they need ``CAN_MANAGE`` on the experiment and
     ``MANAGE`` on those Unity Catalog objects. A grant that fails is logged as a warning and
-    never fails the call. The caller isn't granted anything.
+    never fails the call. The caller isn't granted anything, and if they can't be identified,
+    nobody is.
 
     To assign a reviewer to a :py:class:`mlflow.genai.LabelingSession`, pass the session in
     place of ``experiment_id`` and ``queue_id``, and pass ``user`` by keyword. The reviewer is

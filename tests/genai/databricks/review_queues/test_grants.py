@@ -181,6 +181,28 @@ def test_notebook_experiment_uses_notebook_permissions(api):
     assert [c[:2] for c in fake.calls[2:]] == [("GET", notebook), ("PATCH", notebook)]
 
 
+def test_uc_backed_notebook_experiment_leaves_can_run_alone(api):
+    notebook = "/api/2.0/permissions/notebooks/1"
+    tags = [*_UC_TAGS, {"key": "mlflow.experimentType", "value": "NOTEBOOK"}]
+    fake = api({
+        _EXPERIMENT: {"experiment": {"tags": tags}},
+        ("GET", notebook): _acl(("bob@example.com", "CAN_RUN", False)),
+    })
+
+    _grants.grant_reviewer_access("1", ["alice@example.com", "bob@example.com"])
+
+    # CAN_RUN includes CAN_READ, so bob keeps it.
+    assert fake.calls[3] == (
+        "PATCH",
+        notebook,
+        {
+            "access_control_list": [
+                {"user_name": "alice@example.com", "permission_level": "CAN_READ"}
+            ]
+        },
+    )
+
+
 @pytest.mark.parametrize("name", ["", "main", "main.traces", "main..ann", ".traces.ann"])
 def test_tag_that_isnt_a_table_name_means_v3(api, name):
     tag = {"key": "mlflow.experiment.databricksTraceAnnotationStorageTable", "value": name}
@@ -230,6 +252,27 @@ def test_experiment_lookup_failure_is_warned_and_grants_nothing(api, caplog):
     assert "Still needed: access to experiment '1'" in caplog.records[0].message
 
 
+def test_experiment_lookup_failure_still_grants_the_queue_datasets(api, caplog):
+    items = "experiments/1/reviewQueues/rq1/items"
+    fake = api({
+        _EXPERIMENT: MlflowException("Experiment not found."),
+        ("GET", items, None): {"review_queue_items": [_dataset_record("d1")]},
+        ("GET", "datasets/d1", None): {"name": "data.eval.set_a"},
+    })
+
+    with caplog.at_level(logging.WARNING, logger=_grants.__name__):
+        _grants.grant_reviewer_access("1", ["alice@example.com"], queue_id="rq1")
+
+    users = ["alice@example.com"]
+    assert fake.calls[2:] == [
+        _uc_grant("catalog", "data", ["USE_CATALOG"], users),
+        _uc_grant("schema", "data.eval", ["USE_SCHEMA"], users),
+        _uc_grant("table", "data.eval.set_a", ["SELECT", "MODIFY"], users),
+    ]
+    [record] = caplog.records
+    assert "Still needed: access to experiment '1'." in record.message
+
+
 def test_dataset_that_cant_be_found_is_warned(api, caplog):
     items = "experiments/1/reviewQueues/rq1/items"
     api({
@@ -244,15 +287,18 @@ def test_dataset_that_cant_be_found_is_warned(api, caplog):
     assert "SELECT, MODIFY on the table of dataset 'd1'" in caplog.records[0].message
 
 
-def test_caller_lookup_failure_still_grants_the_others(api):
-    fake = api({_ME: _denied(), _EXPERIMENT: {"experiment": {"tags": []}}})
+@pytest.mark.parametrize("me", [_denied(), {}])
+def test_caller_who_cant_be_identified_means_nothing_is_granted(api, caplog, me):
+    fake = api({_ME: me, _EXPERIMENT: {"experiment": {"tags": _UC_TAGS}}})
 
-    _grants.grant_reviewer_access("1", ["owner@example.com", "alice@example.com"])
+    with caplog.at_level(logging.WARNING, logger=_grants.__name__):
+        _grants.grant_reviewer_access("1", ["owner@example.com", "alice@example.com"])
 
-    # The caller wasn't recognized, but already has CAN_MANAGE, so only alice is granted.
-    assert fake.calls[-1][2] == {
-        "access_control_list": [{"user_name": "alice@example.com", "permission_level": "CAN_EDIT"}]
-    }
+    # The caller could be in the list, and the table grants would reach them too.
+    assert fake.calls == [(*_ME, None)]
+    [record] = caplog.records
+    assert "Couldn't give owner@example.com, alice@example.com the access" in record.message
+    assert "because the current user couldn't be identified" in record.message
 
 
 def test_only_the_caller_means_nothing_to_grant(api):
@@ -268,7 +314,7 @@ def test_unexpected_error_is_warned_instead_of_raised(monkeypatch, caplog):
         raise RuntimeError("No credentials.")
 
     monkeypatch.setattr(_client, "call_api", broken)
-    monkeypatch.setattr(_grants, "_without_caller", lambda users: users)
+    monkeypatch.setattr(_grants, "_caller", lambda: "owner@example.com")
 
     with caplog.at_level(logging.WARNING, logger=_grants.__name__):
         _grants.grant_reviewer_access("1", ["alice@example.com"])

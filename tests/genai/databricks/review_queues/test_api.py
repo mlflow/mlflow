@@ -230,8 +230,18 @@ def test_create_review_queue_checks_members_before_creating():
 def test_create_review_queue_grants_its_members(grant_reviewer_access):
     with mock.patch(_CALL, side_effect=[_QUEUE, {"user": "alice@example.com"}]):
         create_review_queue("1", "My queue", members=["alice@example.com"])
-    # A new queue has no items, so there are no dataset tables to look up.
+    # A new CUSTOM queue has no items, so there are no dataset tables to look up.
     grant_reviewer_access.assert_called_once_with("1", ["alice@example.com"], queue_id=None)
+
+
+def test_create_review_queue_user_grants_the_datasets_already_in_it(grant_reviewer_access):
+    queue = {**_QUEUE, "queue_type": "USER"}
+    with mock.patch(_CALL, side_effect=[queue, {"user": "alice@example.com"}]):
+        create_review_queue(
+            "1", "alice@example.com", queue_type="USER", members=["alice@example.com"]
+        )
+    # Creating a USER queue that already exists returns it, so it may hold dataset records.
+    grant_reviewer_access.assert_called_once_with("1", ["alice@example.com"], queue_id="rq1")
 
 
 @pytest.mark.parametrize(

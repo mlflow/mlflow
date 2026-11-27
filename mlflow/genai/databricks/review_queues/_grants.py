@@ -26,9 +26,9 @@ _logger = logging.getLogger(__name__)
 _EXPERIMENT_TYPE_TAG = "mlflow.experimentType"
 _NOTEBOOK_EXPERIMENT_TYPE = "NOTEBOOK"
 
-# Only the nested levels are ranked. Others, such as CAN_RUN, never count as "at or above" the
-# level being granted, so the grant still applies to them.
-_LEVEL_RANK = {"CAN_READ": 1, "CAN_EDIT": 2, "CAN_MANAGE": 3}
+# Notebook levels nest as CAN_READ < CAN_RUN < CAN_EDIT < CAN_MANAGE, and experiments have the same
+# levels without CAN_RUN. A level that isn't listed counts as below all of them.
+_LEVEL_RANK = {"CAN_READ": 1, "CAN_RUN": 2, "CAN_EDIT": 3, "CAN_MANAGE": 4}
 
 _READ = ("SELECT",)
 _READ_WRITE = ("SELECT", "MODIFY")
@@ -69,7 +69,8 @@ def grant_reviewer_access(
       tables, and SELECT and MODIFY on the trace annotation table and on the table of each dataset
       whose records are in ``queue_id``.
 
-    The caller is skipped. This never raises: grants that fail are listed in one warning.
+    The caller is skipped, and if they can't be identified, nothing is granted. This never
+    raises: grants that fail are listed in one warning.
     """
     try:
         _grant_reviewer_access(experiment_id, users, queue_id)
@@ -83,34 +84,23 @@ def grant_reviewer_access(
 
 
 def _grant_reviewer_access(experiment_id: str, users: list[str], queue_id: str | None) -> None:
-    users = _without_caller(users)
-    if not users:
+    try:
+        caller = _caller()
+    except MlflowException as e:
+        # The caller might be one of `users`, and having MANAGE on a table doesn't let them read
+        # it, so granting anyway could give them data access. Grant nothing instead.
+        _logger.warning(
+            "Couldn't give %s the access they need to review this queue, because the current "
+            "user couldn't be identified: %s",
+            ", ".join(users),
+            e.message,
+        )
+        return
+    # Adding reviewers shouldn't change the caller's own access.
+    if not (users := [u for u in users if u.lower() != caller.lower()]):
         return
     failures: list[_Failure] = []
-    try:
-        experiment = _client.call_api(
-            "GET", "/api/2.0/mlflow/experiments/get", params={"experiment_id": experiment_id}
-        ).get("experiment", {})
-    except MlflowException as e:
-        _warn(users, [_Failure(f"access to experiment {experiment_id!r}", e)])
-        return
-
-    tags = {tag.get("key"): tag.get("value") for tag in experiment.get("tags", [])}
-    trace_tables = [
-        (table, privileges)
-        for name, privileges in [
-            (tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE), _READ_WRITE),
-            (tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE), _READ),
-            (tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE), _READ),
-        ]
-        if (table := _parse_table(name))
-    ]
-    # Unity Catalog authorizes answers on traces stored there, so viewing the experiment is enough.
-    level = "CAN_READ" if trace_tables else "CAN_EDIT"
-    is_notebook = tags.get(_EXPERIMENT_TYPE_TAG) == _NOTEBOOK_EXPERIMENT_TYPE
-    object_type = "notebooks" if is_notebook else "experiments"
-    _grant_experiment_access(experiment_id, object_type, users, level, failures)
-
+    trace_tables = _grant_experiment_access(experiment_id, users, failures)
     dataset_tables = _queue_dataset_tables(experiment_id, queue_id, failures) if queue_id else []
     table_grants = trace_tables + [(table, _READ_WRITE) for table in dataset_tables]
     _grant_table_access(users, table_grants, failures)
@@ -118,15 +108,10 @@ def _grant_reviewer_access(experiment_id: str, users: list[str], queue_id: str |
         _warn(users, failures)
 
 
-def _without_caller(users: list[str]) -> list[str]:
-    # The caller already has whatever access they could grant themselves.
-    try:
-        caller = _client.call_api("GET", "/api/2.0/preview/scim/v2/Me").get("userName")
-    except MlflowException:
-        caller = None
-    if not caller:
-        return users
-    return [u for u in users if u.lower() != caller.lower()]
+def _caller() -> str:
+    if not (name := _client.call_api("GET", "/api/2.0/preview/scim/v2/Me").get("userName")):
+        raise MlflowException("The response doesn't include a user name.")
+    return name
 
 
 def _permission_ranks(acl: list[dict[str, Any]]) -> dict[str, int]:
@@ -147,8 +132,32 @@ def _permission_ranks(acl: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def _grant_experiment_access(
-    experiment_id: str, object_type: str, users: list[str], level: str, failures: list[_Failure]
-) -> None:
+    experiment_id: str, users: list[str], failures: list[_Failure]
+) -> list[tuple[_Table, tuple[str, ...]]]:
+    """Grant ``users`` access to the experiment, and return the trace table grants they need."""
+    try:
+        experiment = _client.call_api(
+            "GET", "/api/2.0/mlflow/experiments/get", params={"experiment_id": experiment_id}
+        ).get("experiment", {})
+    except MlflowException as e:
+        # Its trace tables are unknown too, but the queue's datasets can still be granted.
+        failures.append(_Failure(f"access to experiment {experiment_id!r}", e))
+        return []
+
+    tags = {tag.get("key"): tag.get("value") for tag in experiment.get("tags", [])}
+    trace_tables = [
+        (table, privileges)
+        for name, privileges in [
+            (tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE), _READ_WRITE),
+            (tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE), _READ),
+            (tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE), _READ),
+        ]
+        if (table := _parse_table(name))
+    ]
+    # Unity Catalog authorizes answers on traces stored there, so viewing the experiment is enough.
+    level = "CAN_READ" if trace_tables else "CAN_EDIT"
+    is_notebook = tags.get(_EXPERIMENT_TYPE_TAG) == _NOTEBOOK_EXPERIMENT_TYPE
+    object_type = "notebooks" if is_notebook else "experiments"
     endpoint = f"/api/2.0/permissions/{object_type}/{experiment_id}"
     try:
         # PATCH replaces a listed user's own entry, so leave out anyone already at or above
@@ -166,6 +175,7 @@ def _grant_experiment_access(
             )
     except MlflowException as e:
         failures.append(_Failure(f"{level} on experiment {experiment_id!r}", e))
+    return trace_tables
 
 
 def _queue_dataset_tables(
