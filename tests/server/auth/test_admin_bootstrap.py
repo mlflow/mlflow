@@ -262,3 +262,55 @@ def test_init_store_for_app_skips_bootstrap_when_cli_already_did_it(
         store.create_user.assert_not_called()
     else:
         store.create_user.assert_called_once_with("admin", "a-strong-admin-password", is_admin=True)
+
+
+def test_auth_store_registry_and_custom_scheme_resolution(monkeypatch):
+    from mlflow.server.auth.registry import (
+        AuthStoreRegistry,
+        UnsupportedAuthStoreURIException,
+    )
+    from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+
+    class CustomPluginAuthStore:
+        def __init__(self):
+            self.db_uri = None
+            self.read_db_uri = None
+            self.has_user = mock.MagicMock(return_value=True)
+            self.authenticate_user = mock.MagicMock(return_value=False)
+
+        def init_db(self, db_uri, read_db_uri=None):
+            self.db_uri = db_uri
+            self.read_db_uri = read_db_uri
+
+    registry = AuthStoreRegistry()
+    registry.register("custom", CustomPluginAuthStore)
+
+    resolved = registry.get_store("custom://host/db", read_database_uri="custom://replica/db")
+    assert isinstance(resolved, CustomPluginAuthStore)
+    assert resolved.db_uri == "custom://host/db"
+    assert resolved.read_db_uri == "custom://replica/db"
+
+    with pytest.raises(
+        UnsupportedAuthStoreURIException, match="Auth store functionality is unavailable"
+    ):
+        registry.get_store("unknown://host/db")
+
+    monkeypatch.setattr(auth_module, "store", SqlAlchemyStore())
+    monkeypatch.setattr(
+        "mlflow.server.auth.registry._auth_store_registry",
+        registry,
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            database_uri="custom://host/db",
+            read_database_uri=None,
+            admin_username="admin",
+            admin_password="a-strong-admin-password",
+        ),
+    )
+    auth_module.bootstrap_admin_user()
+    assert isinstance(auth_module.store, CustomPluginAuthStore)
+    assert auth_module.store.db_uri == "custom://host/db"
+    auth_module.store.has_user.assert_called_once_with("admin", use_primary=True)
