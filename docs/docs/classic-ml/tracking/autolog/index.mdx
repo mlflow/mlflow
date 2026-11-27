@@ -198,7 +198,7 @@ Autologging captures the following information:
   </tbody>
 </Table>
 
-If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
+If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration
 
 ### Paddle \{#autolog-paddle}
 
@@ -499,3 +499,30 @@ Autologging captures the following information:
 </Table>
 
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
+
+As an example, try running the [XGBoost example](https://github.com/mlflow/mlflow/blob/master/examples/xgboost/xgboost_native/train.py).
+
+```python
+import mlflow
+import xgboost as xgb
+from sklearn import datasets
+from sklearn.model_selection import train_test_split
+
+mlflow.xgboost.autolog()
+
+iris = datasets.load_iris()
+X_train, X_test, y_train, y_test = train_test_split(
+    iris.data, iris.target, test_size=0.2, random_state=42
+)
+
+dtrain = xgb.DMatrix(X_train, label=y_train)
+params = {
+    "objective": "multi:softprob",
+    "num_class": 3,
+    "learning_rate": 0.3,
+    "eval_metric": "mlogloss",
+}
+
+with mlflow.start_run():
+    xgb.train(params, dtrain, num_boost_round=20)
+```
