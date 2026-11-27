@@ -1,3 +1,4 @@
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
@@ -6,6 +7,7 @@ import pytest
 
 import mlflow
 from mlflow.entities.span import Span
+from mlflow.tracing.export.span_batcher import SpanBatcher
 from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
 from mlflow.tracing.processor.base_mlflow import (
     BaseMlflowSpanProcessor,
@@ -414,3 +416,56 @@ def test_retire_batch_processor_drains_span_batcher(monkeypatch):
     assert location == "catalog.schema.spans"
     assert len(spans) == 1
     assert processor._batch_delegate is None
+
+
+def test_span_batcher_batch_size_one_skips_worker_thread(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "1")
+
+    with mock.patch("atexit.register") as mock_atexit:
+        exporter = _make_exporter()
+
+    assert not hasattr(exporter._span_batcher, "_worker")
+    assert mock_atexit.call_count == 1
+    assert mock_atexit.call_args[0][0].__self__.__class__.__name__ == "AsyncTraceExportQueue"
+    exporter.flush(terminate=True)
+
+
+@pytest.mark.timeout(10)
+def test_span_batcher_does_not_lose_wakeup_after_consume(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "2")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "60000")
+
+    exported = []
+    second_batch_exported = threading.Event()
+    second_batch_enqueued = threading.Event()
+
+    mock_queue = mock.MagicMock()
+
+    def _put(task):
+        exported.append(task.args)
+        if len(exported) == 2:
+            second_batch_exported.set()
+
+    mock_queue.put.side_effect = _put
+    batcher = SpanBatcher(mock_queue, mock.MagicMock())
+    spans = [Span(create_mock_otel_span(trace_id=12345, span_id=i)) for i in range(1, 5)]
+
+    orig_consume = batcher._consume_batch
+
+    def _consume_then_enqueue(*args, **kwargs):
+        orig_consume(*args, **kwargs)
+        if not second_batch_enqueued.is_set():
+            second_batch_enqueued.set()
+            batcher.add_span("catalog.schema.spans", spans[2])
+            batcher.add_span("catalog.schema.spans", spans[3])
+
+    batcher._consume_batch = _consume_then_enqueue
+    try:
+        batcher.add_span("catalog.schema.spans", spans[0])
+        batcher.add_span("catalog.schema.spans", spans[1])
+        assert second_batch_exported.wait(timeout=2)
+        assert len(exported) == 2
+        assert len(exported[0][1]) == 2
+        assert len(exported[1][1]) == 2
+    finally:
+        batcher.shutdown()

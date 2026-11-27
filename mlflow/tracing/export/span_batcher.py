@@ -37,8 +37,8 @@ class SpanBatcher:
         self._lock = threading.RLock()
         self._stop_event = threading.Event()
 
-        # Batch size = 1 means no batching, so we don't need to setup the worker thread.
-        if self._max_span_batch_size >= 1:
+        # Batch size <= 1 means no batching, so we don't need to setup the worker thread.
+        if self._max_span_batch_size > 1:
             self._worker = threading.Thread(
                 name="MLflowSpanBatcherWorker",
                 daemon=True,
@@ -74,8 +74,8 @@ class SpanBatcher:
             sleep_interrupted = self._worker_awaken.wait(self._max_interval_ms / 1000)
             if self._stop_event.is_set():
                 break
-            self._consume_batch(flush_all=not sleep_interrupted)
             self._worker_awaken.clear()
+            self._consume_batch(flush_all=not sleep_interrupted)
 
         self._consume_batch(flush_all=True)
 
@@ -128,8 +128,11 @@ class SpanBatcher:
         if self._stop_event.is_set():
             return
 
+        self._stop_event.set()
+        if self._max_span_batch_size <= 1:
+            return
+
         try:
-            self._stop_event.set()
             self._worker_awaken.set()
             self._worker.join()
         except Exception as e:
