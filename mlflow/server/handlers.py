@@ -371,6 +371,7 @@ from mlflow.server.artifact_transfer import (
     reject_proxied_artifact_download,
     reject_proxied_artifact_upload,
 )
+from mlflow.server.constants import ARTIFACT_ROOT_ENV_VAR, ARTIFACTS_DESTINATION_ENV_VAR
 from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,
@@ -3310,7 +3311,7 @@ def _validate_source_run(source: str, run_id: str) -> None:
         if _parse_model_version_source(source).model_id is not None:
             _raise_invalid_model_version_source(source, "model_id")
 
-    if _is_mlflow_artifact_source(source):
+    if _is_mlflow_artifact_source(source) or _is_server_managed_artifact_source(source):
         if run_id:
             run = _get_source_run(run_id, source)
             if _is_uri_within_root(source, run.info.artifact_uri):
@@ -3353,7 +3354,7 @@ def _validate_source_model(source: str, model_id: str) -> None:
     if parsed_source.scheme == "runs":
         _raise_invalid_model_version_source(source, "model_id")
 
-    if _is_mlflow_artifact_source(source):
+    if _is_mlflow_artifact_source(source) or _is_server_managed_artifact_source(source):
         if model_id:
             model = _get_source_model(model_id, source)
             if _is_uri_within_root(source, model.artifact_location):
@@ -3393,6 +3394,37 @@ def _is_mlflow_artifact_source(source: str) -> bool:
         path_parts[i : i + len(route_parts)] == route_parts
         for i in range(len(path_parts) - len(route_parts) + 1)
     )
+
+
+def _server_managed_artifact_roots() -> list[str]:
+    roots = [os.environ.get(ARTIFACT_ROOT_ENV_VAR), os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)]
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        roots.extend(ws.default_artifact_root for ws in _get_workspace_store().list_workspaces())
+    return [root for root in roots if root]
+
+
+def _is_server_managed_artifact_source(source: str) -> bool:
+    """
+    Whether ``source`` lies in storage where this server keeps run and logged model artifacts.
+    The server reads model version artifacts with its own credentials, so such a source must be
+    bound to the declared run or logged model, or any caller could register and then download
+    another resource's artifacts. Ports are ignored so that an omitted default port, or another
+    port on the same host, cannot slip a source past the check.
+    """
+    scheme, authority, parts = _normalized_uri_parts(source)
+    for root in _server_managed_artifact_roots():
+        root_scheme, root_authority, root_parts = _normalized_uri_parts(root)
+        if (
+            scheme == root_scheme
+            and _strip_uri_port(authority) == _strip_uri_port(root_authority)
+            and parts[: len(root_parts)] == root_parts
+        ):
+            return True
+    return False
+
+
+def _strip_uri_port(authority: str) -> str:
+    return re.sub(r":\d*$", "", authority)
 
 
 def _parse_model_version_source(source: str):
