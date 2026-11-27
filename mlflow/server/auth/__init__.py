@@ -3140,7 +3140,9 @@ def _get_role_workspace_from_request() -> str | None:
     Resolve the workspace the request is targeting for role-authorization purposes.
 
     Requests identify a role either directly (``role_id``), indirectly via a role
-    permission (``role_permission_id``), or by supplying ``workspace`` on create.
+    permission (``role_permission_id``), or by supplying ``workspace`` on create. The
+    lowerCamelCase aliases (``roleId``, ``rolePermissionId``) count as identifiers too,
+    except on GET, where handlers read only the snake_case names.
     Returns ``None`` if the referenced role/role_permission does not exist — callers
     (validators) should treat that as unauthorized rather than leaking existence via
     a 404.
@@ -3159,26 +3161,31 @@ def _get_role_workspace_from_request() -> str | None:
     oracle.
     """
     params = _request_params()
-    role_permission_id = (
-        _coerce_int_param("role_permission_id", params["role_permission_id"])
-        if "role_permission_id" in params
-        else None
-    )
-    role_ids: set[int] = set()
-    if "role_id" in params:
-        role_ids.add(_coerce_int_param("role_id", params["role_id"]))
+
+    def _int_params(param: str) -> set[int]:
+        # Handlers read IDs via ``_get_request_param``, which falls back to the
+        # lowerCamelCase alias outside GET, so every spelling it may read must be
+        # authorized.
+        keys = (param,) if request.method == "GET" else (param, _snake_to_camel(param))
+        return {_coerce_int_param(param, params[key]) for key in keys if key in params}
+
+    role_permission_ids = _int_params("role_permission_id")
+    role_ids = _int_params("role_id")
     workspace = params.get("workspace")
     if "workspace" in params and (not isinstance(workspace, str) or not workspace.strip()):
         raise MlflowException.invalid_parameter_value(
             "Parameter 'workspace' must be a non-empty string."
         )
-    if role_permission_id is None and not role_ids and workspace is None:
+    if not role_permission_ids and not role_ids and workspace is None:
         raise MlflowException.invalid_parameter_value(
             "Request must include one of: role_id, role_permission_id, workspace."
         )
 
+    if len(role_permission_ids) > 1:
+        return None
     try:
-        if role_permission_id is not None:
+        if role_permission_ids:
+            (role_permission_id,) = role_permission_ids
             role_ids.add(store.get_role_permission(role_permission_id).role_id)
         if len(role_ids) > 1:
             return None
