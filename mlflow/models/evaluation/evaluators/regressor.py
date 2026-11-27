@@ -70,9 +70,10 @@ class RegressorEvaluator(BuiltInEvaluator):
 def _get_regressor_metrics(y, y_pred, sample_weights):
     from mlflow.metrics.metric_definitions import _root_mean_squared_error
 
-    sum_on_target = (
-        (np.array(y) * np.array(sample_weights)).sum() if sample_weights is not None else sum(y)
-    )
+    target_values = np.asarray(y, dtype=np.float64)
+    if sample_weights is not None:
+        target_values = target_values * np.asarray(sample_weights, dtype=np.float64)
+    sum_on_target = target_values.sum()
     return {
         "example_count": len(y),
         "mean_absolute_error": sk_metrics.mean_absolute_error(
