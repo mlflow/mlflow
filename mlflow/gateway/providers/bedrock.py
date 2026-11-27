@@ -541,13 +541,17 @@ class AmazonBedrockProvider(BaseProvider):
             for tool in tools:
                 if tool.get("type") == "function":
                     func = tool["function"]
-                    bedrock_tools.append({
-                        "toolSpec": {
-                            "name": func["name"],
-                            "description": func.get("description", ""),
-                            "inputSchema": {"json": func.get("parameters", {})},
-                        }
-                    })
+                    # `description` and `parameters` are optional in OpenAI tool definitions,
+                    # but Converse rejects an empty description and requires an object schema.
+                    tool_spec = {
+                        "name": func["name"],
+                        "inputSchema": {
+                            "json": func.get("parameters") or {"type": "object", "properties": {}}
+                        },
+                    }
+                    if description := func.get("description"):
+                        tool_spec["description"] = description
+                    bedrock_tools.append({"toolSpec": tool_spec})
             if bedrock_tools:
                 kwargs["toolConfig"] = {"tools": bedrock_tools}
 
