@@ -2387,6 +2387,27 @@ def test_model_version_artifact_source_root_check_local_paths(
     assert result is expected
 
 
+@pytest.mark.parametrize(
+    ("uri_kind", "root_kind"),
+    [
+        ("path", "s3"),
+        ("file_uri", "s3"),
+        ("s3", "path"),
+        ("s3", "file_uri"),
+    ],
+)
+def test_is_uri_within_artifact_root_rejects_mixed_local_and_remote(tmp_path, uri_kind, root_kind):
+    local_root = tmp_path / "1" / "run-1" / "artifacts"
+    candidates = {
+        "path": {"uri": str(local_root / "model"), "root": str(local_root)},
+        "file_uri": {"uri": (local_root / "model").as_uri(), "root": local_root.as_uri()},
+        "s3": {"uri": f"{_RUN_ROOT}/model", "root": _RUN_ROOT},
+    }
+    uri = candidates[uri_kind]["uri"]
+    root = candidates[root_kind]["root"]
+    assert auth_module._is_uri_within_artifact_root(uri, root) is False
+
+
 @pytest.fixture
 def metric_model_authz(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
     # user2 (the actor) owns the run but has no permission on either model's experiment:
