@@ -26,8 +26,11 @@ from mlflow.genai.datasets import (
 from mlflow.genai.evaluation import compare_evaluations, evaluate, to_predict_fn
 from mlflow.genai.git_versioning import disable_git_model_versioning, enable_git_model_versioning
 from mlflow.genai.issues import (
+    cancel_issue_detection_run,
     create_issue,
+    detect_issues,
     get_issue,
+    get_issue_detection_run,
     search_issues,
     update_issue,
 )
@@ -111,6 +114,9 @@ __all__ = [
     "get_issue",
     "update_issue",
     "search_issues",
+    "detect_issues",
+    "get_issue_detection_run",
+    "cancel_issue_detection_run",
     "to_predict_fn",
     "Scorer",
     "scorer",
