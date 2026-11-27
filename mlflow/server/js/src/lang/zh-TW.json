@@ -9627,6 +9627,10 @@
     "defaultMessage" : "動作",
     "description" : "Column title for actions column in editable form table in MLflow"
   },
+  "cCrveE" : {
+    "defaultMessage" : "語言",
+    "description" : "Label for the UI language selector"
+  },
   "cEj56l" : {
     "defaultMessage" : "步驟",
     "description" : "Label for the step axis on the runs compare chart"
