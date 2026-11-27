@@ -2,7 +2,7 @@ import { useMemo, useCallback } from 'react';
 import { Alert, Button, FormUI, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { GatewayInput } from '../common';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Controller, useFormContext } from 'react-hook-form';
+import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
 import { UsageTrackingConfigurator } from '../edit-endpoint/UsageTrackingConfigurator';
@@ -17,7 +17,8 @@ import type { CodingAgentType, ProviderModel, SecretInfo } from '../../types';
 import { formatTokens, formatCost } from '../../utils/formatters';
 import { getModelCapabilities } from '../../utils/getModelCapabilities';
 import type { CreateEndpointFormData } from '../../hooks/useCreateEndpointForm';
-import { CODING_AGENT_LABELS } from '../../hooks/useCreateEndpointForm';
+import { useModelsQuery } from '../../hooks/useModelsQuery';
+import { useCreateEndpointFormComplete, CODING_AGENT_LABELS } from '../../hooks/useCreateEndpointForm';
 
 const LONG_FORM_TITLE_WIDTH = 200;
 
@@ -34,13 +35,9 @@ export interface EndpointFormRendererProps {
   errorMessage: string | null;
   /** Callback to reset errors when user makes changes */
   resetErrors: () => void;
-  /** The selected model's full metadata (for summary display) */
-  selectedModel: ProviderModel | undefined;
-  /** Whether all required fields are filled */
-  isFormComplete: boolean;
   /** Whether any fields have changed from their initial values (edit mode only) */
   hasChanges?: boolean;
-  /** When set, hides model/connections fields and shows a coding-agent banner */
+  /** Hides model/connections fields; must match the hook's codingAgent option. */
   codingAgent?: CodingAgentType;
   /** Form submission handler */
   onSubmit: (values: EndpointFormData) => Promise<void>;
@@ -59,8 +56,9 @@ export interface EndpointFormRendererProps {
 }
 
 /**
- * Unified presentational component for endpoint forms (create and edit).
- * All business logic is handled by the parent hook (useCreateEndpointForm or useEditEndpointForm).
+ * Endpoint creation form shared by the full page and modal.
+ * Completeness follows useCreateEndpointForm; existing endpoints use
+ * EditEndpointFormRenderer and its separate editing rules.
  *
  * This component expects to be wrapped in a FormProvider by the parent.
  * Page-level concerns (breadcrumbs, page wrapper, loading/error states) should be
@@ -74,8 +72,6 @@ export const EndpointFormRenderer = ({
   error,
   errorMessage,
   resetErrors,
-  selectedModel,
-  isFormComplete,
   hasChanges = true,
   codingAgent,
   onSubmit,
@@ -90,51 +86,7 @@ export const EndpointFormRenderer = ({
   const intl = useIntl();
   const form = useFormContext<EndpointFormData>();
 
-  const provider = form.watch('provider');
-  const modelName = form.watch('modelName');
-  const secretMode = form.watch('secretMode');
-  const existingSecretId = form.watch('existingSecretId');
-  const newSecret = form.watch('newSecret');
-
-  const { existingSecrets, isLoadingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } =
-    useApiKeyConfiguration({ provider });
-
-  const apiKeyConfig: ApiKeyConfiguration = useMemo(
-    () => ({
-      mode: secretMode,
-      existingSecretId: existingSecretId,
-      newSecret: newSecret,
-    }),
-    [secretMode, existingSecretId, newSecret],
-  );
-
-  const handleApiKeyChange = useCallback(
-    (config: ApiKeyConfiguration) => {
-      if (config.mode !== secretMode) {
-        form.setValue('secretMode', config.mode);
-      }
-      if (config.existingSecretId !== existingSecretId) {
-        form.setValue('existingSecretId', config.existingSecretId);
-      }
-      if (config.newSecret !== newSecret) {
-        form.setValue('newSecret', config.newSecret);
-      }
-    },
-    [form, secretMode, existingSecretId, newSecret],
-  );
-
-  const isButtonDisabled = mode === 'edit' ? !isFormComplete || !hasChanges : !isFormComplete;
-  const buttonTooltip = !isFormComplete
-    ? intl.formatMessage({
-        defaultMessage: 'Please complete all required fields',
-        description: 'Tooltip shown when submit button is disabled due to incomplete form',
-      })
-    : mode === 'edit' && !hasChanges
-      ? intl.formatMessage({
-          defaultMessage: 'No changes to save',
-          description: 'Tooltip shown when save button is disabled due to no changes',
-        })
-      : undefined;
+  const provider = useWatch({ control: form.control, name: 'provider' });
 
   return (
     <>
@@ -195,7 +147,7 @@ export const EndpointFormRenderer = ({
                     onChange={(e) => {
                       field.onChange(e);
                       form.clearErrors('name');
-                      resetErrors();
+                      if (error) resetErrors();
                     }}
                     onBlur={() => {
                       field.onBlur();
@@ -320,17 +272,7 @@ export const EndpointFormRenderer = ({
                         description="Subsection header for API key configuration"
                       />
                     </Typography.Text>
-                    <ApiKeyConfigurator
-                      value={apiKeyConfig}
-                      onChange={handleApiKeyChange}
-                      provider={provider}
-                      existingSecrets={existingSecrets}
-                      isLoadingSecrets={isLoadingSecrets}
-                      authModes={authModes}
-                      defaultAuthMode={defaultAuthMode}
-                      isLoadingProviderConfig={isLoadingProviderConfig}
-                      componentId={`${componentId}.api-key`}
-                    />
+                    <EndpointApiKeyConfigurator componentId={componentId} />
                   </div>
                 )}
               </div>
@@ -352,88 +294,20 @@ export const EndpointFormRenderer = ({
             },
           }}
         >
-          <LongFormSummary
-            title={intl.formatMessage({
-              defaultMessage: 'Summary',
-              description: 'Summary sidebar title',
-            })}
-          >
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-              {/* Provider */}
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                <Typography.Text bold color="secondary">
-                  <FormattedMessage defaultMessage="Provider" description="Summary provider label" />
-                </Typography.Text>
-                {provider ? (
-                  <Typography.Text>{formatProviderName(provider)}</Typography.Text>
-                ) : (
-                  <Typography.Text color="secondary">
-                    <FormattedMessage defaultMessage="Not configured" description="Summary not configured" />
-                  </Typography.Text>
-                )}
-              </div>
-
-              {/* Model */}
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                <Typography.Text bold color="secondary">
-                  <FormattedMessage defaultMessage="Model" description="Summary model label" />
-                </Typography.Text>
-                {modelName ? (
-                  <ModelSummary model={selectedModel} modelName={modelName} />
-                ) : (
-                  <Typography.Text color="secondary">
-                    <FormattedMessage defaultMessage="Not configured" description="Summary not configured" />
-                  </Typography.Text>
-                )}
-              </div>
-
-              {/* API Key */}
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                <Typography.Text bold color="secondary">
-                  <FormattedMessage defaultMessage="API Key" description="Summary API key label" />
-                </Typography.Text>
-                <ApiKeySummary
-                  secretMode={secretMode}
-                  newSecretName={newSecret?.name}
-                  existingSecretId={existingSecretId}
-                  existingSecrets={existingSecrets}
-                />
-              </div>
-            </div>
-          </LongFormSummary>
+          <EndpointSummary />
         </div>
       </div>
 
-      {/* Footer buttons */}
-      <AssistantAwareActionBar
-        css={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: theme.spacing.sm,
-          padding: embedded ? `${theme.spacing.md}px 0 0 0` : theme.spacing.md,
-          borderTop: `1px solid ${theme.colors.border}`,
-          flexShrink: 0,
-        }}
-      >
-        <Button componentId={`${componentId}.cancel`} onClick={onCancel}>
-          <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
-        </Button>
-        <Tooltip componentId={`${componentId}.submit-tooltip`} content={buttonTooltip}>
-          <Button
-            componentId={`${componentId}.submit`}
-            type="primary"
-            onClick={form.handleSubmit(onSubmit)}
-            loading={isSubmitting}
-            disabled={isButtonDisabled}
-          >
-            {mode === 'create' ? (
-              <FormattedMessage defaultMessage="Create" description="Create button" />
-            ) : (
-              <FormattedMessage defaultMessage="Save changes" description="Save changes button" />
-            )}
-          </Button>
-        </Tooltip>
-      </AssistantAwareActionBar>
+      <EndpointFormActions
+        mode={mode}
+        isSubmitting={isSubmitting}
+        hasChanges={hasChanges}
+        codingAgent={codingAgent}
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+        componentId={componentId}
+        embedded={embedded}
+      />
     </>
   );
 };
@@ -532,3 +406,179 @@ const ApiKeySummary = ({
 
   return <Typography.Text>{apiKeyName}</Typography.Text>;
 };
+
+function EndpointApiKeyConfigurator({ componentId }: { componentId: string }) {
+  const form = useFormContext<EndpointFormData>();
+  const provider = useWatch({ control: form.control, name: 'provider' });
+  const secretMode = useWatch({ control: form.control, name: 'secretMode' });
+  const existingSecretId = useWatch({ control: form.control, name: 'existingSecretId' });
+  const newSecret = useWatch({ control: form.control, name: 'newSecret' });
+
+  const { existingSecrets, isLoadingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } =
+    useApiKeyConfiguration({ provider });
+
+  const apiKeyConfig: ApiKeyConfiguration = useMemo(
+    () => ({
+      mode: secretMode,
+      existingSecretId: existingSecretId,
+      newSecret: newSecret,
+    }),
+    [secretMode, existingSecretId, newSecret],
+  );
+
+  const handleApiKeyChange = useCallback(
+    (config: ApiKeyConfiguration) => {
+      if (config.mode !== secretMode) {
+        form.setValue('secretMode', config.mode);
+      }
+      if (config.existingSecretId !== existingSecretId) {
+        form.setValue('existingSecretId', config.existingSecretId);
+      }
+      if (config.newSecret !== newSecret) {
+        form.setValue('newSecret', config.newSecret);
+      }
+    },
+    [form, secretMode, existingSecretId, newSecret],
+  );
+
+  return (
+    <ApiKeyConfigurator
+      value={apiKeyConfig}
+      onChange={handleApiKeyChange}
+      provider={provider}
+      existingSecrets={existingSecrets}
+      isLoadingSecrets={isLoadingSecrets}
+      authModes={authModes}
+      defaultAuthMode={defaultAuthMode}
+      isLoadingProviderConfig={isLoadingProviderConfig}
+      componentId={`${componentId}.api-key`}
+    />
+  );
+}
+
+function EndpointSummary() {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const { control } = useFormContext<EndpointFormData>();
+  const [provider, modelName, secretMode, existingSecretId, newSecretName] = useWatch({
+    control,
+    name: ['provider', 'modelName', 'secretMode', 'existingSecretId', 'newSecret.name'],
+  });
+  const { data: models } = useModelsQuery({ provider: provider || undefined });
+  const selectedModel = models?.find((model) => model.model === modelName);
+  const { existingSecrets } = useApiKeyConfiguration({ provider });
+  return (
+    <LongFormSummary
+      title={intl.formatMessage({
+        defaultMessage: 'Summary',
+        description: 'Summary sidebar title',
+      })}
+    >
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+        {/* Provider */}
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text bold color="secondary">
+            <FormattedMessage defaultMessage="Provider" description="Summary provider label" />
+          </Typography.Text>
+          {provider ? (
+            <Typography.Text>{formatProviderName(provider)}</Typography.Text>
+          ) : (
+            <Typography.Text color="secondary">
+              <FormattedMessage defaultMessage="Not configured" description="Summary not configured" />
+            </Typography.Text>
+          )}
+        </div>
+
+        {/* Model */}
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text bold color="secondary">
+            <FormattedMessage defaultMessage="Model" description="Summary model label" />
+          </Typography.Text>
+          {modelName ? (
+            <ModelSummary model={selectedModel} modelName={modelName} />
+          ) : (
+            <Typography.Text color="secondary">
+              <FormattedMessage defaultMessage="Not configured" description="Summary not configured" />
+            </Typography.Text>
+          )}
+        </div>
+
+        {/* API Key */}
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text bold color="secondary">
+            <FormattedMessage defaultMessage="API Key" description="Summary API key label" />
+          </Typography.Text>
+          <ApiKeySummary
+            secretMode={secretMode}
+            newSecretName={newSecretName}
+            existingSecretId={existingSecretId}
+            existingSecrets={existingSecrets}
+          />
+        </div>
+      </div>
+    </LongFormSummary>
+  );
+}
+
+function EndpointFormActions({
+  mode,
+  isSubmitting,
+  hasChanges,
+  codingAgent,
+  onSubmit,
+  onCancel,
+  componentId,
+  embedded,
+}: Pick<
+  EndpointFormRendererProps,
+  'mode' | 'isSubmitting' | 'hasChanges' | 'codingAgent' | 'onSubmit' | 'onCancel' | 'embedded'
+> & { componentId: string }) {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const form = useFormContext<EndpointFormData>();
+  const isFormComplete = useCreateEndpointFormComplete(form.control, codingAgent);
+  const isButtonDisabled = mode === 'edit' ? !isFormComplete || !hasChanges : !isFormComplete;
+  const buttonTooltip = !isFormComplete
+    ? intl.formatMessage({
+        defaultMessage: 'Please complete all required fields',
+        description: 'Tooltip shown when submit button is disabled due to incomplete form',
+      })
+    : mode === 'edit' && !hasChanges
+      ? intl.formatMessage({
+          defaultMessage: 'No changes to save',
+          description: 'Tooltip shown when save button is disabled due to no changes',
+        })
+      : undefined;
+
+  return (
+    <AssistantAwareActionBar
+      css={{
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: theme.spacing.sm,
+        padding: embedded ? `${theme.spacing.md}px 0 0 0` : theme.spacing.md,
+        borderTop: `1px solid ${theme.colors.border}`,
+        flexShrink: 0,
+      }}
+    >
+      <Button componentId={`${componentId}.cancel`} onClick={onCancel}>
+        <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
+      </Button>
+      <Tooltip componentId={`${componentId}.submit-tooltip`} content={buttonTooltip}>
+        <Button
+          componentId={`${componentId}.submit`}
+          type="primary"
+          onClick={form.handleSubmit(onSubmit)}
+          loading={isSubmitting}
+          disabled={isButtonDisabled}
+        >
+          {mode === 'create' ? (
+            <FormattedMessage defaultMessage="Create" description="Create button" />
+          ) : (
+            <FormattedMessage defaultMessage="Save changes" description="Save changes button" />
+          )}
+        </Button>
+      </Tooltip>
+    </AssistantAwareActionBar>
+  );
+}
