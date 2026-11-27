@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -212,7 +213,17 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
             return self._process_trace_records(traces)
         else:
-            return df.to_dict("records")
+            # pandas fills a column a row does not have (e.g. "expectations" given for only
+            # some rows) with NaN; drop it so the row matches the same record given as a dict.
+            # "outputs" is kept as is, since a NaN there was already accepted and is stored.
+            return [
+                {
+                    key: value
+                    for key, value in record.items()
+                    if key == "outputs" or not (isinstance(value, float) and math.isnan(value))
+                }
+                for record in df.to_dict("records")
+            ]
 
     @record_usage_event(MergeRecordsEvent)
     def merge_records(
