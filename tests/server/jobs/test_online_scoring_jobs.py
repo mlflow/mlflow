@@ -43,6 +43,59 @@ def make_online_scorer_dict(scorer: Scorer, sample_rate: float = 1.0) -> dict[st
     }
 
 
+def _judge_json(inference_params: dict[str, Any]) -> str:
+    return json.dumps({
+        "name": "steered",
+        "instructions_judge_pydantic_data": {
+            "instructions": "Is {{ outputs }} good?",
+            "model": "openai:/gpt-4",
+            "inference_params": inference_params,
+        },
+    })
+
+
+def _third_party_json(kwargs: dict[str, Any]) -> str:
+    return json.dumps({
+        "name": "steered",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.trulens",
+            "class": "Groundedness",
+            "metric_name": "Groundedness",
+            "model": "openai:/gpt-4",
+            "kwargs": kwargs,
+        },
+    })
+
+
+# The stored scorer, the reason the skip warning gives, and the stored value it must leave out.
+_SCORERS_WITH_DESTINATION_OPTIONS = [
+    pytest.param(
+        _judge_json({"api_base": "http://127.0.0.1:9/"}),
+        "inference_params must not contain 'api_base'",
+        "http://127.0.0.1:9/",
+        id="judge_api_base",
+    ),
+    pytest.param(
+        _third_party_json({"base_url": "http://127.0.0.1:9/"}),
+        "kwargs must not contain 'base_url'",
+        "http://127.0.0.1:9/",
+        id="third_party_base_url",
+    ),
+    pytest.param(
+        _judge_json({"vertex_location": "us-east-1.example.com"}),
+        "inference_params 'vertex_location' must contain only",
+        "us-east-1.example.com",
+        id="judge_region",
+    ),
+    pytest.param(
+        _third_party_json({"aws_region_name": "us-east-1.example.com"}),
+        "kwargs 'aws_region_name' must contain only",
+        "us-east-1.example.com",
+        id="third_party_region",
+    ),
+]
+
+
 def test_run_online_trace_scorer_job_calls_processor():
     mock_processor = MagicMock()
     mock_tracking_store = MagicMock()
@@ -63,6 +116,39 @@ def test_run_online_trace_scorer_job_calls_processor():
         assert scorers[0].name == "completeness"
         assert store is mock_tracking_store
         mock_processor.process_traces.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("serialized_scorer", "reason", "stored_value"), _SCORERS_WITH_DESTINATION_OPTIONS
+)
+def test_run_online_trace_scorer_job_skips_scorer_with_destination_options(
+    serialized_scorer: str, reason: str, stored_value: str
+):
+    steered = {
+        **make_online_scorer_dict(Completeness()),
+        "name": "steered",
+        "serialized_scorer": serialized_scorer,
+    }
+
+    with (
+        patch("mlflow.genai.scorers.job._get_tracking_store"),
+        patch(
+            "mlflow.genai.scorers.online.trace_processor.OnlineTraceScoringProcessor.create"
+        ) as mock_create,
+        patch("mlflow.genai.scorers.job._logger") as mock_logger,
+    ):
+        run_online_trace_scorer_job(
+            experiment_id="exp1",
+            online_scorers=[steered, make_online_scorer_dict(Completeness())],
+        )
+
+    _, scorers, _ = mock_create.call_args[0]
+    assert [s.name for s in scorers] == ["completeness"]
+    mock_logger.warning.assert_called_once()
+    message = mock_logger.warning.call_args[0][0]
+    assert "steered" in message
+    assert reason in message
+    assert stored_value not in message
 
 
 def test_run_online_trace_scorer_job_runs_exclusively_per_experiment(monkeypatch, tmp_path: Path):
@@ -277,6 +363,49 @@ def test_scheduler_skips_invalid_scorers():
         mock_logger.warning.assert_called_once()
         assert "invalid_scorer" in mock_logger.warning.call_args[0][0]
         assert mock_submit.call_count == 1  # Only valid scorer submitted
+
+
+@pytest.mark.parametrize(
+    ("serialized_scorer", "reason", "stored_value"), _SCORERS_WITH_DESTINATION_OPTIONS
+)
+def test_scheduler_skips_scorer_with_destination_options(
+    serialized_scorer: str, reason: str, stored_value: str
+):
+    def _online_scorer(name, serialized):
+        return OnlineScorer(
+            name=name,
+            serialized_scorer=serialized,
+            online_config=OnlineScoringConfig(
+                online_scoring_config_id=uuid.uuid4().hex,
+                scorer_id=uuid.uuid4().hex,
+                sample_rate=1.0,
+                experiment_id="exp1",
+                filter_string=None,
+            ),
+        )
+
+    mock_store = MagicMock()
+    mock_store.get_active_online_scorers.return_value = [
+        _online_scorer("steered", serialized_scorer),
+        _online_scorer("completeness", json.dumps(Completeness().model_dump())),
+    ]
+
+    with (
+        patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_store),
+        patch("mlflow.genai.scorers.job.submit_job") as mock_submit,
+        patch("mlflow.genai.scorers.job._logger") as mock_logger,
+    ):
+        run_online_scoring_scheduler()
+
+    mock_submit.assert_called_once()
+    job_fn, params = mock_submit.call_args.args
+    assert job_fn is run_online_trace_scorer_job
+    assert [s["name"] for s in params["online_scorers"]] == ["completeness"]
+    mock_logger.warning.assert_called_once()
+    message = mock_logger.warning.call_args[0][0]
+    assert "steered" in message
+    assert reason in message
+    assert stored_value not in message
 
 
 def test_scheduler_skips_disabled_custom_scorer_without_aborting(monkeypatch):

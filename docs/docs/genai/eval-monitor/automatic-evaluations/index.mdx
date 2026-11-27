@@ -226,8 +226,28 @@ The [MLflow Server](/genai/getting-started/connect-environment) uses [AI Gateway
 | **Missing assessments**                        | Verify that the judge is active, the filter matches your traces, the sampling rate is greater than zero, and the traces are less than one hour old |
 | **Unexpected or unsatisfactory judge results** | Edit the judge's instructions or use the [`align()` method](/genai/eval-monitor/scorers/llm-judge/alignment) to optimize them automatically        |
 | **Evaluation errors**                          | Check trace/session assessments in the UI or SDK, or server logs, for details. Failed evaluations are not retried automatically                    |
+| **A judge stopped running after an upgrade**   | See [Judges that set their own endpoint](#judges-that-set-their-own-endpoint)                                                                      |
 
 For further debugging, enable debug logging on the MLflow server by setting the <APILink fn="mlflow.environment_variables.MLFLOW_LOGGING_LEVEL"><code>MLFLOW_LOGGING_LEVEL=DEBUG</code></APILink> environment variable and checking the MLflow server logs.
+
+### Judges that set their own endpoint
+
+Automatic evaluation skips a judge whose options choose where its LLM requests are sent, such as `api_base` or `base_url` in a judge's `inference_params` or in a third-party judge's `kwargs`, and the server logs a warning that names the judge. The MLflow server no longer accepts these options when a judge is registered, but a judge registered with an earlier version of MLflow can still carry them. Its automatic evaluation stays configured but produces no assessments, and starting it, or updating it with a sample rate above zero, fails with an error that names the option.
+
+To run the judge again, register a new version of it without these options, and reach the model through an [AI Gateway endpoint](/genai/governance/ai-gateway/endpoints/create-and-manage) (`gateway:/<endpoint-name>`) instead. Automatic evaluation always runs the latest version of a judge, so the existing configuration picks up the new version:
+
+```python
+from mlflow.genai.judges import make_judge
+
+judge = make_judge(
+    name="answer_quality",
+    instructions="Evaluate whether {{ outputs }} answers {{ inputs }}.",
+    model="gateway:/my-llm-endpoint",
+)
+judge.register(name="answer_quality")  # Same name as the existing judge
+```
+
+To turn the judge off instead, call `get_scorer(name="answer_quality").stop()`, which always works.
 
 ## Next Steps
 

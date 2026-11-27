@@ -1339,7 +1339,9 @@ def _iter_third_party_scorer_data(value: Any) -> Iterator[dict[str, Any]]:
             yield from _iter_third_party_scorer_data(nested)
 
 
-def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None:
+def _validate_third_party_scorer_data(
+    serialized_scorer: dict[str, Any], *, show_value: bool = True
+) -> None:
     """Reject third-party scorer ``kwargs`` that would steer the judge's outbound requests.
 
     ``third_party_scorer_data`` is rebuilt by reflective instantiation and its ``kwargs`` reach
@@ -1349,6 +1351,7 @@ def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None
     gateway destination keys are rejected here at any nesting depth (``completion_kwargs``,
     ``model_kwargs``, ...) and inside any wrapping scorer. Providers build request hosts from
     the region keys, so those must be bare region names at any nesting depth too.
+    ``show_value=False`` leaves a rejected region value out of the error message.
     """
     for data in _iter_third_party_scorer_data(serialized_scorer):
         kwargs = data.get("kwargs")
@@ -1367,7 +1370,9 @@ def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None
             )
         for key, value in _iter_region_key_values(kwargs):
             try:
-                _validate_region_name(value, f"third_party_scorer_data.kwargs {key!r}")
+                _validate_region_name(
+                    value, f"third_party_scorer_data.kwargs {key!r}", show_value=show_value
+                )
             except ValueError as e:
                 raise MlflowException.invalid_parameter_value(str(e)) from None
 
@@ -1394,7 +1399,9 @@ def _iter_judge_pydantic_data(value: Any) -> Iterator[tuple[str, dict[str, Any]]
             yield from _iter_judge_pydantic_data(nested)
 
 
-def _validate_judge_inference_params(serialized_scorer: dict[str, Any]) -> None:
+def _validate_judge_inference_params(
+    serialized_scorer: dict[str, Any], *, show_value: bool = True
+) -> None:
     """Reject judge ``inference_params`` that set where the judge's requests are sent.
 
     The LiteLLM judge adapter merges ``inference_params`` into the ``litellm.completion()``
@@ -1402,7 +1409,7 @@ def _validate_judge_inference_params(serialized_scorer: dict[str, Any]) -> None:
     judge endpoint is configured on the server, so the gateway destination keys rejected for
     third-party scorer kwargs are rejected here too, at any nesting depth and inside any
     wrapping scorer. Providers build request hosts from the region keys, so those must be bare
-    region names.
+    region names. ``show_value=False`` leaves a rejected region value out of the error message.
     """
     for field, data in _iter_judge_pydantic_data(serialized_scorer):
         params = data.get("inference_params")
@@ -1419,7 +1426,20 @@ def _validate_judge_inference_params(serialized_scorer: dict[str, Any]) -> None:
                 "the judge endpoint on the server instead, for example through a gateway "
                 "endpoint ('gateway:/<name>') or the provider's environment variables."
             )
-        _validate_gateway_region_keys(params, f"{field}.inference_params")
+        _validate_gateway_region_keys(params, f"{field}.inference_params", show_value=show_value)
+
+
+def _validate_scorer_destination_options(
+    serialized_scorer: Any, *, show_value: bool = True
+) -> None:
+    """Reject a serialized scorer whose options set where its LLM client sends requests.
+
+    Runs the third-party scorer ``kwargs`` and judge ``inference_params`` checks. Pass
+    ``show_value=False`` when checking a stored scorer whose error is logged, so that rejected
+    stored values stay out of the server logs.
+    """
+    _validate_third_party_scorer_data(serialized_scorer, show_value=show_value)
+    _validate_judge_inference_params(serialized_scorer, show_value=show_value)
 
 
 def _validate_icon_url(url: str) -> None:

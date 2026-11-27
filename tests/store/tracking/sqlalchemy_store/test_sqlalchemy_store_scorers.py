@@ -5,6 +5,7 @@ import subprocess
 import sys
 import time
 import uuid
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -1095,6 +1096,58 @@ def test_upsert_online_scoring_config_rejects_custom_scorer_when_disabled(
     # Turning automatic evaluation off still works.
     config = store.upsert_online_scoring_config(
         experiment_id=experiment_id, scorer_name="output_length", sample_rate=0.0
+    )
+    assert config.sample_rate == 0.0
+
+
+def _gateway_judge_with_inference_params_json(inference_params: dict[str, Any]) -> str:
+    return json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": "gateway:/my-endpoint",
+            "inference_params": inference_params,
+        }
+    })
+
+
+@pytest.mark.parametrize(
+    ("inference_params", "reason", "stored_value"),
+    [
+        (
+            {"api_base": "http://127.0.0.1:9/"},
+            "inference_params must not contain 'api_base'",
+            "http://127.0.0.1:9/",
+        ),
+        (
+            {"vertex_location": "us-east-1.example.com"},
+            "inference_params 'vertex_location' must contain only",
+            "us-east-1.example.com",
+        ),
+    ],
+)
+def test_upsert_online_scoring_config_rejects_scorer_with_destination_options(
+    store: SqlAlchemyStore, inference_params, reason, stored_value
+):
+    # The register handler rejects these options, but the store keeps what it is given, like the
+    # scorers registered before that check existed.
+    experiment_id = store.create_experiment("test_online_config_destination_options")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        version = store.register_scorer(
+            experiment_id, "scorer", _gateway_judge_with_inference_params_json(inference_params)
+        )
+
+    with pytest.raises(
+        MlflowException, match="Scorer 'scorer' cannot be used for automatic evaluation"
+    ) as exc:
+        store.upsert_online_scoring_config(
+            experiment_id=experiment_id, scorer_name="scorer", sample_rate=0.5
+        )
+    assert reason in exc.value.message
+    assert stored_value not in exc.value.message
+    assert store.get_online_scoring_configs([version.scorer_id]) == []
+
+    # Turning automatic evaluation off still works.
+    config = store.upsert_online_scoring_config(
+        experiment_id=experiment_id, scorer_name="scorer", sample_rate=0.0
     )
     assert config.sample_rate == 0.0
 

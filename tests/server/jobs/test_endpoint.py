@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import subprocess
@@ -128,6 +129,7 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
             **os.environ,
             "PYTHONPATH": os.path.dirname(__file__),
             "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "true",
+            "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS": "false",
             "_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST": (
                 "test_endpoint.simple_job_fun,"
                 "test_endpoint.job_assert_tracking_uri,"
@@ -248,6 +250,123 @@ def test_job_endpoint_missing_parameters(client: Client):
         "Missing required parameters for function 'simple_job_fun': ['y']. "
         + "Expected parameters: ['x', 'y', 'sleep_secs']"
     )
+
+
+_JUDGE_WITH_API_BASE = json.dumps({
+    "name": "judge",
+    "instructions_judge_pydantic_data": {
+        "instructions": "Is {{ outputs }} good?",
+        "model": "hosted_vllm:/m",
+        "inference_params": {"api_base": "http://127.0.0.1:9/"},
+    },
+})
+_TRULENS_WITH_BASE_URL = json.dumps({
+    "name": "groundedness",
+    "third_party_scorer_data": {
+        "module": "mlflow.genai.scorers.trulens",
+        "class": "Groundedness",
+        "metric_name": "Groundedness",
+        "model": "openai:/gpt-4o-mini",
+        "kwargs": {"base_url": "http://127.0.0.1:9/"},
+    },
+})
+_SAFE_SCORER = json.dumps({"name": "safe", "builtin_scorer_class": "Safety"})
+_ONLINE_SCORERS_WITH_API_BASE = [
+    {"name": "safe", "serialized_scorer": _SAFE_SCORER, "online_config": {}},
+    {"name": "judge", "serialized_scorer": _JUDGE_WITH_API_BASE, "online_config": {}},
+]
+
+
+@pytest.mark.parametrize(
+    ("job_name", "params", "rejected_key"),
+    [
+        (
+            "invoke_scorer",
+            {"experiment_id": "0", "serialized_scorer": _JUDGE_WITH_API_BASE, "trace_ids": ["t"]},
+            "api_base",
+        ),
+        (
+            "invoke_genai_evaluate",
+            {
+                "trace_ids": ["t"],
+                "serialized_scorers": [_SAFE_SCORER, _TRULENS_WITH_BASE_URL],
+                "run_id": "r",
+            },
+            "base_url",
+        ),
+        (
+            "run_online_trace_scorer",
+            {"experiment_id": "0", "online_scorers": _ONLINE_SCORERS_WITH_API_BASE},
+            "api_base",
+        ),
+        (
+            "run_online_session_scorer",
+            {"experiment_id": "0", "online_scorers": _ONLINE_SCORERS_WITH_API_BASE},
+            "api_base",
+        ),
+    ],
+)
+def test_job_endpoint_rejects_scorer_destination_keys(
+    client: Client, job_name: str, params: dict[str, Any], rejected_key: str
+):
+    response = client.post("/ajax-api/3.0/jobs/", payload={"job_name": job_name, "params": params})
+    assert response.status_code == 400
+    assert f"must not contain '{rejected_key}'" in response.json()["detail"]
+    assert client.search_job(job_name=job_name, params=params) == []
+
+
+@pytest.mark.parametrize(
+    ("job_name", "key"),
+    [
+        ("invoke_genai_evaluate", "serialized_scorers"),
+        ("run_online_trace_scorer", "online_scorers"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("value", "type_name"),
+    [(5, "int"), ("", "str"), (0, "int"), ({}, "dict"), (False, "bool")],
+)
+def test_job_endpoint_rejects_non_list_scorer_params(
+    client: Client, job_name: str, key: str, value: Any, type_name: str
+):
+    response = client.post(
+        "/ajax-api/3.0/jobs/", payload={"job_name": job_name, "params": {key: value}}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == f"'{key}' must be a list, got {type_name}"
+
+
+def test_job_endpoint_submits_valid_serialized_scorer(client: Client):
+    judge = json.dumps({
+        "name": "judge",
+        "instructions_judge_pydantic_data": {
+            "instructions": "Is {{ outputs }} good?",
+            "model": "openai:/gpt-4o-mini",
+        },
+    })
+    params = {"experiment_id": "0", "serialized_scorer": judge, "trace_ids": ["t"]}
+    response = client.post(
+        "/ajax-api/3.0/jobs/", payload={"job_name": "invoke_scorer", "params": params}
+    )
+    assert response.status_code == 200
+    assert response.json()["job_name"] == "invoke_scorer"
+
+
+def test_job_endpoint_rejects_disabled_custom_scorer(client: Client):
+    custom_scorer = json.dumps({
+        "name": "custom",
+        "call_source": "return True",
+        "call_signature": "(outputs)",
+        "original_func_name": "custom",
+    })
+    params = {"experiment_id": "0", "serialized_scorer": custom_scorer, "trace_ids": ["t"]}
+    response = client.post(
+        "/ajax-api/3.0/jobs/", payload={"job_name": "invoke_scorer", "params": params}
+    )
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "disabled on this server" in detail
+    assert "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS" in detail
 
 
 def test_job_tracking_uri(client: Client):
