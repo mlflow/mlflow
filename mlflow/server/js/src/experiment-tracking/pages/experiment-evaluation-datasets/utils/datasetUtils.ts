@@ -2,6 +2,7 @@ import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import {
   getModelTraceId,
   getModelTraceSpanParentId,
+  getParsedExpectationValue,
   isV3ModelTraceInfo,
   isV3ModelTraceSpan,
   isV4ModelTraceSpan,
@@ -25,18 +26,7 @@ export const extractDatasetInfoFromTraces = (traces: ModelTrace[]) => {
         if (!('expectation' in assessment)) {
           continue;
         }
-        // the getAssessmentValue util does not deserialize
-        // the expectation value, so we do it manually here
-        if ('serialized_value' in assessment.expectation) {
-          const value = assessment.expectation.serialized_value.value;
-          try {
-            expectations[assessment.assessment_name] = JSON.parse(value);
-          } catch (e) {
-            expectations[assessment.assessment_name] = value;
-          }
-        } else {
-          expectations[assessment.assessment_name] = assessment.expectation.value;
-        }
+        expectations[assessment.assessment_name] = getParsedExpectationValue(assessment.expectation);
       }
     }
 

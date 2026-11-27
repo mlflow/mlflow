@@ -2,6 +2,8 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import type { Expectation, Feedback } from '../ModelTrace.types';
 
+export { getParsedExpectationValue } from '../ExpectationUtils';
+
 export type AssessmentFormInputDataType = 'string' | 'boolean' | 'number' | 'json';
 
 export const ASSESSMENT_PANE_MIN_WIDTH = 250;
@@ -86,22 +88,6 @@ export const timeSinceStr = (date: any, referenceDate = new Date()) => {
       values={{ timeSince: seconds }}
     />
   );
-};
-
-export const getParsedExpectationValue = (expectation: Expectation) => {
-  if ('value' in expectation) {
-    return expectation.value;
-  }
-
-  try {
-    // at the moment, "JSON_FORMAT" is the only serialization format
-    // that is supported. in the future, we may switch on the
-    // expectation.serialized_value.serialization_format field
-    // to determine how to parse the value.
-    return JSON.parse(expectation.serialized_value.value);
-  } catch (e) {
-    return expectation.serialized_value.value;
-  }
 };
 
 export const getCreateAssessmentPayloadValue = ({
