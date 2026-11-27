@@ -5,6 +5,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.providers import (
+    _cost_per_token_from_custom_catalog,
     _fetch_remote_provider,
     _flatten_catalog_entry,
     _get_remote_cache,
@@ -340,6 +341,16 @@ _MOCK_PROVIDER_DATA = {
             "output_cost_per_token": 2e-6,
         },
     },
+    "vertex_ai": {
+        "test-publisher/test-maas-model": {
+            "input_cost_per_token": 1e-6,
+            "output_cost_per_token": 2e-6,
+        },
+        "test-gemini-model": {
+            "input_cost_per_token": 1e-6,
+            "output_cost_per_token": 2e-6,
+        },
+    },
 }
 
 
@@ -495,6 +506,29 @@ def test_cost_per_token_zero_tokens(mock_model_cost):
     )
     assert input_cost == 0.0
     assert output_cost == 0.0
+
+
+@pytest.mark.parametrize("custom_llm_provider", ["vertex_ai", None])
+@pytest.mark.parametrize(
+    "model",
+    [
+        "test-publisher/test-maas-model",
+        "vertex_ai/test-publisher/test-maas-model",
+        "test-gemini-model",
+        "vertex_ai/test-gemini-model",
+    ],
+)
+def test_cost_per_token_resolves_catalog_keys_with_publisher_prefix(
+    mock_model_cost, model, custom_llm_provider
+):
+    input_cost, output_cost = cost_per_token(
+        model=model,
+        prompt_tokens=1000,
+        completion_tokens=500,
+        custom_llm_provider=custom_llm_provider,
+    )
+    assert input_cost == pytest.approx(0.001)
+    assert output_cost == pytest.approx(0.001)
 
 
 def test_cost_per_token_unknown_model_returns_none(mock_model_cost):
@@ -680,6 +714,37 @@ def test_load_provider_falls_back_to_bundled_when_remote_fails():
         mock_remote.assert_called_once_with("openai")
         assert len(result) > 0
         assert "gpt-4o" in result
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "test-publisher/test-maas-model",
+        "vertex_ai/test-publisher/test-maas-model",
+        "test-gemini-model",
+        "vertex_ai/test-gemini-model",
+    ],
+)
+def test_cost_per_token_from_custom_catalog_resolves_keys_with_publisher_prefix(
+    tmp_path, monkeypatch, model
+):
+    pricing = {"input_per_million_tokens": 1.0, "output_per_million_tokens": 2.0}
+    catalog = {
+        "schema_version": "1.0",
+        "models": {
+            "test-publisher/test-maas-model": {"mode": "chat", "pricing": pricing},
+            "test-gemini-model": {"mode": "chat", "pricing": pricing},
+        },
+    }
+    (tmp_path / "vertex_ai.json").write_text(json.dumps(catalog))
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", tmp_path.as_uri())
+    _get_remote_cache().clear()
+    input_cost, output_cost = _cost_per_token_from_custom_catalog(
+        model, "vertex_ai", prompt_tokens=1000, completion_tokens=500
+    )
+    assert input_cost == pytest.approx(0.001)
+    assert output_cost == pytest.approx(0.001)
+    _get_remote_cache().clear()
 
 
 def test_fetch_remote_provider_disabled_when_url_empty(monkeypatch):
