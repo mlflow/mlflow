@@ -39,8 +39,6 @@ agent-browser --session verify screenshot "$tmp_dir/out/media/<name>.png"
 
 ## Recordings
 
-Record a flow when a still image cannot show it, such as a multi-step interaction.
-
 1. Rehearse with stable selectors, and hide side panels, popups, and onboarding hints that cover
    the page. Refs like `@e12` do not persist across sessions, so don't use them in the steps
    you save.
