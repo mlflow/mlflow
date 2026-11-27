@@ -1,13 +1,6 @@
 name: UI Preview
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - mlflow/server/js/**
-      - .github/workflows/ui-preview.yml
-      - .github/ui-preview/**
   pull_request_target:
     types:
       - opened
@@ -21,20 +14,18 @@ concurrency:
   # PR events need unique groups to avoid canceling meaningful preview runs.
   group: >-
     ${{ github.workflow }}-${{
-      github.event_name == 'push'
-        && 'master-preview'
-        || (
-          (
-            github.event.action == 'labeled'
-            && github.event.label.name == 'ui-preview'
-          )
-          || (
-            github.event.action != 'labeled'
-            && contains(github.event.pull_request.labels.*.name, 'ui-preview')
-          )
+      (
+        (
+          github.event.action == 'labeled'
+          && github.event.label.name == 'ui-preview'
         )
-        && format('{0}-preview', github.event.pull_request.number)
-        || github.run_id
+        || (
+          github.event.action != 'labeled'
+          && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+        )
+      )
+      && format('{0}-preview', github.event.pull_request.number)
+      || github.run_id
     }}
   cancel-in-progress: true
 
@@ -51,8 +42,7 @@ cache-mode: none
 jobs:
   notify:
     if: >-
-      github.event_name != 'push'
-      && github.event.action != 'closed'
+      github.event.action != 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
       && (github.event.action != 'labeled' || github.event.label.name == 'ui-preview')
       && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
@@ -92,13 +82,10 @@ jobs:
 
   build:
     if: >-
-      github.event_name == 'push'
-      || (
-        github.event.action != 'closed'
-        && contains(github.event.pull_request.labels.*.name, 'ui-preview')
-        && (github.event.action != 'labeled' || github.event.label.name == 'ui-preview')
-        && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
-      )
+      github.event.action != 'closed'
+      && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+      && (github.event.action != 'labeled' || github.event.label.name == 'ui-preview')
+      && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -107,9 +94,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # For PRs, check out the merge ref so the preview reflects what the UI
-          # will look like after merge. For push events, falls back to github.sha.
-          ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/merge', github.event.pull_request.number) || github.sha }}
+          # Check out the merge ref so the preview reflects what the UI will look
+          # like after merge.
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
           # checkout v7 blocks fork PR checkout on `pull_request_target` by
           # default; opt in since this job builds the UI preview from fork code.
           # Safe: it has no secrets (only `contents: read`), and the `author_association`
@@ -205,8 +192,8 @@ jobs:
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
           DATABRICKS_AUTH_TYPE: oauth-m2m
-          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
-          APP_DESCRIPTION: ${{ github.event.pull_request.html_url || format('{0}/{1}', github.server_url, github.repository) }}
+          APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
+          APP_DESCRIPTION: ${{ github.event.pull_request.html_url }}
         run: |
           if databricks apps get "$APP_NAME" > /dev/null 2>&1; then
             echo "App already exists"
@@ -241,7 +228,7 @@ jobs:
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
           DATABRICKS_AUTH_TYPE: oauth-m2m
-          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+          APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
         run: |
           # An app is only reachable by its creator (this service principal) and
           # workspace admins by default, so non-admin maintainers get a 403 on the
@@ -269,8 +256,8 @@ jobs:
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
           DATABRICKS_AUTH_TYPE: oauth-m2m
-          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
-          WORKSPACE_PATH: /Users/${{ secrets.DATABRICKS_CLIENT_ID }}/apps/${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+          APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
+          WORKSPACE_PATH: /Users/${{ secrets.DATABRICKS_CLIENT_ID }}/apps/mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
         run: |
           databricks workspace mkdirs "/Workspace$WORKSPACE_PATH" 2>/dev/null || true
           databricks workspace import-dir /tmp/app-deploy "$WORKSPACE_PATH" --overwrite
@@ -282,7 +269,7 @@ jobs:
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
           DATABRICKS_AUTH_TYPE: oauth-m2m
-          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+          APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
         run: |
           # `apps deploy` restarts the app process and re-extracts the UI assets,
           # but reuses the existing Python env, so the freshly built wheel is not
@@ -324,13 +311,6 @@ jobs:
             exit 1
           fi
 
-      - name: Print app URL
-        if: github.event_name == 'push'
-        env:
-          APP_URL: ${{ steps.app.outputs.url }}
-        run: |
-          echo "Deployed to $APP_URL" >> $GITHUB_STEP_SUMMARY
-
   finalize:
     needs:
       - notify
@@ -339,7 +319,6 @@ jobs:
     if: >-
       always()
       && !cancelled()
-      && github.event_name != 'push'
       && (
         needs.deploy.result == 'success'
         || needs.build.result == 'failure'
@@ -405,8 +384,7 @@ jobs:
 
   cleanup:
     if: >-
-      github.event_name != 'push'
-      && github.event.action == 'closed'
+      github.event.action == 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
     # Static-IP runner required for IP allowlisting
     runs-on: ubuntu-ui-preview
