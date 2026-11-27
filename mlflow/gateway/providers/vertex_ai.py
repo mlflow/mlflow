@@ -18,9 +18,7 @@ Three model types are supported:
   OpenAI Chat Completions format via the shared /endpoints/openapi endpoint.
 """
 
-import json
 from enum import Enum
-from pathlib import Path
 from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
@@ -35,6 +33,7 @@ from mlflow.gateway.providers.base import (
 from mlflow.gateway.providers.gemini import GeminiAdapter, GeminiProvider
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleProvider
 from mlflow.gateway.providers.utils import send_proxy_request, send_request, send_stream_request
+from mlflow.utils.validation import _load_gateway_vertex_credentials
 
 _DEFAULT_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 
@@ -418,15 +417,7 @@ class VertexAIProvider(GeminiProvider):
             return self._cached_credentials
 
         if creds_data := self.vertex_config.vertex_credentials:
-            try:
-                info = json.loads(creds_data)
-            except (json.JSONDecodeError, TypeError):
-                try:
-                    info = json.loads(Path(creds_data).read_text())
-                except Exception as e:
-                    raise ValueError(
-                        "vertex_credentials must be a JSON string or path to a JSON file"
-                    ) from e
+            info = _load_gateway_vertex_credentials(creds_data, "vertex_credentials")
             credentials = service_account.Credentials.from_service_account_info(
                 info, scopes=_DEFAULT_SCOPES
             )

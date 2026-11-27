@@ -12,6 +12,7 @@ import socket
 import threading
 import urllib.parse
 from fnmatch import fnmatch
+from pathlib import Path
 from typing import Any, Iterator
 
 import requests
@@ -25,6 +26,7 @@ from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
     MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS,
     MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES,
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE,
     MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS,
     MLFLOW_ICON_URL_ALLOWED_DOMAINS,
     MLFLOW_ICON_URL_ALLOWED_SCHEMES,
@@ -1237,6 +1239,85 @@ def _validate_gateway_region_keys(
             raise MlflowException.invalid_parameter_value(str(e)) from None
 
 
+# Keys holding a Google Cloud service account key: the native Vertex AI provider reads
+# ``vertex_credentials`` and LiteLLM also accepts ``vertex_ai_credentials``.
+GATEWAY_VERTEX_CREDENTIAL_KEYS = frozenset({"vertex_credentials", "vertex_ai_credentials"})
+
+
+def _is_google_auth_url(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        parsed = urllib.parse.urlparse(value)
+        hostname = parsed.hostname
+        # Reading the port raises ValueError when it is malformed.
+        parsed.port
+    except ValueError:
+        return False
+    return (
+        parsed.scheme == "https"
+        and parsed.username is None
+        and hostname is not None
+        and re.fullmatch(r"[a-z0-9.-]+", hostname) is not None
+        and (hostname == "accounts.google.com" or hostname.endswith(".googleapis.com"))
+    )
+
+
+def _validate_vertex_service_account_info(info: Any, field_name: str) -> None:
+    """Raise unless ``info`` is a service account key whose URLs all point to Google.
+
+    google-auth sends the signed token request to ``token_uri`` through ``requests``, outside
+    the gateway's SSRF-guarded transport and with redirects followed, so a stored key must not
+    choose where it goes. Every ``*_uri``/``*_url`` field is held to the same rule, and other
+    credential types are refused because they carry further URLs and local file sources.
+    """
+    if not isinstance(info, dict) or info.get("type") != "service_account":
+        raise MlflowException.invalid_parameter_value(
+            f'{field_name} must be a service account key: a JSON object with "type": '
+            '"service_account"'
+        )
+    for key in sorted(k for k in info if k.endswith(("_uri", "_url"))):
+        if not _is_google_auth_url(info[key]):
+            raise MlflowException.invalid_parameter_value(
+                f"{field_name} field {key!r} must be an https URL on accounts.google.com or "
+                "*.googleapis.com"
+            )
+
+
+def _load_gateway_vertex_credentials(value: Any, field_name: str) -> dict[str, Any]:
+    """Parse and validate a Vertex AI service account key.
+
+    The key is given inline. A file path is read only when
+    ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE`` is ``true``, as for API keys, since the server
+    would otherwise load files from its own filesystem on a caller's behalf. Values are never
+    echoed, since they hold private keys.
+    """
+    info = value
+    if isinstance(value, str):
+        try:
+            info = json.loads(value)
+        except json.JSONDecodeError:
+            if not MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE.get():
+                raise MlflowException.invalid_parameter_value(
+                    f"{field_name} must contain the service account key JSON itself, not a "
+                    "file path"
+                ) from None
+            try:
+                info = json.loads(Path(value).read_text())
+            except (OSError, ValueError):
+                raise MlflowException.invalid_parameter_value(
+                    f"{field_name} must be a service account key JSON or a path to a JSON file"
+                ) from None
+    _validate_vertex_service_account_info(info, field_name)
+    return info
+
+
+def _validate_gateway_vertex_credentials(config: dict[str, Any], source: str) -> None:
+    for key in sorted(GATEWAY_VERTEX_CREDENTIAL_KEYS & set(config)):
+        if config[key]:
+            _load_gateway_vertex_credentials(config[key], f"{source} {key!r}")
+
+
 def _validate_gateway_secret_auth_config(
     auth_config: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
@@ -1255,6 +1336,7 @@ def _validate_gateway_secret_auth_config(
             "'api_base', which is validated."
         )
     _validate_gateway_region_keys(normalized, "auth_config")
+    _validate_gateway_vertex_credentials(normalized, "auth_config")
     if auth_url := normalized.get("auth_url"):
         _validate_gateway_api_base(auth_url)
     api_base = normalized.get("api_base")
@@ -1281,6 +1363,7 @@ def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
     # The LiteLLM provider merges secret_value into its kwargs too. Values aren't echoed, since
     # they sit next to secrets.
     _validate_gateway_region_keys(secret_value, "secret_value", show_value=False)
+    _validate_gateway_vertex_credentials(secret_value, "secret_value")
 
 
 def _find_destination_keys(value: Any) -> set[str]:
