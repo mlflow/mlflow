@@ -34,7 +34,7 @@ export const FeedbackSubmit: ReactComponentImplementation = createComponentImple
   ({ props }) => {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
-    const { hasStagedFeedback, submitStagedFeedback } = useFeedbackStatus();
+    const { hasStagedFeedback, submitStagedFeedback, isSourceResolved } = useFeedbackStatus();
     const formId = typeof props.formId === 'string' && props.formId ? props.formId : undefined;
     const [status, setStatus] = useState<SubmitStatus>('idle');
 
@@ -50,7 +50,7 @@ export const FeedbackSubmit: ReactComponentImplementation = createComponentImple
     const weight = typeof props.weight === 'number' ? props.weight : undefined;
 
     const submit = () => {
-      if (status === 'pending' || !hasStagedFeedback(formId)) {
+      if (status === 'pending' || !isSourceResolved || !hasStagedFeedback(formId)) {
         return;
       }
       window.clearTimeout(resetTimerRef.current);
@@ -66,7 +66,7 @@ export const FeedbackSubmit: ReactComponentImplementation = createComponentImple
 
     const isPending = status === 'pending';
     const isSuccess = status === 'success';
-    const isDisabled = !isPending && !hasStagedFeedback(formId);
+    const isDisabled = !isPending && (!isSourceResolved || !hasStagedFeedback(formId));
 
     return (
       <div

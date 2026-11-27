@@ -22,7 +22,7 @@ jest.mock('../FeatureUtils', () => ({
 
 jest.mock('../../global-settings/getUser', () => ({
   ...jest.requireActual<typeof import('../../global-settings/getUser')>('../../global-settings/getUser'),
-  getUser: jest.fn(() => 'test-user@databricks.com'),
+  useUserIdentity: jest.fn(() => ({ user: 'test-user@databricks.com', isResolved: true })),
 }));
 jest.mock('../../global-settings/getOrgID', () => ({
   ...jest.requireActual<typeof import('../../global-settings/getOrgID')>('../../global-settings/getOrgID'),

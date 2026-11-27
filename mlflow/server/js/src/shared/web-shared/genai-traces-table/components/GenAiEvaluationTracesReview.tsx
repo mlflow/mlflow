@@ -11,6 +11,7 @@ import {
 } from './GenAiEvaluationTracesReview.utils';
 import type { AssessmentInfo, RunEvaluationTracesDataEntry, SaveAssessmentsQuery } from '../types';
 import { RUN_EVALUATIONS_SINGLE_ITEM_REVIEW_UI_PAGE_ID } from '../utils/EvaluationLogging';
+import { useUserIdentity } from '../../global-settings/getUser';
 
 export const GenAiEvaluationTracesReview = ({
   experimentId,
@@ -46,10 +47,11 @@ export const GenAiEvaluationTracesReview = ({
   saveAssessmentsQuery?: SaveAssessmentsQuery;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const { user, isResolved: isUserResolved } = useUserIdentity();
 
   const handleSavePendingAssessments = useCallback(
     async (evaluation, pendingAssessments) => {
-      if (!evaluation || isReadOnly || !runUuid || !saveAssessmentsQuery) {
+      if (!evaluation || isReadOnly || !isUserResolved || !runUuid || !saveAssessmentsQuery) {
         return;
       }
 
@@ -65,14 +67,14 @@ export const GenAiEvaluationTracesReview = ({
 
       // If we should repeat the AI generated overall assessment, we need to copy and add it to the list of assessments to save.
       if (shouldRepeatOverallAiAssessment) {
-        const repeatedOverallAssessment = copyAiOverallAssessmentAsHumanAssessment(evaluation);
+        const repeatedOverallAssessment = copyAiOverallAssessmentAsHumanAssessment(evaluation, user);
 
         repeatedOverallAssessment && assessmentsToSave.unshift(repeatedOverallAssessment);
       }
 
       return saveAssessmentsQuery.savePendingAssessments(runUuid, evaluation.evaluationId, assessmentsToSave);
     },
-    [runUuid, isReadOnly, saveAssessmentsQuery],
+    [runUuid, isReadOnly, isUserResolved, saveAssessmentsQuery, user],
   );
 
   // Scroll right side panel to the top when switching between evaluations
@@ -102,7 +104,7 @@ export const GenAiEvaluationTracesReview = ({
           onSavePendingAssessments={handleSavePendingAssessments}
           onClickNext={selectNextEval}
           isNextAvailable={isNextAvailable}
-          isReadOnly={isReadOnly || !runUuid}
+          isReadOnly={isReadOnly || !runUuid || !isUserResolved}
           runDisplayName={runDisplayName}
           compareToRunDisplayName={compareToRunDisplayName}
           exportToEvalsInstanceEnabled={exportToEvalsInstanceEnabled}
