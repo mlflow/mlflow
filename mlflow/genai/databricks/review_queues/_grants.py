@@ -204,6 +204,8 @@ def _experiment_permissions(
 def _queue_dataset_tables(
     experiment_id: str, queue_id: str, failures: list[_Failure]
 ) -> list[_Table]:
+    # Each call reads every item in the queue. The server caps how many items a queue holds, and
+    # `add_review_queue_members` and `set_review_queue_members` grant all their users in one call.
     dataset_ids: dict[str, None] = {}
     page_token = None
     try:
