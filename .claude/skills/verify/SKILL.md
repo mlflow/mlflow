@@ -116,7 +116,8 @@ locally through the UI, an HTTP endpoint, a CLI, or a short script. Plan a runti
 every exercisable candidate. An already planned check can cover the candidate too. When a
 candidate claims the PR changes or drops behavior the base had, plan the same check on the base.
 
-Specify the entry point, input, and expected result for each check.
+Specify the entry point, input, and expected result for each check. When a candidate names
+several triggers, plan a check for each. Ruling out one trigger does not rule out the others.
 
 ## 4. Run the planned checks
 
@@ -131,6 +132,8 @@ Install missing dependencies as needed (e.g., `uv run --with pyspark python chec
 
 Before starting a server, read [Servers](references/servers.md).
 For browser checks, also read [Browser checks and evidence](references/browser.md).
+Before stopping the servers, capture each candidate a browser check reproduced as that
+reference describes.
 
 Trace unexpected results back to the code. Tests can help diagnose them, but a passing test
 alone leaves the behavior unverified. If setup or a mock fails, try to fix it and retry.
@@ -157,8 +160,8 @@ which source, module, or build path each process actually loaded.
 
 Write `$tmp_dir/out/payload.json` using the [payload schema](payload.schema.yml), including its
 instructions for the summary and optional Evidence section. Report an exercisable candidate
-as a finding when its check reproduces it, and drop it when the check rules it out or the
-base behaves the same. Report a candidate you could not exercise only when the source
+as a finding when its check reproduces it, citing its capture if you reproduced it in the
+browser. Drop it when the checks rule out every trigger it names or the base behaves the same. Report a candidate you could not exercise only when the source
 evidence is conclusive, and say what kept you from running it. Include findings discovered
 while running the checks. If a review thread already covers a finding, mention it in the body
 and account for it in the verdict.
