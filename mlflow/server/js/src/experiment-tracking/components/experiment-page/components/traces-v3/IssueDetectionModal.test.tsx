@@ -241,53 +241,8 @@ describe('IssueDetectionModal', () => {
     expect(screen.queryByTestId('api-key-view')).not.toBeInTheDocument();
   });
 
-  test('submits every category by default, with the saved secret for direct providers', async () => {
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
-
-    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
-
-    await waitFor(() => {
-      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
-        expect.objectContaining({
-          categories: ['correctness', 'latency', 'execution', 'adherence', 'relevance', 'safety', 'cost'],
-          provider: 'openai',
-          model: 'gpt-5.6-sol',
-          secret_id: 'secret-123',
-          endpoint_name: undefined,
-        }),
-        expect.any(Object),
-      );
-    });
-  });
-
-  test("submits only the experiment's selected focus areas", async () => {
-    // The settings exist to narrow a run; a modal that kept sending every category would make
-    // saving them look like it worked while changing nothing.
-    mockSettings({
-      instructions: '',
-      categories: {
-        correctness: true,
-        latency: false,
-        execution: false,
-        adherence: false,
-        relevance: false,
-        safety: true,
-        cost: false,
-      },
-    });
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
-
-    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
-
-    await waitFor(() => {
-      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
-        expect.objectContaining({ categories: ['correctness', 'safety'] }),
-        expect.any(Object),
-      );
-    });
-  });
-
-  test("submits the experiment's saved detection priorities", async () => {
+  test('submits the saved secret for direct providers, leaving categories and priorities to the server', async () => {
+    // DetectIssues reads the experiment's saved settings itself, so the dialog sends none.
     mockSettings({ ...defaultIssueDetectionSettings(), instructions: 'Only report high severity issues.' });
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
@@ -295,33 +250,27 @@ describe('IssueDetectionModal', () => {
 
     await waitFor(() => {
       expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
-        expect.objectContaining({ instructions: 'Only report high severity issues.' }),
+        {
+          experimentId: 'exp-123',
+          traceIds: ['trace-1'],
+          provider: 'openai',
+          model: 'gpt-5.6-sol',
+          secret_id: 'secret-123',
+          endpoint_name: undefined,
+        },
         expect.any(Object),
       );
     });
   });
 
-  test('sends no priorities when the experiment has none, rather than an empty string', async () => {
+  test('analysis can start while the settings are still loading', async () => {
+    // The server reads them when the run starts, so the dialog has nothing to wait for.
+    jest.mocked(useIssueDetectionSettings).mockReturnValue({ data: undefined, isLoading: true, error: null } as any);
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
     await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
 
-    await waitFor(() => {
-      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
-        expect.objectContaining({ instructions: undefined }),
-        expect.any(Object),
-      );
-    });
-  });
-
-  test('analysis cannot start while the settings are still loading', async () => {
-    // Reported in review: submitting here would silently use the defaults and drop the saved
-    // priorities -- an expensive run whose results ignore the experiment's configuration.
-    jest.mocked(useIssueDetectionSettings).mockReturnValue({ data: undefined, isLoading: true, error: null } as any);
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
-
-    expect(screen.getByText('Run Analysis').closest('button')).toBeDisabled();
-    expect(mockInvokeIssueDetection).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockInvokeIssueDetection).toHaveBeenCalled());
   });
 
   test('saved settings that select nothing disclose the fallback where the run is started', async () => {
@@ -346,17 +295,6 @@ describe('IssueDetectionModal', () => {
         "This experiment's issue detection settings have no focus area selected, so this run considers all of them.",
       ),
     ).toBeInTheDocument();
-
-    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
-
-    await waitFor(() => {
-      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
-        expect.objectContaining({
-          categories: ['correctness', 'latency', 'execution', 'adherence', 'relevance', 'safety', 'cost'],
-        }),
-        expect.any(Object),
-      );
-    });
   });
 
   test('ordinary settings do not claim a fallback that is not happening', async () => {
@@ -365,57 +303,19 @@ describe('IssueDetectionModal', () => {
     expect(screen.queryByText(/no focus area selected/)).not.toBeInTheDocument();
   });
 
-  test('a failed refresh over loaded settings says what the run will actually use', async () => {
-    // React Query keeps the cached data alongside a failed background refetch, and the run is
-    // submitted with it -- so claiming "the defaults will be used" here would be false.
-    jest.mocked(useIssueDetectionSettings).mockReturnValue({
-      data: { instructions: 'Only report high severity.', categories: { safety: true } },
-      isLoading: false,
-      error: new Error('nope'),
-    } as any);
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
-
-    expect(screen.getByText(/could not be refreshed, so this run uses the last ones loaded/)).toBeInTheDocument();
-    expect(screen.queryByText(/will use the defaults/)).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
-
-    await waitFor(() => {
-      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
-        expect.objectContaining({
-          categories: ['safety'],
-          instructions: 'Only report high severity.',
-        }),
-        expect.any(Object),
-      );
-    });
-  });
-
-  test('settings that failed to load say so rather than quietly using the defaults', async () => {
-    // Blocking on a tag read would strand a feature that worked before settings existed, so
-    // the run is still allowed -- but not silently.
+  test('settings that failed to load neither block the run nor warn about it', async () => {
+    // The server reads the saved settings when the run starts, so a failed read here changes
+    // nothing about the run.
     jest
       .mocked(useIssueDetectionSettings)
       .mockReturnValue({ data: undefined, isLoading: false, error: new Error('nope') } as any);
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
-    expect(
-      screen.getByText(
-        "This experiment's issue detection settings could not be read, so this run will use the defaults: all focus areas and no saved priorities.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/could not be read/)).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
 
-    await waitFor(() => {
-      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
-        expect.objectContaining({
-          categories: ['correctness', 'latency', 'execution', 'adherence', 'relevance', 'safety', 'cost'],
-          instructions: undefined,
-        }),
-        expect.any(Object),
-      );
-    });
+    await waitFor(() => expect(mockInvokeIssueDetection).toHaveBeenCalled());
   });
 
   test('shows a low-trace tip when fewer than 10 traces are selected', () => {
@@ -454,6 +354,23 @@ describe('IssueDetectionModal', () => {
       traceCount: 1,
       submittedAtMs: expect.any(Number),
     });
+  });
+
+  test('a run with no recorded job closes the dialog without recording a job', async () => {
+    mockInvokeIssueDetection.mockImplementation((_request, options) => {
+      (options as { onSuccess?: (response: { job_id?: string; run_id: string }) => void })?.onSuccess?.({
+        run_id: 'run-456',
+      });
+    });
+    const onClose = jest.fn();
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
+    );
+
+    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(getSubmittedIssueDetectionJob()).toBeNull();
   });
 
   test('passes defaultGroupBySession prop to SelectTracesModal when set to true', async () => {
