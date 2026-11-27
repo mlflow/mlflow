@@ -37,30 +37,45 @@ def _bootstrap_mean_ci(deltas: "np.ndarray", confidence_level: float) -> tuple[f
     # scipy 1.15 renamed the seed argument from `random_state` to `rng`.
     seed_kwarg = "rng" if "rng" in inspect.signature(stats.bootstrap).parameters else "random_state"
 
-    def bootstrap(method: str) -> tuple[float, float]:
-        with warnings.catch_warnings():
-            # A degenerate BCa interval is handled below. Its warnings add nothing.
-            warnings.simplefilter("ignore", RuntimeWarning)
-            warnings.simplefilter("ignore", stats.DegenerateDataWarning)
-            interval = stats.bootstrap(
-                (deltas,),
-                np.mean,
-                method=method,
-                confidence_level=confidence_level,
-                n_resamples=_BOOTSTRAP_RESAMPLES,
-                batch=max(1, _BOOTSTRAP_MAX_BATCH_ELEMENTS // len(deltas)),
-                **{seed_kwarg: np.random.default_rng(_BOOTSTRAP_SEED)},
-            ).confidence_interval
-        return float(interval.low), float(interval.high)
-
-    low, high = bootstrap("BCa")
-    if not (math.isfinite(low) and math.isfinite(high)):
-        _logger.warning(
-            "The BCa bootstrap confidence interval is undefined for this sample; reporting "
-            "the percentile bootstrap interval instead."
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        bootstrap = stats.bootstrap(
+            (deltas,),
+            np.mean,
+            method="percentile",
+            confidence_level=confidence_level,
+            n_resamples=_BOOTSTRAP_RESAMPLES,
+            batch=max(1, _BOOTSTRAP_MAX_BATCH_ELEMENTS // len(deltas)),
+            **{seed_kwarg: np.random.default_rng(_BOOTSTRAP_SEED)},
         )
-        low, high = bootstrap("percentile")
-    return low, high
+    distribution = bootstrap.bootstrap_distribution
+    mean = np.mean(deltas)
+    # Match the mid-rank convention used for ties in scipy's BCa bias correction.
+    percentile = (
+        np.count_nonzero(distribution < mean) + np.count_nonzero(distribution <= mean)
+    ) / (2 * len(distribution))
+
+    # For the mean, the jackknife influence values are x_i - mean(x). Compute their
+    # moments directly instead of constructing n leave-one-out samples (O(n**2)). The
+    # acceleration is scale invariant, so normalize before taking the second/third powers.
+    deviations = deltas - mean
+    with np.errstate(divide="ignore", invalid="ignore"):
+        deviations = deviations / np.max(np.abs(deviations))
+        acceleration = np.sum(deviations**3) / (6 * np.sum(deviations**2) ** 1.5)
+        bias = stats.norm.ppf(percentile)
+        z = stats.norm.ppf((1 - confidence_level) / 2)
+        numerator = bias + np.array([z, -z])
+        adjusted = stats.norm.cdf(bias + numerator / (1 - acceleration * numerator))
+    if np.all(np.isfinite(adjusted)):
+        low, high = np.percentile(distribution, adjusted * 100)
+        if math.isfinite(low) and math.isfinite(high):
+            return float(low), float(high)
+
+    _logger.warning(
+        "The BCa bootstrap confidence interval is undefined for this sample; reporting "
+        "the percentile bootstrap interval instead."
+    )
+    return float(bootstrap.confidence_interval.low), float(bootstrap.confidence_interval.high)
 
 
 def _mcnemar(deltas: "np.ndarray") -> tuple[Literal["mcnemar_exact", "mcnemar_chi2"], float]:
