@@ -1,21 +1,43 @@
+import threading
 import time
 
 import pytest
 from opentelemetry import metrics
+from opentelemetry.metrics import _internal as metrics_internal
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 import mlflow
+from mlflow.entities.trace_location import MlflowExperimentLocation
+from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
+
+
+def _uninstall_global_meter_provider() -> None:
+    """Reset OpenTelemetry's process-global meter provider for test isolation."""
+    metrics_internal._METER_PROVIDER_SET_ONCE._done = False
+    metrics_internal._METER_PROVIDER = None
+
+
+def _exporting_reader_threads() -> int:
+    return sum(
+        1 for thread in threading.enumerate() if "PeriodicExportingMetricReader" in thread.name
+    )
 
 
 @pytest.fixture
 def metric_reader() -> InMemoryMetricReader:
     """Create an in-memory metric reader for testing."""
+    _uninstall_global_meter_provider()
+
     reader = InMemoryMetricReader()
     provider = MeterProvider(metric_readers=[reader])
     metrics.set_meter_provider(provider)
-    yield reader
-    provider.shutdown()
+
+    try:
+        yield reader
+    finally:
+        provider.shutdown()
+        _uninstall_global_meter_provider()
 
 
 def test_metrics_export(
@@ -105,3 +127,102 @@ def test_no_metrics_when_disabled(
                 metric_names.extend(metric.name for metric in scope_metric.metrics)
 
     assert "mlflow.trace.span.duration" not in metric_names
+
+
+def test_span_processor_rebuilds_do_not_leak_meter_providers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+        "http://localhost:9090",
+    )
+    monkeypatch.setenv(
+        "OTEL_EXPORTER_OTLP_METRICS_PROTOCOL",
+        "http/protobuf",
+    )
+
+    _uninstall_global_meter_provider()
+    experiment_id = mlflow.set_experiment("test_meter_provider_rebuild").experiment_id
+
+    def trace_to_destination() -> None:
+        mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=experiment_id))
+        with mlflow.start_span(name="span"):
+            pass
+
+    try:
+        # The first processor installs MLflow's MeterProvider and reader.
+        trace_to_destination()
+
+        installed_provider = metrics.get_meter_provider()
+        readers_after_first = _exporting_reader_threads()
+
+        assert isinstance(installed_provider, MeterProvider)
+        assert readers_after_first > 0
+
+        # Rebuilding tracing processors must reuse the same metrics provider
+        # instead of creating additional exporting reader threads.
+        for _ in range(3):
+            trace_to_destination()
+
+        mlflow.tracing.reset()
+        trace_to_destination()
+
+        assert metrics.get_meter_provider() is installed_provider
+        assert _exporting_reader_threads() == readers_after_first
+    finally:
+        provider = metrics.get_meter_provider()
+        if isinstance(provider, MeterProvider):
+            provider.shutdown()
+
+        _uninstall_global_meter_provider()
+
+
+def test_setup_metrics_shuts_down_rejected_meter_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+        "http://localhost:9090",
+    )
+    monkeypatch.setenv(
+        "OTEL_EXPORTER_OTLP_PROTOCOL",
+        "http/protobuf",
+    )
+
+    existing_provider = object()
+    created_providers = []
+
+    class FakeMeterProvider:
+        def __init__(self, metric_readers):
+            self.metric_readers = metric_readers
+            self.shutdown_called = False
+            created_providers.append(self)
+
+        def shutdown(self):
+            self.shutdown_called = True
+
+    class FakeMeter:
+        def create_histogram(self, **kwargs):
+            return object()
+
+    # Simulate an application-owned provider that OpenTelemetry refuses
+    # to replace with MLflow's newly created provider.
+    monkeypatch.setattr(metrics, "get_meter_provider", lambda: existing_provider)
+    monkeypatch.setattr(metrics, "set_meter_provider", lambda provider: None)
+    monkeypatch.setattr(metrics, "get_meter", lambda name: FakeMeter())
+
+    monkeypatch.setattr(
+        "mlflow.tracing.processor.otel_metrics_mixin.MeterProvider",
+        FakeMeterProvider,
+    )
+    monkeypatch.setattr(
+        "mlflow.tracing.processor.otel_metrics_mixin.PeriodicExportingMetricReader",
+        lambda exporter: object(),
+    )
+
+    processor = OtelMetricsMixin()
+    processor._setup_metrics_if_necessary()
+
+    assert len(created_providers) == 1
+    assert created_providers[0].shutdown_called
+    assert processor._duration_histogram is not None
