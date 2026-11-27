@@ -27,7 +27,7 @@ const setTrace = (queryClient: QueryClient, id: string, trace: ModelTrace, updat
   queryClient.setQueryData(['getTrace', id, undefined], trace, { updatedAt });
 
 describe('pruneTraceCache', () => {
-  test('keeps only the five most recently loaded inactive traces', () => {
+  test('keeps every inactive trace while their payloads fit the cache budget', () => {
     const queryClient = new QueryClient();
     for (let index = 0; index < 6; index++) {
       setTrace(queryClient, `trace-${index}`, createTrace(['small']), index + 1);
@@ -35,8 +35,7 @@ describe('pruneTraceCache', () => {
 
     pruneTraceCache(queryClient);
 
-    expect(queryClient.getQueryData(['getTrace', 'trace-0', undefined])).toBeUndefined();
-    for (let index = 1; index < 6; index++) {
+    for (let index = 0; index < 6; index++) {
       expect(queryClient.getQueryData(['getTrace', `trace-${index}`, undefined])).toBeDefined();
     }
   });
@@ -91,8 +90,9 @@ describe('pruneTraceCache', () => {
 
   test('keeps the newly observed trace when an observer moves between cached keys', () => {
     const queryClient = new QueryClient();
+    const payload = 'x'.repeat(11 * 1024 * 1024);
     for (let index = 0; index < 7; index++) {
-      setTrace(queryClient, `trace-${index}`, createTrace(['small']), index + 1);
+      setTrace(queryClient, `trace-${index}`, createTrace([payload]), index + 1);
     }
     const unsubscribeCache = subscribeToTraceCachePruning(queryClient);
     const observer = new QueryObserver(queryClient, {
