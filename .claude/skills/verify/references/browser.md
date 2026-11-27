@@ -21,6 +21,12 @@ agent-browser --session verify reload
 Capture each theme under its own name, such as `<name>-light.png` and `<name>-dark.png`, and
 pass `"dark"` as the caption theme on dark pages.
 
+## Evidence for findings
+
+Capture every finding you reproduce in the browser and cite it in its inline comment. Use a
+screenshot when one state shows the problem and a recording when it takes several steps to
+reach. For a regression, capture the same steps on the base and the PR.
+
 ## Screenshots
 
 Capture a screenshot when it shows the result of a check, and look at it before citing it:

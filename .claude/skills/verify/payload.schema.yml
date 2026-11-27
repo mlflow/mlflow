@@ -122,6 +122,9 @@ $defs:
           ```
           ````
 
+          Say whether you observed the result at runtime or inferred it from the source. For a
+          finding reproduced in the browser, cite the screenshot or recording that shows it.
+
           For verification gaps, state what you tried and couldn't verify.
           Use Mermaid when helpful. Prefer code permalinks over `<path>:<line>` references.
         type: string

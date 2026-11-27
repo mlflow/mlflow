@@ -107,10 +107,14 @@ prompt: |
 
 After all finders report, inspect the code they cite. Merge candidates with a common cause,
 retaining distinct consequences and evidence. Set aside candidates the source rules out.
+Setup such as installing dependencies can proceed while the finders run, but run no check
+before the plan covers every finder's candidates.
 
 Plan checks for the expected behavior at each affected entry point, even if the finders
-reported no candidates. For each remaining candidate, plan a runtime check if the result
-would help confirm or rule it out. An already planned check can cover the candidate too.
+reported no candidates. A remaining candidate is exercisable when its trigger can be reached
+locally through the UI, an HTTP endpoint, a CLI, or a short script. Plan a runtime check for
+every exercisable candidate. An already planned check can cover the candidate too. When a
+candidate claims the PR changes or drops behavior the base had, plan the same check on the base.
 
 Specify the entry point, input, and expected result for each check.
 
@@ -137,8 +141,9 @@ them and use those PIDs to stop them after any follow-up checks.
 ### Compare against the base
 
 For a bug fix, reproduce the failure on the base and verify the fix on the PR with identical
-inputs. The prepared PR checkout contains the merge commit. To compare against the base, check
-out its first parent in a separate worktree.
+inputs. For a candidate regression, run identical steps on both builds. It is a regression
+only if the base behaves differently. The prepared PR checkout contains the merge commit. To
+compare against the base, check out its first parent in a separate worktree.
 
 ```bash
 git -C "$pr_checkout" worktree add --detach "$tmp_dir/checkouts/base" HEAD^1
@@ -151,8 +156,10 @@ which source, module, or build path each process actually loaded.
 ## 5. Write and validate the review
 
 Write `$tmp_dir/out/payload.json` using the [payload schema](payload.schema.yml), including its
-instructions for the summary and optional Evidence section. Report a candidate as a finding
-when source evidence or an observed result supports it. Include findings discovered
+instructions for the summary and optional Evidence section. Report an exercisable candidate
+as a finding when its check reproduces it, and drop it when the check rules it out or the
+base behaves the same. Report a candidate you could not exercise only when the source
+evidence is conclusive, and say what kept you from running it. Include findings discovered
 while running the checks. If a review thread already covers a finding, mention it in the body
 and account for it in the verdict.
 
