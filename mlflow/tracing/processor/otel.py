@@ -94,10 +94,17 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
             return span
         # The attributes object is shared with the live span and with every other span
         # processor, and opentelemetry-sdk >= 1.43 freezes it before `on_end`. Export a copy
-        # carrying the tags instead of writing to the shared object.
-        attributes = {**(span.attributes or {}), **tag_attributes}
+        # carrying the tags instead of writing to the shared object. Keep the original limits
+        # and dropped count so the copy matches what an in-place write would have produced.
+        original = span._attributes
+        attributes = BoundedAttributes(
+            maxlen=getattr(original, "maxlen", None),
+            attributes={**(span.attributes or {}), **tag_attributes},
+            max_value_len=getattr(original, "max_value_len", None),
+        )
+        attributes.dropped += getattr(original, "dropped", 0)
         span = copy.copy(span)
-        span._attributes = BoundedAttributes(attributes=attributes)
+        span._attributes = attributes
         return span
 
     def _translate_span(self, span: OTelReadableSpan) -> OTelReadableSpan:

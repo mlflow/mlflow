@@ -1,6 +1,6 @@
 from unittest import mock
 
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import SpanLimits, TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExportResult
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
@@ -85,6 +85,28 @@ def test_on_end_exports_copy_without_mutating_shared_attributes():
     }
     assert dict(readable_span.attributes) == {"existing": "value"}
     assert dict(root_span.attributes) == {"existing": "value"}
+
+
+def test_on_end_exported_copy_keeps_attribute_limits():
+    processor, _ = _make_processor()
+    tracer = TracerProvider(
+        span_limits=SpanLimits(max_span_attributes=2, max_span_attribute_length=3)
+    ).get_tracer(__name__)
+    root_span = tracer.start_span("root", attributes={"a": "1", "b": "2", "c": "3"})
+    root_span.end()
+    readable_span = root_span._readable_span()
+    assert readable_span.dropped_attributes == 1
+
+    manager_trace = _make_manager_trace(tags={"env": "production"})
+
+    exported = _run_on_end(processor, readable_span, manager_trace)
+
+    assert dict(exported.attributes) == {
+        "c": "3",
+        SpanAttributeKey.TRACE_TAG_PREFIX + "env": "pro",
+    }
+    assert exported.dropped_attributes == 2
+    assert readable_span.dropped_attributes == 1
 
 
 def test_on_end_exports_span_when_tag_emission_fails():
