@@ -2836,6 +2836,46 @@ def test_upsert_online_scoring_config_custom_scorer_workspace_scoped(
         assert active_scorers[0].online_config.experiment_id == exp_a
 
 
+def test_upsert_online_scoring_config_destination_options_workspace_scoped(
+    workspace_tracking_store,
+):
+    steered_judge = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": "gateway:/my-endpoint",
+            "inference_params": {"api_base": "http://127.0.0.1:9/"},
+        }
+    })
+    with WorkspaceContext("team-steered-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-steered-a")
+        with mock.patch.object(
+            workspace_tracking_store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()
+        ):
+            workspace_tracking_store.register_scorer(exp_a, "judge", steered_judge)
+        with pytest.raises(MlflowException, match="must not contain 'api_base'"):
+            workspace_tracking_store.upsert_online_scoring_config(
+                experiment_id=exp_a, scorer_name="judge", sample_rate=0.5
+            )
+        workspace_tracking_store.upsert_online_scoring_config(
+            experiment_id=exp_a, scorer_name="judge", sample_rate=0.0
+        )
+
+    # A scorer with the same name in another workspace is checked on its own payload.
+    with WorkspaceContext("team-steered-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-steered-b")
+        with mock.patch.object(
+            workspace_tracking_store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()
+        ):
+            workspace_tracking_store.register_scorer(exp_b, "judge", _gateway_model_scorer_json())
+        workspace_tracking_store.upsert_online_scoring_config(
+            experiment_id=exp_b, scorer_name="judge", sample_rate=0.5
+        )
+        active_scorers = workspace_tracking_store.get_active_online_scorers()
+        assert [s.online_config.experiment_id for s in active_scorers] == [exp_b]
+
+    with WorkspaceContext("team-steered-a"):
+        assert workspace_tracking_store.get_active_online_scorers() == []
+
+
 def test_find_completed_sessions_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-sessions-a"):
         exp_a = workspace_tracking_store.create_experiment("exp-sessions-a")

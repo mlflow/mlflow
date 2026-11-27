@@ -39,6 +39,7 @@ from mlflow.utils.validation import (
     _validate_param_name,
     _validate_public_https_url,
     _validate_run_id,
+    _validate_scorer_destination_options,
     _validate_tag_name,
     _validate_text_field,
     _validate_third_party_scorer_data,
@@ -1382,6 +1383,31 @@ def test_validate_judge_inference_params_rejects_non_region_names(make_scorer, f
 )
 def test_validate_judge_inference_params_accepts_benign_payloads(serialized_scorer):
     _validate_judge_inference_params(serialized_scorer)
+
+
+@pytest.mark.parametrize(
+    ("serialized_scorer", "field"),
+    [
+        (
+            _trulens_scorer({"aws_region_name": "us-east-1.example.com"}),
+            "third_party_scorer_data.kwargs 'aws_region_name'",
+        ),
+        (
+            _instructions_judge({"vertex_location": "us-east-1.example.com"}),
+            "instructions_judge_pydantic_data.inference_params 'vertex_location'",
+        ),
+    ],
+)
+def test_validate_scorer_destination_options_can_leave_out_rejected_values(
+    serialized_scorer, field
+):
+    with pytest.raises(MlflowException, match=f"{field} must contain only") as exc:
+        _validate_scorer_destination_options(serialized_scorer)
+    assert "us-east-1.example.com" in exc.value.message
+
+    with pytest.raises(MlflowException, match=f"{field} must contain only") as exc:
+        _validate_scorer_destination_options(serialized_scorer, show_value=False)
+    assert "us-east-1.example.com" not in exc.value.message
 
 
 def test_validate_gateway_secret_auth_config_rejects_private_api_base():

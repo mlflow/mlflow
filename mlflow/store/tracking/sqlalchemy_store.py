@@ -329,6 +329,7 @@ from mlflow.utils.validation import (
     _validate_param,
     _validate_param_keys_unique,
     _validate_run_id,
+    _validate_scorer_destination_options,
     _validate_tag,
     _validate_trace_archival_location,
     _validate_trace_archival_retention_string,
@@ -3553,8 +3554,11 @@ class SqlAlchemyStore(
         Raises:
             MlflowException: If sample_rate is not a number, if sample_rate is outside
                 the range [0.0, 1.0], if filter_string is not a string, if the
-                filter_string syntax is invalid, if the scorer is not found, or if the
-                scorer does not use a gateway model. When online scoring runs custom scorers
+                filter_string syntax is invalid, if the scorer is not found, if the scorer's
+                options set where its LLM client sends requests (for example ``api_base`` in a
+                judge's ``inference_params``), or if the scorer does not use a gateway model.
+                These checks apply only when sample_rate is greater than zero, so a scorer can
+                always be turned off. When online scoring runs custom scorers
                 in job containers, a custom scorer is accepted instead, unless custom scorers
                 are disabled on the server, it has no source code, it is not a single custom
                 scorer (for example, an ensemble that includes one), or it requires
@@ -3597,6 +3601,17 @@ class SqlAlchemyStore(
             )
             if latest_version is not None and sample_rate > 0:
                 serialized_data = json.loads(latest_version.serialized_scorer)
+                # The register handler rejects these options, but versions stored before it did
+                # can still carry them, and online scoring skips such scorers. Disabling (a zero
+                # sample rate) is still allowed so such a scorer can be turned off.
+                try:
+                    _validate_scorer_destination_options(serialized_data, show_value=False)
+                except MlflowException as e:
+                    raise MlflowException(
+                        f"Scorer '{scorer_name}' cannot be used for automatic evaluation: "
+                        f"{e.message} Register a new version of the scorer without these options.",
+                        INVALID_PARAMETER_VALUE,
+                    ) from None
                 # Without job containers, a custom scorer gets the judge checks, so it keeps the
                 # "does not use a gateway model" error on servers that do not run custom scorers.
                 if (
