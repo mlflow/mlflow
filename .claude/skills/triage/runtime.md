@@ -63,8 +63,9 @@ gateway error unrelated to the reported bug, treat that provider as unavailable 
 retrying. Keep calls few and small: a handful of short requests is enough to reproduce a bug.
 
 Leave `localhost` out of `NO_PROXY` on that command, or the call cannot reach the gateway. If
-the command also talks to a local MLflow server, exempt only the server's port, e.g.
-`NO_PROXY=localhost:5000,127.0.0.1:5000`.
+the command also talks to a local MLflow server, reach it at `http://localhost:5000` and exempt
+only that port with `NO_PROXY=localhost:5000`. An IP entry such as `127.0.0.1:5000` does not
+work: `requests` ignores the port on IP addresses.
 
 Some clients need more than the variables above to reach the gateway:
 
