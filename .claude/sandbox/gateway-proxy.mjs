@@ -19,6 +19,17 @@ if (base.protocol !== "https:" || base.username || base.password || base.search 
   throw new Error("Invalid gateway URL");
 }
 
+// Gateway provider surfaces the sandbox may reach, e.g. "anthropic,openai,gemini".
+const providers = (process.env.GATEWAY_PROVIDERS ?? "anthropic").split(",");
+if (!providers.every((p) => /^[a-z]+$/.test(p))) throw new Error("Invalid gateway providers");
+
+// Optional "Name: value" header line set on every forwarded request, so calls the agent makes
+// with its own client carry the same cost-attribution tags as Claude Code's.
+const customHeader = process.env.GATEWAY_CUSTOM_HEADERS?.match(/^([\w-]+):\s*(.+)$/);
+if (process.env.GATEWAY_CUSTOM_HEADERS && !customHeader) {
+  throw new Error("Invalid gateway custom header");
+}
+
 function forwardedHeaders(headers) {
   const result = { ...headers };
   for (const name of String(headers.connection ?? "").split(",")) {
@@ -81,11 +92,13 @@ const server = http.createServer((request, response) => {
     response.writeHead(200).end();
     return;
   }
-  if (request.headers.authorization !== "Bearer " + proxyToken) {
+  // Google's SDKs send the key as `x-goog-api-key` rather than as a bearer.
+  const presented = request.headers.authorization ?? `Bearer ${request.headers["x-goog-api-key"]}`;
+  if (presented !== "Bearer " + proxyToken) {
     response.writeHead(401, { "WWW-Authenticate": "Bearer" }).end();
     return;
   }
-  if (!local.pathname.startsWith("/anthropic/")) {
+  if (!providers.some((p) => local.pathname.startsWith(`/${p}/`))) {
     response.writeHead(404).end();
     return;
   }
@@ -102,6 +115,8 @@ const server = http.createServer((request, response) => {
   const headers = forwardedHeaders(request.headers);
   headers.host = upstream.host;
   headers.authorization = "Bearer " + token;
+  delete headers["x-goog-api-key"];
+  if (customHeader) headers[customHeader[1].toLowerCase()] = customHeader[2];
 
   const outgoing = https.request(upstream, { method: request.method, headers }, (incoming) => {
     response.writeHead(incoming.statusCode ?? 502, forwardedHeaders(incoming.headers));
