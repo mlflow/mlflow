@@ -49,6 +49,13 @@ export interface StartEndTime {
  * `startTimeLabelToStartEndTime` (incl. the 5/15-minute cases).
  */
 export const getStartEndForLabel = (dateNow: Date, label: TracesV4TimeLabel): StartEndTime => {
+  const startOfUtcDay = (daysAgo: number): string => {
+    const startTime = new Date(dateNow);
+    startTime.setUTCHours(0, 0, 0, 0);
+    startTime.setUTCDate(startTime.getUTCDate() - daysAgo);
+    return startTime.toISOString();
+  };
+
   switch (label) {
     case 'LAST_5_MINUTES':
       return {
@@ -72,12 +79,12 @@ export const getStartEndForLabel = (dateNow: Date, label: TracesV4TimeLabel): St
       };
     case 'LAST_7_DAYS':
       return {
-        startTime: new Date(new Date(dateNow).setUTCDate(new Date().getUTCDate() - 7)).toISOString(),
+        startTime: startOfUtcDay(7),
         endTime: dateNow.toISOString(),
       };
     case 'LAST_30_DAYS':
       return {
-        startTime: new Date(new Date(dateNow).setUTCDate(new Date().getUTCDate() - 30)).toISOString(),
+        startTime: startOfUtcDay(30),
         endTime: dateNow.toISOString(),
       };
     case 'LAST_YEAR':
