@@ -41,14 +41,15 @@ properties:
       - COMMENT
   body:
     description: |
-      Summarize in at most three short sentences and 80 words. Don't join clauses with
-      semicolons or colons to fit more in. Open with the verdict and the entry points it covers,
-      not with what you ran (avoid "I ran ..."). Then report only what needs attention: material
-      findings, regressions, and verification gaps. Cover behavior that matched expectations in
-      one clause instead of listing each case. Distinguish runtime observations from findings
-      inferred from the code. Leave out your method, test pass counts, and edge cases you judge
-      immaterial. When a finding has no relevant diff line, is already covered by an existing
-      thread, or is a non-blocking note on an approval, mention it here in one clause and omit a
+      Above the Evidence section, summarize in at most three short sentences and 80 words. Don't
+      join clauses with semicolons or colons to fit more in. Open with the verdict and the entry
+      points it covers, not with what you ran (avoid "I ran ..."). Then report only what needs
+      attention: material findings, regressions, and verification gaps. Cover behavior that
+      matched expectations in one clause instead of listing each case. Distinguish runtime
+      observations from findings inferred from the code. Leave out your method, test pass
+      counts, and edge cases you judge immaterial. Disclosures required by `event` still belong
+      here. When a finding has no relevant diff line, is already covered by an existing thread,
+      or is a non-blocking note on an approval, mention it here in one clause and omit a
       duplicate inline comment.
 
       Put commands, inputs, short output excerpts, and captioned media in one collapsed Evidence
@@ -59,8 +60,6 @@ properties:
 
       ```markdown
       <details><summary>Evidence</summary>
-
-      `curl -fsS http://localhost:5000/health` returned `OK`.
 
       Base: <behavior observed on the base build>
       ![Base behavior](/absolute/path/to/out/media/base.png)
