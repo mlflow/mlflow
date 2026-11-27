@@ -183,7 +183,7 @@ export const ExperimentIssueRow = ({
         borderBottom: `1px solid ${theme.colors.borderDecorative}`,
         // Marked on the leading edge so rows do not shift as the selection moves down the list.
         borderLeft: `2px solid ${isSelected ? theme.colors.actionPrimaryBackgroundDefault : 'transparent'}`,
-        background: isSelected ? theme.colors.actionTertiaryBackgroundPress : 'transparent',
+        background: isSelected ? theme.colors.actionDefaultBackgroundHover : 'transparent',
         '&:hover': {
           background: isSelected ? undefined : theme.colors.actionDefaultBackgroundHover,
           borderColor: 'transparent',

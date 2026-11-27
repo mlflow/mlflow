@@ -40,7 +40,7 @@ const IssueDetectionExampleBubbles = () => {
   };
   const errorHighlightStyles = {
     ...highlightStyles,
-    backgroundColor: theme.isDarkMode ? theme.colors.red800 : theme.colors.red200,
+    backgroundColor: theme.colors.backgroundDanger,
   };
 
   return (

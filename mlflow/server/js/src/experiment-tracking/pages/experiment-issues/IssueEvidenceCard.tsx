@@ -521,7 +521,7 @@ export const IssueEvidenceCard = ({
         minWidth: 0,
         padding: theme.spacing.sm + theme.spacing.xs / 2,
         backgroundColor: theme.colors.backgroundSecondary,
-        borderRadius: theme.borders.borderRadiusMd + theme.spacing.xs / 2,
+        borderRadius: theme.borders.borderRadiusMd,
         // "Open trace" appears while the card is hovered, or while something in it holds a visible
         // focus ring so a keyboard reader can reach the button. Gated on `:focus-visible` rather
         // than `:focus-within`: expanding a card leaves the pointer's focus on its chevron, which
