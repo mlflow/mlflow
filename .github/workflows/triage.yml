@@ -1,5 +1,5 @@
-# File a PR from an upstream branch (not a fork) when changing this workflow or the files it
-# runs, so the change can be tested with `gh workflow run triage.yml --ref <branch>` before merging.
+# Use a branch in mlflow/mlflow to test PRs that update this workflow or files it depends on.
+# gh workflow run triage.yml --ref <branch>
 # Sonnet/medium is the dispatch default for workflow smoke tests. Opus/high matches
 # automatic issue runs unless the TRIAGE_MODEL or TRIAGE_EFFORT repository variables override them:
 # `-f model=databricks-claude-opus-5-5 -f effort=high`.
