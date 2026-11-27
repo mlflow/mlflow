@@ -1,3 +1,4 @@
+import asyncio
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -244,6 +245,62 @@ async def test_receive_response_closed_late_keeps_next_turn_prompt():
 
     mock_process.assert_called_once()
     second_turn = mock_process.call_args.args[0]
+    assert len(second_turn) == 3
+    assert second_turn[0].content == "And 3 + 3?"
+    assert second_turn[2].usage == {"input_tokens": 150, "output_tokens": 7}
+
+
+@pytest.mark.asyncio
+async def test_receive_response_traces_each_turn_from_one_async_generator_prompt():
+    mock_self = MagicMock()
+    sent_prompts = asyncio.Queue()
+
+    async def fake_query(prompt, *args, **kwargs):
+        async for item in prompt:
+            await sent_prompts.put(item["message"]["content"])
+
+    mock_self.query = fake_query
+
+    turns = {
+        "What is 2 + 2?": [
+            AssistantMessage(content=[TextBlock(text="4")], model="claude-sonnet-4-20250514"),
+            _result_message(100, 5),
+        ],
+        "And 3 + 3?": [
+            AssistantMessage(content=[TextBlock(text="6")], model="claude-sonnet-4-20250514"),
+            _result_message(150, 7),
+        ],
+    }
+
+    async def fake_receive_response():
+        for msg in turns[await sent_prompts.get()]:
+            yield msg
+
+    mock_self.receive_response = fake_receive_response
+    patched_claude_sdk_init(MagicMock(), mock_self)
+
+    first_turn_done = asyncio.Event()
+
+    async def prompt_generator():
+        yield {"type": "user", "message": {"role": "user", "content": "What is 2 + 2?"}}
+        await first_turn_done.wait()
+        yield {"type": "user", "message": {"role": "user", "content": "And 3 + 3?"}}
+
+    with (
+        patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
+        patch("mlflow.claude_code.tracing.process_sdk_messages") as mock_process,
+    ):
+        query_task = asyncio.create_task(mock_self.query(prompt_generator()))
+        [msg async for msg in mock_self.receive_response()]
+        first_turn_done.set()
+        [msg async for msg in mock_self.receive_response()]
+        await query_task
+
+    assert mock_process.call_count == 2
+    first_turn, second_turn = (c.args[0] for c in mock_process.call_args_list)
+    assert len(first_turn) == 3
+    assert first_turn[0].content == "What is 2 + 2?"
+    assert first_turn[2].usage == {"input_tokens": 100, "output_tokens": 5}
     assert len(second_turn) == 3
     assert second_turn[0].content == "And 3 + 3?"
     assert second_turn[2].usage == {"input_tokens": 150, "output_tokens": 7}
