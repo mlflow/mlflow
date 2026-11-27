@@ -134,7 +134,9 @@ describe('TracesV4PageContent unified search', () => {
     typeQuery('hello');
     pressEnter();
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Search' })).toHaveAttribute('aria-busy', 'true'));
+    const submit = screen.getByRole('button', { name: 'Search' });
+    await waitFor(() => expect(submit).toHaveAttribute('aria-busy', 'true'));
+    expect(submit.querySelector('.du-bois-light-spin')).toBeInTheDocument();
     expect(queryTraceRow('tr-000')).not.toBeInTheDocument();
 
     resolveSearch?.();

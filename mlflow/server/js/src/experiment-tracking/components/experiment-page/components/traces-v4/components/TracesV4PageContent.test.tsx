@@ -390,6 +390,7 @@ describe('TracesV4PageContent', () => {
       // Skeleton replaces rows (not kept via keepPreviousData).
       await waitFor(() => expect(screen.getByRole('region', { name: 'Traces' })).toHaveAttribute('aria-busy', 'true'));
       expect(screen.getByPlaceholderText('Search traces by id, input, or output')).toHaveAttribute('aria-busy', 'true');
+      expect(document.querySelector('.du-bois-light-spin')).toBeInTheDocument();
       expect(queryTraceRow('tr-000')).not.toBeInTheDocument();
 
       resolveReload?.();

@@ -72,7 +72,7 @@ export interface UseTracesV4ControllerResult {
   /** Effective grouped state — the URL flag gated by the session-grouping feature flag. */
   isGroupedBySession: boolean;
   /** True while the current query is fetching or still showing a prior query's rows. */
-  isSearchPending: boolean;
+  isResultsPending: boolean;
   flags: {
     hasActiveSearch: boolean;
     hasNoTracesInRange: boolean;
@@ -152,7 +152,7 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     enabled: true,
     onPageIndexChange: rawSetPageIndex,
   });
-  const isSearchPending = page.isFetching || page.isPreviousData;
+  const isResultsPending = page.isFetching || page.isPreviousData;
   useEffect(() => recordTraces(page.traces), [page.traces, recordTraces]);
 
   // Reload button → `monitoringConfig.refresh()` bumps `lastRefreshTime`. For a *relative* range that
@@ -212,7 +212,7 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     // The page's row count is the exact-id result only once the row query has settled on the current
     // filter. `isPreviousData` covers the tick where `url.search` has committed the trace-id but the
     // row query is still serving the prior page's rows and hasn't flipped `isFetching` yet.
-    isResultLoading: page.isLoading || page.isFetching || page.isPreviousData,
+    isResultLoading: page.isLoading || isResultsPending,
     pageSessionCount,
   });
   const customColumns = useTracesV4CustomColumns(
@@ -244,7 +244,7 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
   const activeFilterCount = countActiveFilters(filterModel) + url.tagFilters.length;
   const hasActiveSearch = url.search.trim().length > 0;
   const hasActiveFilters = hasActiveSearch || activeFilterCount > 0;
-  const isSettled = !page.isLoading && !page.isFetching && !page.isPreviousData;
+  const isSettled = !page.isLoading && !isResultsPending;
   const hasNoResults = isSettled && page.traces.length === 0;
   // An empty result on a page past the first means the user paged one step beyond the last full page
   // (a cursor API can't know page N+1 is empty until it asks). This is distinct from "no traces at
@@ -304,7 +304,7 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     goToPage,
     onFilterByTag: url.addTagFilter,
     isGroupedBySession,
-    isSearchPending,
+    isResultsPending,
     flags: { hasActiveSearch, hasNoTracesInRange, hasNoSearchResults, isEmptyPageBeyondFirst },
   };
 };
