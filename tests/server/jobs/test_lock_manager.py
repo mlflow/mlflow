@@ -1057,3 +1057,146 @@ def test_release_exclusive_lock_does_not_affect_other_lock_keys(
         row2 = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "key-2").one_or_none()
         assert row1 is None
         assert row2 is not None
+
+
+def test_job_lock_manager_delegates_to_custom_abstract_job_store() -> None:
+    from mlflow.store.jobs.abstract_store import AbstractJobStore
+
+    class CustomJobStore(AbstractJobStore):
+        def __init__(self) -> None:
+            self.leases: dict[str, SchedulerLease] = {}
+            self.locks: dict[str, JobLock] = {}
+
+        def create_job(self, job_name, params, timeout=None, creator=None, executor_backend=None):
+            raise NotImplementedError
+
+        def claim_job(self, job_id, lease_duration=None):
+            raise NotImplementedError
+
+        def renew_job_lease(self, job_id, lease_duration):
+            raise NotImplementedError
+
+        def retry_job(self, job_id):
+            raise NotImplementedError
+
+        def mark_job_needs_recovery(self, job_id):
+            raise NotImplementedError
+
+        def reattach_job(self, job_id, lease_duration=None):
+            raise NotImplementedError
+
+        def requeue_job(self, job_id):
+            raise NotImplementedError
+
+        def report_job_result(
+            self, job_id, status, result=None, error_message=None, is_transient_error=False
+        ):
+            raise NotImplementedError
+
+        def start_job(self, job_id):
+            raise NotImplementedError
+
+        def reset_job(self, job_id):
+            raise NotImplementedError
+
+        def finish_job(self, job_id, result):
+            raise NotImplementedError
+
+        def mark_job_timed_out(self, job_id):
+            raise NotImplementedError
+
+        def fail_job(self, job_id, error):
+            raise NotImplementedError
+
+        def retry_or_fail_job(self, job_id, error):
+            raise NotImplementedError
+
+        def list_jobs(
+            self,
+            job_name=None,
+            statuses=None,
+            begin_timestamp=None,
+            end_timestamp=None,
+            params=None,
+        ):
+            raise NotImplementedError
+
+        def get_job(self, job_id):
+            raise NotImplementedError
+
+        def cancel_job(self, job_id):
+            raise NotImplementedError
+
+        def update_status_details(self, job_id, status_details):
+            raise NotImplementedError
+
+        def delete_jobs(self, older_than=0, job_ids=None):
+            raise NotImplementedError
+
+        def acquire_scheduler_lease(
+            self, lease_key: str, ttl_seconds: int
+        ) -> SchedulerLease | None:
+            if lease_key in self.leases:
+                return None
+            lease = SchedulerLease(lease_key=lease_key, acquired_at=100, ttl_seconds=ttl_seconds)
+            self.leases[lease_key] = lease
+            return lease
+
+        def renew_scheduler_lease(
+            self, scheduler_lease: SchedulerLease, ttl_seconds: int
+        ) -> SchedulerLease | None:
+            current = self.leases.get(scheduler_lease.lease_key)
+            if current != scheduler_lease:
+                return None
+            renewed = SchedulerLease(
+                lease_key=scheduler_lease.lease_key,
+                acquired_at=current.acquired_at + 50,
+                ttl_seconds=ttl_seconds,
+            )
+            self.leases[scheduler_lease.lease_key] = renewed
+            return renewed
+
+        def acquire_exclusive_lock(self, lock_key: str, job_id: str) -> JobLock | None:
+            if lock_key in self.locks and self.locks[lock_key].job_id != job_id:
+                return None
+            lock = JobLock(lock_key=lock_key, job_id=job_id, acquired_at=200)
+            self.locks[lock_key] = lock
+            return lock
+
+        def release_exclusive_lock(self, job_lock: JobLock) -> None:
+            if self.locks.get(job_lock.lock_key) == job_lock:
+                self.locks.pop(job_lock.lock_key, None)
+
+    store = CustomJobStore()
+    mgr = JobLockManager(store)
+
+    lease = mgr.acquire_scheduler_lease("sched", ttl_seconds=30)
+    assert lease == SchedulerLease(lease_key="sched", acquired_at=100, ttl_seconds=30)
+    assert mgr.acquire_scheduler_lease("sched", ttl_seconds=30) is None
+
+    renewed = mgr.renew_scheduler_lease(lease, ttl_seconds=60)
+    assert renewed == SchedulerLease(lease_key="sched", acquired_at=150, ttl_seconds=60)
+    assert mgr.renew_scheduler_lease(lease, ttl_seconds=60) is None
+
+    lock = mgr.acquire_exclusive_lock("k1", "j1")
+    assert lock == JobLock(lock_key="k1", job_id="j1", acquired_at=200)
+    assert mgr.acquire_exclusive_lock("k1", "j2") is None
+
+    mgr.release_exclusive_lock(lock)
+    assert mgr.acquire_exclusive_lock("k1", "j2") == JobLock(
+        lock_key="k1", job_id="j2", acquired_at=200
+    )
+
+
+def test_sqlalchemy_job_store_lock_methods(job_store: SqlAlchemyJobStore) -> None:
+    lease = job_store.acquire_scheduler_lease("sched-direct", ttl_seconds=30)
+    assert lease is not None
+    renewed = job_store.renew_scheduler_lease(lease, ttl_seconds=45)
+    assert renewed is not None
+    assert renewed.ttl_seconds == 45
+
+    job = job_store.create_job(job_name="job1", params="{}", timeout=60.0)
+    assert job_store.claim_job(job.job_id) == JobUpdateStatus.APPLIED
+    lock = job_store.acquire_exclusive_lock("direct-key", job.job_id)
+    assert lock is not None
+    job_store.release_exclusive_lock(lock)

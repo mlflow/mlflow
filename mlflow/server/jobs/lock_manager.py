@@ -4,7 +4,6 @@ import logging
 import random
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import ParamSpec, TypeVar
 
 from sqlalchemy import Update, and_, delete, insert, join, or_, select, update
@@ -15,6 +14,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE, ErrorCode
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.db.utils import get_current_time_millis_expression
+from mlflow.store.jobs.abstract_store import AbstractJobStore, JobLock, SchedulerLease
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.tracking.dbmodels.models import SqlJob, SqlJobLock, SqlSchedulerLease
 from mlflow.utils.time import get_current_time_millis
@@ -42,27 +42,14 @@ def _check_time_drift_and_log(app_now_millis: int, db_now_millis: int) -> None:
         _logger.warning("Time drift > 1s detected APP_time - DB_time = %d ms", drift)
 
 
-@dataclass(frozen=True)
-class SchedulerLease:
-    lease_key: str
-    acquired_at: int
-    ttl_seconds: int
-
-
-@dataclass(frozen=True)
-class JobLock:
-    lock_key: str
-    job_id: str
-    acquired_at: int
-
-
 class JobLockManager:
     """
     Manages scheduler lease and job lock coordination for multi-replica
     MLflow deployments.
 
     Uses the ``scheduler_leases`` and ``job_locks`` tables with a
-    SQLAlchemy session factory from a ``SqlAlchemyJobStore``.
+    SQLAlchemy session factory from a ``SqlAlchemyJobStore``, or delegates
+    to custom ``AbstractJobStore`` lock/lease implementations.
 
     Example usage::
 
@@ -87,10 +74,14 @@ class JobLockManager:
                 # ... do work ...
     """
 
-    def __init__(self, job_store: SqlAlchemyJobStore):
-
-        self.db_type = job_store.db_type
-        self._session_maker = job_store.ManagedSessionMaker
+    def __init__(self, job_store: AbstractJobStore):
+        self._job_store = job_store
+        if isinstance(job_store, SqlAlchemyJobStore) or hasattr(job_store, "ManagedSessionMaker"):
+            self.db_type = getattr(job_store, "db_type", None)
+            self._session_maker = job_store.ManagedSessionMaker
+        else:
+            self.db_type = None
+            self._session_maker = None
 
     def _guard_insert_race(
         self, fn: Callable[_P, _R], *args: _P.args, **kwargs: _P.kwargs
@@ -179,6 +170,9 @@ class JobLockManager:
             raise MlflowException.invalid_parameter_value(
                 f"ttl_seconds must be greater than zero, got {ttl_seconds}"
             )
+
+        if self._session_maker is None:
+            return self._job_store.renew_scheduler_lease(scheduler_lease, ttl_seconds)
 
         with self._session_maker(read_only=False) as session:
             app_now_millis = get_current_time_millis()
@@ -310,6 +304,9 @@ class JobLockManager:
             raise MlflowException.invalid_parameter_value(
                 f"ttl_seconds must be greater than zero, got {ttl_seconds}"
             )
+
+        if self._session_maker is None:
+            return self._job_store.acquire_scheduler_lease(lease_key, ttl_seconds)
 
         return self._guard_insert_race(
             fn=self._acquire_scheduler_lease,
@@ -513,6 +510,9 @@ class JobLockManager:
             MlflowException: Calling job has null timeout.
         """
 
+        if self._session_maker is None:
+            return self._job_store.acquire_exclusive_lock(lock_key, job_id)
+
         return self._guard_insert_race(
             fn=self._acquire_exclusive_lock,
             lock_key=lock_key,
@@ -534,6 +534,10 @@ class JobLockManager:
             job_lock: The lock to release. Must be a ``JobLock`` that was returned by
             ``acquire_exclusive_lock``.
         """
+
+        if self._session_maker is None:
+            self._job_store.release_exclusive_lock(job_lock)
+            return
 
         with self._session_maker(read_only=False) as session:
             filter_args = (

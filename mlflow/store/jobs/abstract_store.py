@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Iterator
 
@@ -7,6 +8,20 @@ from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import developer_stable
+
+
+@dataclass(frozen=True)
+class SchedulerLease:
+    lease_key: str
+    acquired_at: int
+    ttl_seconds: int
+
+
+@dataclass(frozen=True)
+class JobLock:
+    lock_key: str
+    job_id: str
+    acquired_at: int
 
 
 class JobTerminalStateUpdateException(MlflowException):
@@ -350,3 +365,53 @@ class AbstractJobStore(ABC):
         Returns:
             List of job IDs that were deleted.
         """
+
+    def acquire_scheduler_lease(self, lease_key: str, ttl_seconds: int) -> SchedulerLease | None:
+        """
+        Acquire the scheduler lease for this replica if no valid lease exists.
+
+        Args:
+            lease_key: Key identifying the scheduler lease.
+            ttl_seconds: Lease duration in seconds (must be > 0).
+
+        Returns:
+            ``SchedulerLease`` if acquired, or ``None`` if held by another replica.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def renew_scheduler_lease(
+        self, scheduler_lease: SchedulerLease, ttl_seconds: int
+    ) -> SchedulerLease | None:
+        """
+        Renew an existing scheduler lease if still held by the caller.
+
+        Args:
+            scheduler_lease: Current lease proving ownership.
+            ttl_seconds: New lease duration in seconds (must be > 0).
+
+        Returns:
+            Updated ``SchedulerLease`` on success, or ``None`` if no longer held.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def acquire_exclusive_lock(self, lock_key: str, job_id: str) -> JobLock | None:
+        """
+        Acquire an exclusive execution lock for ``lock_key`` on behalf of ``job_id``.
+
+        Args:
+            lock_key: Exclusive lock key derived from job function metadata and parameters.
+            job_id: ID of the job acquiring the lock.
+
+        Returns:
+            ``JobLock`` if acquired, or ``None`` if held by another live job.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def release_exclusive_lock(self, job_lock: JobLock) -> None:
+        """
+        Release an exclusive execution lock if it still matches ``job_lock``.
+
+        Args:
+            job_lock: Lock token previously returned by ``acquire_exclusive_lock``.
+        """
+        raise NotImplementedError(self.__class__.__name__)
