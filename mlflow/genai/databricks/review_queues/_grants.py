@@ -16,15 +16,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.databricks.review_queues import _client
 from mlflow.genai.databricks.review_queues.entities import ItemKind
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE,
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE,
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE,
 )
 
 _logger = logging.getLogger(__name__)
 
-# The tag Databricks sets to the annotation table of an experiment whose traces are stored in
-# Unity Catalog. It isn't `MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE`, a different key.
-_ANNOTATION_TABLE_TAG = "mlflow.experiment.databricksTraceAnnotationStorageTable"
 _EXPERIMENT_TYPE_TAG = "mlflow.experimentType"
 _NOTEBOOK_EXPERIMENT_TYPE = "NOTEBOOK"
 
@@ -101,7 +99,7 @@ def _grant_reviewer_access(experiment_id: str, users: list[str], queue_id: str |
     trace_tables = [
         (table, privileges)
         for name, privileges in [
-            (tags.get(_ANNOTATION_TABLE_TAG), _READ_WRITE),
+            (tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE), _READ_WRITE),
             (tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE), _READ),
             (tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE), _READ),
         ]
