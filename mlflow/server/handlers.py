@@ -8881,6 +8881,11 @@ def _get_dataset_records_handler(dataset_id):
     )
     _validate_max_results_within_threshold(request_message.max_results)
 
+    if request_message.max_results < 0:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value {request_message.max_results} for parameter 'max_results' "
+            "supplied. It must be a non-negative integer."
+        )
     max_results = request_message.max_results or 1000
     page_token = request_message.page_token or None
 
