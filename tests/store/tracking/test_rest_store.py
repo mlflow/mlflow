@@ -2240,6 +2240,29 @@ def test_upsert_dataset_records_sends_chunks():
     assert [r for chunk in sent for r in chunk] == records
 
 
+@pytest.mark.parametrize(
+    ("num_records", "expected_chunk_sizes"),
+    [
+        (0, [0]),
+        (1000, [1000]),
+        (1001, [1000, 1]),
+    ],
+)
+def test_upsert_dataset_records_chunk_boundaries(num_records, expected_chunk_sizes):
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    records = [{"inputs": {"q": str(i)}} for i in range(num_records)]
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=UpsertDatasetRecords.Response()
+    ) as mock_call:
+        store.upsert_dataset_records(dataset_id="d-123", records=records)
+
+    sent = [json.loads(json.loads(c.args[1])["records"]) for c in mock_call.call_args_list]
+    assert [len(chunk) for chunk in sent] == expected_chunk_sizes
+    assert [r for chunk in sent for r in chunk] == records
+
+
 def test_delete_evaluation_dataset_records():
     creds = MlflowHostCreds("https://test-server")
     store = RestStore(lambda: creds)

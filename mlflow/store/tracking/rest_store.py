@@ -2306,7 +2306,11 @@ class RestStore(
             records: List of record dictionaries to upsert.
 
         Returns:
-            Dictionary with 'inserted' and 'updated' counts.
+            Dictionary with 'inserted' and 'updated' counts, summed across all requests.
+
+        .. note::
+            Records are sent in chunks of up to 1,000 per request, and each chunk is committed
+            independently. If a request fails, records from earlier chunks remain committed.
         """
         # Send at least one request so an empty upsert still reaches the server.
         chunks = [
