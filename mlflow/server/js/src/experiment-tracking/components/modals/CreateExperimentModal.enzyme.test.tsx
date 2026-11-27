@@ -8,9 +8,17 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
-import { CreateExperimentModalImpl } from './CreateExperimentModal';
+import { CreateExperimentModal, CreateExperimentModalImpl } from './CreateExperimentModal';
 import { GenericInputModal } from './GenericInputModal';
 import { createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
+import { WorkflowType, useWorkflowType } from '../../../common/contexts/WorkflowTypeContext';
+
+jest.mock('../../../common/contexts/WorkflowTypeContext', () => ({
+  ...jest.requireActual<typeof import('../../../common/contexts/WorkflowTypeContext')>(
+    '../../../common/contexts/WorkflowTypeContext',
+  ),
+  useWorkflowType: jest.fn(),
+}));
 
 describe('CreateExperimentModal', () => {
   let wrapper: any;
@@ -40,6 +48,28 @@ describe('CreateExperimentModal', () => {
     wrapper = shallow(<CreateExperimentModalImpl {...minimalProps} />);
     expect(wrapper.find(GenericInputModal).length).toBe(1);
     expect(wrapper.length).toBe(1);
+  });
+  test('handleCreateExperiment passes the tags to createExperimentApi', async () => {
+    const createExperimentApi = jest.fn((..._args: any[]) =>
+      Promise.resolve({ value: { experiment_id: fakeExperimentId } }),
+    );
+    const tags = [{ key: 'mlflow.experimentKind', value: 'genai_development' }];
+    wrapper = shallow(
+      <CreateExperimentModalImpl {...minimalProps} createExperimentApi={createExperimentApi} tags={tags} />,
+    );
+    await wrapper.instance().handleCreateExperiment({ experimentName: 'myNewExp', artifactLocation: 'artifactLoc' });
+
+    expect(createExperimentApi).toHaveBeenCalledWith('myNewExp', 'artifactLoc', undefined, tags);
+  });
+  test.each([
+    [WorkflowType.GENAI, [{ key: 'mlflow.experimentKind', value: 'genai_development' }]],
+    [WorkflowType.MACHINE_LEARNING, undefined],
+  ])('tags experiments created in the %s workflow with %j', (workflowType, expectedTags) => {
+    jest.mocked(useWorkflowType).mockReturnValue({ workflowType, setWorkflowType: jest.fn() });
+
+    const modal = shallow(<CreateExperimentModal isOpen onClose={jest.fn()} onExperimentCreated={jest.fn()} />);
+
+    expect(modal.prop('tags')).toEqual(expectedTags);
   });
   test('handleCreateExperiment redirects user to newly-created experiment page', async () => {
     instance = wrapper.instance();

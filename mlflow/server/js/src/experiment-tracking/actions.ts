@@ -34,13 +34,19 @@ export const getExperimentApi = (experimentId: any, id = getUUID()) => {
 };
 
 const CREATE_EXPERIMENT_API = 'CREATE_EXPERIMENT_API';
-export const createExperimentApi = (experimentName: any, artifactPath = undefined, id = getUUID()) => {
+export const createExperimentApi = (
+  experimentName: any,
+  artifactPath = undefined,
+  id = getUUID(),
+  tags?: KeyValueEntity[],
+) => {
   return (dispatch: ThunkDispatch) => {
     const createResponse = dispatch({
       type: CREATE_EXPERIMENT_API,
       payload: MlflowService.createExperiment({
         name: experimentName,
         artifact_location: artifactPath,
+        tags,
       }),
       meta: { id: getUUID() },
     });

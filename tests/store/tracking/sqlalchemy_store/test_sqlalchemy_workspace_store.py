@@ -85,7 +85,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
-from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_EXPERIMENT_KIND
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -1296,6 +1296,25 @@ def test_log_spans_locks_and_recomputes_token_usage_in_workspace(workspace_track
 
         trace_info = workspace_tracking_store.get_trace_info(trace_id)
         assert trace_info.token_usage["total_tokens"] == 300
+
+
+def test_trace_writes_set_experiment_kind_within_workspace(workspace_tracking_store):
+    with WorkspaceContext("team-a"):
+        exp_a = workspace_tracking_store.create_experiment("traced-team-a")
+    with WorkspaceContext("team-b"):
+        exp_b = workspace_tracking_store.create_experiment("traced-team-b")
+
+    with WorkspaceContext("team-a"):
+        _create_trace(workspace_tracking_store, f"tr-{uuid.uuid4().hex}", experiment_id=exp_a)
+        tags_a = workspace_tracking_store.get_experiment(exp_a).tags
+        assert tags_a[MLFLOW_EXPERIMENT_KIND] == "genai_development_inferred"
+
+    with WorkspaceContext("team-b"):
+        assert MLFLOW_EXPERIMENT_KIND not in workspace_tracking_store.get_experiment(exp_b).tags
+
+        workspace_tracking_store.log_spans(exp_b, [create_test_span(f"tr-{uuid.uuid4().hex}")])
+        tags_b = workspace_tracking_store.get_experiment(exp_b).tags
+        assert tags_b[MLFLOW_EXPERIMENT_KIND] == "genai_development_inferred"
 
 
 def test_start_trace_conflict_update_is_workspace_scoped(
