@@ -824,3 +824,33 @@ def test_merge_records_does_not_modify_input_records():
         {"team": "eval", MLFLOW_USER: "alice"},
         {MLFLOW_USER: "alice"},
     ]
+
+
+def test_merge_records_dataframe_with_columns_missing_in_some_rows():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+    records = [
+        {"inputs": {"q": "a"}, "outputs": "A", "expectations": {"answer": "A"}},
+        {"inputs": {"q": "b"}, "outputs": "B"},
+        {"inputs": {"q": "c"}, "outputs": "C", "tags": {"team": "eval"}},
+    ]
+
+    mock_store = Mock()
+    mock_store.get_dataset.return_value.schema = None
+
+    with (
+        patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store),
+        patch("mlflow.tracking.context.registry.resolve_tags", return_value={}),
+    ):
+        dataset.merge_records(copy.deepcopy(records))
+        from_list = mock_store.upsert_dataset_records.call_args.kwargs["records"]
+        dataset.merge_records(pd.DataFrame(records))
+        from_df = mock_store.upsert_dataset_records.call_args.kwargs["records"]
+
+    assert from_df == from_list
+    assert [r["source"]["source_type"] for r in from_df] == ["HUMAN", "CODE", "CODE"]
