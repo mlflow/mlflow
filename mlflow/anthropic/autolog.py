@@ -1,4 +1,5 @@
 import logging
+from collections import deque
 from typing import Any
 
 import mlflow.anthropic
@@ -23,8 +24,10 @@ def patched_claude_sdk_init(original, self, options=None):
         from claude_agent_sdk.types import UserMessage
 
         result = original(self, options)
-        # User prompts sent that no response stream has claimed yet
-        pending_prompts = []
+        # One entry per user prompt sent that no response stream has claimed yet, oldest
+        # first. Prompts without text content are kept as None so each prompt stays aligned
+        # with the response stream (turn) that answers it.
+        pending_prompts = deque()
 
         # query() sends the user prompt but doesn't echo it through receive_response()
         original_query = self.query
@@ -41,8 +44,11 @@ def patched_claude_sdk_init(original, self, options=None):
                     async for item in original_prompt:
                         if isinstance(item, dict) and item.get("type") == "user":
                             content = item.get("message", {}).get("content", "")
-                            if isinstance(content, str) and content.strip():
-                                pending_prompts.append(UserMessage(content=content))
+                            pending_prompts.append(
+                                UserMessage(content=content)
+                                if isinstance(content, str) and content.strip()
+                                else None
+                            )
                         yield item
 
                 prompt = capturing_prompt()
@@ -53,20 +59,25 @@ def patched_claude_sdk_init(original, self, options=None):
         original_receive_response = self.receive_response
 
         async def wrapped_receive_response(*args, **kwargs):
-            # Each receive_response() stream is one turn. When its first message arrives, the
-            # stream claims the prompts sent so far, so the next turn's trace doesn't include
-            # this turn's messages, and a stream closed late can't take a later turn's prompt.
-            # Claiming then, not at stream start, lets one async generator passed to query()
-            # supply prompts for several turns, each claimed by the stream that answers it.
-            claimed_prompts = None
+            # Each receive_response() stream is one turn and answers the oldest unclaimed
+            # prompt. The stream claims it when its first message arrives, not at stream
+            # start, so an async generator passed to query() can still be yielding it. Later
+            # prompts stay queued for the streams that answer them.
+            claimed_prompt = None
             responses = []
-            async for msg in original_receive_response(*args, **kwargs):
-                if claimed_prompts is None:
-                    claimed_prompts = pending_prompts.copy()
-                    pending_prompts.clear()
-                responses.append(msg)
-                yield msg
-            turn_messages = (claimed_prompts or []) + responses
+            try:
+                async for msg in original_receive_response(*args, **kwargs):
+                    if not responses and pending_prompts:
+                        claimed_prompt = pending_prompts.popleft()
+                    responses.append(msg)
+                    yield msg
+            except BaseException:
+                # A stream that fails before its first message still drops its own prompt,
+                # so the next turn's trace doesn't pick it up.
+                if not responses and pending_prompts:
+                    pending_prompts.popleft()
+                raise
+            turn_messages = ([claimed_prompt] if claimed_prompt else []) + responses
             try:
                 from mlflow.utils.autologging_utils import autologging_is_disabled
 
