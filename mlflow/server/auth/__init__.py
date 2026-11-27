@@ -4446,6 +4446,10 @@ def validate_can_read_model_version_artifact():
     The positive gate is left as master's, which resolves the `registered_model` tier for a prompt's
     name too; correcting THAT would change which grant admits a prompt artifact at all, which is
     parent-tier work and is left alone here.
+
+    Passing the permission checks is not enough on its own: the handler reads the download URI
+    with the server's credentials, so the version's source must also be inside the artifact root of
+    its recorded run or logged model (see `_is_model_version_artifact_within_source_root`).
     """
     if not _get_permission_from_model_version().can_read:
         return False
@@ -4501,11 +4505,12 @@ def _is_model_version_artifact_within_source_root(name: str, version: str | None
         return False
     registry_store = _get_model_registry_store()
     tracking_store = _get_tracking_store()
-    try:
-        model_version = registry_store.get_model_version(name, version)
-        download_uri = registry_store.get_model_version_download_uri(name, version)
-    except MlflowException:
+    model_version = _fetch_or_none(
+        functools.partial(registry_store.get_model_version, name), version
+    )
+    if model_version is None:
         return False
+    download_uri = registry_store.get_model_version_download_uri(name, version)
 
     run_id = model_version.run_id
     if RunsArtifactRepository.is_runs_uri(download_uri):
@@ -4515,19 +4520,12 @@ def _is_model_version_artifact_within_source_root(name: str, version: str | None
         source_path_parts = _iteratively_unquote(source_path or "").split("/")
         return bool(run_id) and source_run_id == run_id and ".." not in source_path_parts
 
-    if run_id:
-        try:
-            run_root = tracking_store.get_run(run_id).info.artifact_uri
-        except MlflowException:
-            run_root = None
-        if _is_uri_within_artifact_root(download_uri, run_root):
+    if run_id and (run := _fetch_or_none(tracking_store.get_run, run_id)):
+        if _is_uri_within_artifact_root(download_uri, run.info.artifact_uri):
             return True
-    if model_id := model_version.model_id or _model_id_from_source_uri(model_version.source):
-        try:
-            model_root = tracking_store.get_logged_model(model_id).artifact_location
-        except MlflowException:
-            model_root = None
-        if _is_uri_within_artifact_root(download_uri, model_root):
+    model_id = model_version.model_id or _model_id_from_source_uri(model_version.source)
+    if model_id and (model := _fetch_or_none(tracking_store.get_logged_model, model_id)):
+        if _is_uri_within_artifact_root(download_uri, model.artifact_location):
             return True
     return False
 

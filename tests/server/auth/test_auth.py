@@ -2251,10 +2251,12 @@ _RUN_ROOT = "s3://bucket/1/run-1/artifacts"
 _MODEL_ROOT = "s3://bucket/1/models/m-1/artifacts"
 
 
-def _check_model_version_artifact_source_root(monkeypatch, source, run_id, download_uri, run_root):
+def _check_model_version_artifact_source_root(
+    monkeypatch, source, run_id, download_uri, run_root, model_id=None
+):
     registry_store = mock.Mock()
     registry_store.get_model_version.return_value = SimpleNamespace(
-        source=source, run_id=run_id, model_id=None
+        source=source, run_id=run_id, model_id=model_id
     )
     registry_store.get_model_version_download_uri.return_value = download_uri
     tracking_store = mock.Mock()
@@ -2288,6 +2290,13 @@ def _check_model_version_artifact_source_root(monkeypatch, source, run_id, downl
         ("models:/m-1", None, "s3://other-bucket/model", False),
         ("models:/other-model/1", "run-1", f"{_RUN_ROOT}/model", True),
         ("models:/other-model/1", None, "s3://other-bucket/model", False),
+        ("runs:/run-1/%2e%2e/%2e%2e/run-2/model", "run-1", None, False),
+        ("runs:/run-1/%252e%252e/%252e%252e/run-2/model", "run-1", None, False),
+        ("runs://host/run-1/model", "run-1", None, False),
+        (f"{_RUN_ROOT}/%2e%2e/%2e%2e/run-2/artifacts", "run-1", None, False),
+        (f"{_RUN_ROOT}/%252e%252e/%252e%252e/run-2/artifacts", "run-1", None, False),
+        (f"{_RUN_ROOT}-evil/model", "run-1", None, False),
+        (f"{_MODEL_ROOT}-evil/model", None, None, False),
     ],
 )
 def test_model_version_artifact_source_root_check(
@@ -2297,6 +2306,64 @@ def test_model_version_artifact_source_root_check(
         monkeypatch, source, run_id, storage_location or source, _RUN_ROOT
     )
     assert result is expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (f"{_MODEL_ROOT}/model", True),
+        (f"{_MODEL_ROOT}-evil/model", False),
+        ("s3://other-bucket/model", False),
+    ],
+)
+def test_model_version_artifact_source_root_check_uses_recorded_model_id(
+    monkeypatch, source, expected
+):
+    result = _check_model_version_artifact_source_root(
+        monkeypatch, source, None, source, _RUN_ROOT, model_id="m-1"
+    )
+    assert result is expected
+    auth_module._get_tracking_store().get_logged_model.assert_called_once_with("m-1")
+
+
+def _mock_source_root_stores(monkeypatch, download_uri, failing_method, error):
+    registry_store = mock.Mock()
+    registry_store.get_model_version.return_value = SimpleNamespace(
+        source=download_uri, run_id="run-1", model_id="m-1"
+    )
+    registry_store.get_model_version_download_uri.return_value = download_uri
+    tracking_store = mock.Mock()
+    tracking_store.get_run.return_value = SimpleNamespace(
+        info=SimpleNamespace(artifact_uri=_RUN_ROOT)
+    )
+    tracking_store.get_logged_model.return_value = SimpleNamespace(artifact_location=_MODEL_ROOT)
+    store = registry_store if failing_method == "get_model_version" else tracking_store
+    getattr(store, failing_method).side_effect = error
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+
+@pytest.mark.parametrize(
+    ("method", "expected"),
+    [("get_model_version", False), ("get_run", True), ("get_logged_model", False)],
+)
+def test_model_version_artifact_source_root_check_missing_resource(monkeypatch, method, expected):
+    _mock_source_root_stores(
+        monkeypatch,
+        f"{_MODEL_ROOT}/model",
+        method,
+        MlflowException("not found", error_code=RESOURCE_DOES_NOT_EXIST),
+    )
+    assert auth_module._is_model_version_artifact_within_source_root("model", "1") is expected
+
+
+@pytest.mark.parametrize("method", ["get_model_version", "get_run", "get_logged_model"])
+def test_model_version_artifact_source_root_check_reraises_store_failures(monkeypatch, method):
+    _mock_source_root_stores(
+        monkeypatch, "s3://other-bucket/model", method, MlflowException("store unavailable")
+    )
+    with pytest.raises(MlflowException, match="store unavailable"):
+        auth_module._is_model_version_artifact_within_source_root("model", "1")
 
 
 @pytest.mark.parametrize(
