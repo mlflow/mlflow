@@ -15,6 +15,7 @@ from urllib.parse import quote
 from mlflow.exceptions import MlflowException
 from mlflow.genai.databricks.review_queues import _client
 from mlflow.genai.databricks.review_queues.entities import ItemKind
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE,
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE,
@@ -42,19 +43,24 @@ class _Table:
 
 
 @dataclass(frozen=True)
+class _Securable:
+    securable_type: str
+    name: str
+    privileges: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class _Failure:
     grant: str
     error: MlflowException
 
 
 def _parse_table(full_name: str | None) -> _Table | None:
-    if not full_name:
-        return None
-    catalog, _, rest = full_name.partition(".")
-    schema, _, table = rest.partition(".")
-    if not (catalog and schema and table):
-        return None
-    return _Table(full_name=full_name, catalog=catalog, schema=schema)
+    match (full_name or "").split("."):
+        case [catalog, schema, table] if catalog and schema and table:
+            return _Table(full_name=f"{catalog}.{schema}.{table}", catalog=catalog, schema=schema)
+        case _:
+            return None
 
 
 def grant_reviewer_access(
@@ -157,12 +163,11 @@ def _grant_experiment_access(
     # Unity Catalog authorizes answers on traces stored there, so viewing the experiment is enough.
     level = "CAN_READ" if trace_tables else "CAN_EDIT"
     is_notebook = tags.get(_EXPERIMENT_TYPE_TAG) == _NOTEBOOK_EXPERIMENT_TYPE
-    object_type = "notebooks" if is_notebook else "experiments"
-    endpoint = f"/api/2.0/permissions/{object_type}/{experiment_id}"
     try:
+        endpoint, acl = _experiment_permissions(experiment_id, is_notebook)
         # PATCH replaces a listed user's own entry, so leave out anyone already at or above
         # `level` rather than lower their access.
-        ranks = _permission_ranks(_client.call_api("GET", endpoint).get("access_control_list", []))
+        ranks = _permission_ranks(acl)
         if to_grant := [u for u in users if ranks.get(u.lower(), 0) < _LEVEL_RANK[level]]:
             _client.call_api(
                 "PATCH",
@@ -176,6 +181,24 @@ def _grant_experiment_access(
     except MlflowException as e:
         failures.append(_Failure(f"{level} on experiment {experiment_id!r}", e))
     return trace_tables
+
+
+def _experiment_permissions(
+    experiment_id: str, is_notebook: bool
+) -> tuple[str, list[dict[str, Any]]]:
+    """Return the experiment's permissions endpoint and its access control list."""
+    # A notebook's experiment has the notebook's ID and uses the notebook's permissions. The tag
+    # says which kind this is, but if the permissions API rejects that object type, try the other.
+    first, second = ("notebooks", "experiments") if is_notebook else ("experiments", "notebooks")
+    endpoint = f"/api/2.0/permissions/{first}/{experiment_id}"
+    try:
+        resp = _client.call_api("GET", endpoint)
+    except MlflowException as e:
+        if e.error_code != ErrorCode.Name(INVALID_PARAMETER_VALUE):
+            raise
+        endpoint = f"/api/2.0/permissions/{second}/{experiment_id}"
+        resp = _client.call_api("GET", endpoint)
+    return endpoint, resp.get("access_control_list", [])
 
 
 def _queue_dataset_tables(
@@ -222,24 +245,33 @@ def _grant_table_access(
     for table, privileges in grants:
         privileges_by_table.setdefault(table.full_name, {}).update(dict.fromkeys(privileges))
     securables = [
-        *(("catalog", c, ("USE_CATALOG",)) for c in dict.fromkeys(t.catalog for t, _ in grants)),
         *(
-            ("schema", s, ("USE_SCHEMA",))
+            _Securable(securable_type="catalog", name=c, privileges=("USE_CATALOG",))
+            for c in dict.fromkeys(t.catalog for t, _ in grants)
+        ),
+        *(
+            _Securable(securable_type="schema", name=s, privileges=("USE_SCHEMA",))
             for s in dict.fromkeys(f"{t.catalog}.{t.schema}" for t, _ in grants)
         ),
-        *(("table", name, tuple(p)) for name, p in privileges_by_table.items()),
+        *(
+            _Securable(securable_type="table", name=name, privileges=tuple(p))
+            for name, p in privileges_by_table.items()
+        ),
     ]
     # Each object has its own MANAGE, so one failing says nothing about the rest: try them all.
-    for securable_type, name, privileges in securables:
+    for securable in securables:
+        endpoint = (
+            f"/api/2.1/unity-catalog/permissions/{securable.securable_type}/"
+            f"{quote(securable.name, safe='.')}"
+        )
+        changes = [{"principal": u, "add": list(securable.privileges)} for u in users]
         try:
-            _client.call_api(
-                "PATCH",
-                f"/api/2.1/unity-catalog/permissions/{securable_type}/{quote(name, safe='.')}",
-                json={"changes": [{"principal": u, "add": list(privileges)} for u in users]},
-            )
+            _client.call_api("PATCH", endpoint, json={"changes": changes})
         except MlflowException as e:
-            readable = ", ".join(p.replace("_", " ") for p in privileges)
-            failures.append(_Failure(f"{readable} on {securable_type} {name!r}", e))
+            readable = ", ".join(p.replace("_", " ") for p in securable.privileges)
+            failures.append(
+                _Failure(f"{readable} on {securable.securable_type} {securable.name!r}", e)
+            )
 
 
 def _warn(users: list[str], failures: list[_Failure]) -> None:

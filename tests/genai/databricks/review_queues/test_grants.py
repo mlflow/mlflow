@@ -4,7 +4,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.databricks.review_queues import _client, _grants
-from mlflow.protos.databricks_pb2 import PERMISSION_DENIED
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, PERMISSION_DENIED
 
 _ME = ("GET", "/api/2.0/preview/scim/v2/Me")
 _EXPERIMENT = ("GET", "/api/2.0/mlflow/experiments/get")
@@ -203,7 +203,46 @@ def test_uc_backed_notebook_experiment_leaves_can_run_alone(api):
     )
 
 
-@pytest.mark.parametrize("name", ["", "main", "main.traces", "main..ann", ".traces.ann"])
+@pytest.mark.parametrize(
+    ("tags", "rejected", "used"),
+    [
+        ([], "experiments", "notebooks"),
+        ([{"key": "mlflow.experimentType", "value": "NOTEBOOK"}], "notebooks", "experiments"),
+    ],
+)
+def test_permissions_fall_back_to_the_other_object_type(api, tags, rejected, used):
+    rejected_endpoint = f"/api/2.0/permissions/{rejected}/1"
+    used_endpoint = f"/api/2.0/permissions/{used}/1"
+    fake = api({
+        _EXPERIMENT: {"experiment": {"tags": tags}},
+        ("GET", rejected_endpoint): MlflowException(
+            f"Object 1 not a {rejected[:-1]}.", INVALID_PARAMETER_VALUE
+        ),
+        ("GET", used_endpoint): _acl(),
+    })
+
+    _grants.grant_reviewer_access("1", ["alice@example.com"])
+
+    assert [c[:2] for c in fake.calls[2:]] == [
+        ("GET", rejected_endpoint),
+        ("GET", used_endpoint),
+        ("PATCH", used_endpoint),
+    ]
+
+
+def test_other_permission_errors_dont_fall_back(api, caplog):
+    fake = api({_EXPERIMENT: {"experiment": {"tags": []}}, ("GET", _PERMISSIONS): _denied()})
+
+    with caplog.at_level(logging.WARNING, logger=_grants.__name__):
+        _grants.grant_reviewer_access("1", ["alice@example.com"])
+
+    assert [c[:2] for c in fake.calls[2:]] == [("GET", _PERMISSIONS)]
+    assert "Still needed: CAN_EDIT on experiment '1'." in caplog.records[0].message
+
+
+@pytest.mark.parametrize(
+    "name", ["", "main", "main.traces", "main..ann", ".traces.ann", "main.traces.ann.extra"]
+)
 def test_tag_that_isnt_a_table_name_means_v3(api, name):
     tag = {"key": "mlflow.experiment.databricksTraceAnnotationStorageTable", "value": name}
     fake = api({_EXPERIMENT: {"experiment": {"tags": [tag]}}})
