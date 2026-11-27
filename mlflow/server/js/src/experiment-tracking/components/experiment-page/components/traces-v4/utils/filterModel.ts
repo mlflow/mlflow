@@ -108,10 +108,27 @@ export const useMlflowTraceFilterFields = (
         : { valueInput: 'text' as const };
     const keyedFieldInput = (field: 'tag' | 'metadata') =>
       enhanced ? { keyInput: 'combobox' as const, keyOptions: traceSuggestions?.keyedValues[field].keys ?? [] } : {};
+    const traceGroup = intl.formatMessage({
+      defaultMessage: 'Trace',
+      description: 'Trace filter field dropdown section for trace-level fields',
+    });
+    const spansGroup = intl.formatMessage({
+      defaultMessage: 'Spans',
+      description: 'Trace filter field dropdown section for span fields',
+    });
+    const tagsAndMetadataGroup = intl.formatMessage({
+      defaultMessage: 'Tags and metadata',
+      description: 'Trace filter field dropdown section for tag and metadata fields',
+    });
+    const assessmentsGroup = intl.formatMessage({
+      defaultMessage: 'Assessments',
+      description: 'Trace filter field dropdown section for feedback and expectation fields',
+    });
 
     return [
       {
         id: 'state',
+        group: traceGroup,
         label: intl.formatMessage({ defaultMessage: 'State', description: 'Trace filter field: run state' }),
         operators: enhanced ? [FilterOp.EQUALS, FilterOp.NOT_EQUALS] : [FilterOp.EQUALS],
         valueInput: 'select',
@@ -119,6 +136,7 @@ export const useMlflowTraceFilterFields = (
       },
       {
         id: 'duration',
+        group: traceGroup,
         label: intl.formatMessage({ defaultMessage: 'Duration', description: 'Trace filter field: execution time' }),
         operators: NUMERIC_OPERATORS,
         valueInput: 'number',
@@ -129,24 +147,28 @@ export const useMlflowTraceFilterFields = (
       },
       {
         id: 'trace_name',
+        group: traceGroup,
         label: intl.formatMessage({ defaultMessage: 'Trace name', description: 'Trace filter field: trace name' }),
         operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
         ...scalarValueInput('trace_name'),
       },
       {
         id: 'user',
+        group: traceGroup,
         label: intl.formatMessage({ defaultMessage: 'User', description: 'Trace filter field: user' }),
         operators: enhanced ? [FilterOp.EQUALS, FilterOp.NOT_EQUALS] : [FilterOp.EQUALS],
         ...scalarValueInput('user'),
       },
       {
         id: 'session',
+        group: traceGroup,
         label: intl.formatMessage({ defaultMessage: 'Session', description: 'Trace filter field: session id' }),
         operators: enhanced ? SESSION_OPERATORS : [FilterOp.EQUALS, FilterOp.CONTAINS],
         ...scalarValueInput('session'),
       },
       {
         id: 'run_name',
+        group: traceGroup,
         label: intl.formatMessage({ defaultMessage: 'Run name', description: 'Trace filter field: run' }),
         operators: [FilterOp.EQUALS],
         ...scalarValueInput('run_name'),
@@ -161,36 +183,42 @@ export const useMlflowTraceFilterFields = (
       },
       {
         id: 'source',
+        group: traceGroup,
         label: intl.formatMessage({ defaultMessage: 'Source', description: 'Trace filter field: source name' }),
         operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
         ...scalarValueInput('source'),
       },
       {
         id: 'input',
+        group: traceGroup,
         label: intl.formatMessage({ defaultMessage: 'Input', description: 'Trace filter field: request/input' }),
         operators: [FilterOp.CONTAINS],
         ...scalarValueInput('input'),
       },
       {
         id: 'output',
+        group: traceGroup,
         label: intl.formatMessage({ defaultMessage: 'Output', description: 'Trace filter field: response/output' }),
         operators: [FilterOp.CONTAINS],
         ...scalarValueInput('output'),
       },
       {
         id: 'span_name',
+        group: spansGroup,
         label: intl.formatMessage({ defaultMessage: 'Span name', description: 'Trace filter field: span name' }),
         operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
         valueInput: 'text',
       },
       {
         id: 'span_type',
+        group: spansGroup,
         label: intl.formatMessage({ defaultMessage: 'Span type', description: 'Trace filter field: span type' }),
         operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS],
         valueInput: 'text',
       },
       {
         id: 'span_status',
+        group: spansGroup,
         label: intl.formatMessage({ defaultMessage: 'Span status', description: 'Trace filter field: span status' }),
         operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
         valueInput: 'text',
@@ -199,6 +227,7 @@ export const useMlflowTraceFilterFields = (
       // user types the key and value, so these carry a free-text key sub-input (`requiresKey`).
       {
         id: 'tag',
+        group: tagsAndMetadataGroup,
         label: intl.formatMessage({ defaultMessage: 'Tag', description: 'Trace filter field: arbitrary tag key' }),
         operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
         ...keyedValueInput('tag'),
@@ -211,6 +240,7 @@ export const useMlflowTraceFilterFields = (
       },
       {
         id: 'metadata',
+        group: tagsAndMetadataGroup,
         label: intl.formatMessage({
           defaultMessage: 'Metadata',
           description: 'Trace filter field: trace metadata key',
@@ -229,6 +259,7 @@ export const useMlflowTraceFilterFields = (
       // managed V4 backend does not support null filters and their values are opaque.
       {
         id: 'assessment', // Stable for persisted filter models and v3 view compatibility.
+        group: assessmentsGroup,
         label: intl.formatMessage({
           defaultMessage: 'Feedback',
           description: 'Trace filter field: feedback assessment',
@@ -245,6 +276,7 @@ export const useMlflowTraceFilterFields = (
       },
       {
         id: 'expectation',
+        group: assessmentsGroup,
         label: intl.formatMessage({
           defaultMessage: 'Expectation',
           description: 'Trace filter field: expectation name',

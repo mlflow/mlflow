@@ -8435,6 +8435,10 @@
     "defaultMessage": "Close",
     "description": "Error modal close button text"
   },
+  "Ofjush": {
+    "defaultMessage": "Assessments",
+    "description": "Trace filter field dropdown section for feedback and expectation fields"
+  },
   "OhVnQ5": {
     "defaultMessage": "Record saved",
     "description": "Success toast after saving an edited dataset record"
@@ -13387,6 +13391,10 @@
     "defaultMessage": "Next run as saved: {when}",
     "description": "Experiment issues tab > Schedule modal line stating when the schedule as currently saved next runs; it does not follow unsaved edits"
   },
+  "eJgMS1": {
+    "defaultMessage": "Tags and metadata",
+    "description": "Trace filter field dropdown section for tag and metadata fields"
+  },
   "eLgTRT": {
     "defaultMessage": "Key",
     "description": "Tag key label in unified trace tag assignment modal"
@@ -13754,6 +13762,10 @@
   "fSm3ue": {
     "defaultMessage": "Category choices",
     "description": "Categorical options list label"
+  },
+  "fTnPZk": {
+    "defaultMessage": "Spans",
+    "description": "Trace filter field dropdown section for span fields"
   },
   "fUB5d7": {
     "defaultMessage": "Session ID",
@@ -17230,6 +17242,10 @@
   "pr9Xqo": {
     "defaultMessage": "{start} – {end}",
     "description": "Selected date range in the evaluation chart context chip"
+  },
+  "prQ7A2": {
+    "defaultMessage": "Trace",
+    "description": "Trace filter field dropdown section for trace-level fields"
   },
   "prRya4": {
     "defaultMessage": "Model",

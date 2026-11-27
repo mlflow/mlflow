@@ -243,6 +243,7 @@ describe('useMlflowTraceFilterFields', () => {
     expect(assessmentFields).toHaveLength(1);
     expect(assessmentFields[0]).toEqual({
       id: 'assessment',
+      group: 'Assessments',
       label: 'Feedback',
       operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
       valueInput: 'text',
@@ -272,6 +273,7 @@ describe('useMlflowTraceFilterFields', () => {
     expect(expectationFields).toHaveLength(1);
     expect(expectationFields[0]).toEqual({
       id: 'expectation',
+      group: 'Assessments',
       label: 'Expectation',
       operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
       valueInput: 'text',
@@ -295,6 +297,29 @@ describe('useMlflowTraceFilterFields', () => {
     expect(result.current.find((field) => field.id === 'tag')?.requiresKey).toBe(true);
     expect(result.current.find((field) => field.id === 'metadata')?.requiresKey).toBe(true);
     expect(result.current.find((field) => field.id === 'span_name')?.requiresKey).toBeUndefined();
+  });
+
+  test('groups every field into its Field dropdown section', () => {
+    const { result } = renderHook(() => useMlflowTraceFilterFields(), { wrapper });
+
+    expect(result.current.map(({ id, group }) => [id, group])).toEqual([
+      ['state', 'Trace'],
+      ['duration', 'Trace'],
+      ['trace_name', 'Trace'],
+      ['user', 'Trace'],
+      ['session', 'Trace'],
+      ['run_name', 'Trace'],
+      ['source', 'Trace'],
+      ['input', 'Trace'],
+      ['output', 'Trace'],
+      ['span_name', 'Spans'],
+      ['span_type', 'Spans'],
+      ['span_status', 'Spans'],
+      ['tag', 'Tags and metadata'],
+      ['metadata', 'Tags and metadata'],
+      ['assessment', 'Assessments'],
+      ['expectation', 'Assessments'],
+    ]);
   });
 });
 
