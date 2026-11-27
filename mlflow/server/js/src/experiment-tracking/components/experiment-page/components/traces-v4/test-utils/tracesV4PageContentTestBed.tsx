@@ -62,6 +62,7 @@ export const state: ServerState = {
 // Mutable env vars that previously lived as bare reassigned primitives
 export const env = {
   lastSearch: '',
+  lastPathname: '',
   metricsTotalCount: 42,
   sessionsTotalCount: 7,
   // `metric_name` of each trace-metrics request, in call order.
@@ -69,15 +70,17 @@ export const env = {
 };
 
 const LocationSpy = () => {
-  const search = useLocation().search;
+  const { pathname, search } = useLocation();
   useEffect(() => {
     env.lastSearch = search;
-  }, [search]);
+    env.lastPathname = pathname;
+  }, [pathname, search]);
   return null;
 };
 
 export const renderPage = ({ initialUrl = URL }: { initialUrl?: string } = {}) => {
   env.lastSearch = '';
+  env.lastPathname = '';
   return renderTracesV4Page({
     initialUrl,
     routes: [
@@ -90,6 +93,7 @@ export const renderPage = ({ initialUrl = URL }: { initialUrl?: string } = {}) =
           </>
         ),
       },
+      { path: '*', element: <LocationSpy /> },
     ],
     history,
     experimentId: EXPERIMENT_ID,

@@ -1755,10 +1755,6 @@
     "defaultMessage": "View run history",
     "description": "Experiment issues tab > Schedule modal link to this experiment's detection run history"
   },
-  "3uyRen": {
-    "defaultMessage": "Issue detection run history",
-    "description": "Experiment issues tab > Accessible label for the toolbar button opening the run history"
-  },
   "3v2Y8K": {
     "defaultMessage": "AI Gateway",
     "description": "Shared label for AI Gateway used in sidebar and breadcrumbs"
@@ -17355,6 +17351,10 @@
     "defaultMessage": "Off",
     "description": "Experiment issues tab > Scheduled detection option that disables automatic runs"
   },
+  "qFknHl": {
+    "defaultMessage": "Issue detection run history",
+    "description": "Accessible label for the button opening issue detection run history"
+  },
   "qFo+/P": {
     "defaultMessage": "Session",
     "description": "Traces table session column name"
@@ -18874,10 +18874,6 @@
   "vHgCMH": {
     "defaultMessage": "No evidence details were recorded for this trace.",
     "description": "Experiment issues tab > Legacy evidence step > Trace has no displayable details"
-  },
-  "vJSV78": {
-    "defaultMessage": "Issue detection run history",
-    "description": "Experiment issues tab > Tooltip on the toolbar button opening the detection run history"
   },
   "vK1v9d": {
     "defaultMessage": "datasets used",
