@@ -414,7 +414,9 @@ class _OnnxModelWrapper:
 
         Returns:
             Model predictions. If the input is a pandas.DataFrame, the predictions are returned
-            in a pandas.DataFrame. If the input is a numpy array or a dictionary the
+            in a pandas.DataFrame with one column per model output and one row per input row;
+            an output with more than one value per row, such as a (batch, k) tensor, becomes a
+            column of per-row numpy arrays. If the input is a numpy array or a dictionary the
             predictions are returned in a dictionary.
         """
         if isinstance(data, dict):
@@ -462,6 +464,12 @@ class _OnnxModelWrapper:
                 # Output can be list and it should be converted to a numpy array
                 # https://github.com/mlflow/mlflow/issues/2499
                 data = np.asarray(data)
+                # Keep one row per input row. An output of shape (batch, k, ...) with k > 1
+                # becomes a column of per-row arrays; flattening it would interleave the
+                # values of different rows.
+                # https://github.com/mlflow/mlflow/issues/12539
+                if data.ndim > 1 and data.size != len(data):
+                    return list(data)
                 return data.reshape(-1)
 
             return pd.DataFrame.from_dict({
