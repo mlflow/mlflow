@@ -1,4 +1,5 @@
 import importlib
+import threading
 from functools import partial
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_REGISTRY_URI
@@ -214,6 +215,7 @@ def _get_databricks_rest_store(store_uri, tracking_uri, **_):
 # We define the global variable as `None` so that instantiating the store does not lead to circular
 # dependency issues.
 _model_registry_store_registry = None
+_model_registry_store_registry_lock = threading.Lock()
 
 
 def _get_file_store(store_uri, **_):
@@ -235,24 +237,32 @@ def _get_store_registry():
     if _model_registry_store_registry is not None:
         return _model_registry_store_registry
 
-    _model_registry_store_registry = ModelRegistryStoreRegistry()
-    _model_registry_store_registry.register("databricks", _get_databricks_rest_store)
-    _model_registry_store_registry.register(
-        _DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store
-    )
-    _model_registry_store_registry.register(_OSS_UNITY_CATALOG_SCHEME, UnityCatalogOssStore)
+    with _model_registry_store_registry_lock:
+        # Another thread may have built the registry while this one waited for the lock.
+        if _model_registry_store_registry is not None:
+            return _model_registry_store_registry
 
-    for scheme in ["http", "https"]:
-        _model_registry_store_registry.register(scheme, _get_rest_store)
+        registry = ModelRegistryStoreRegistry()
+        registry.register("databricks", _get_databricks_rest_store)
+        registry.register(_DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store)
+        registry.register(_OSS_UNITY_CATALOG_SCHEME, UnityCatalogOssStore)
 
-    if importlib.util.find_spec("sqlalchemy") is not None:
-        for scheme in DATABASE_ENGINES:
-            _model_registry_store_registry.register(scheme, _get_sqlalchemy_store)
+        for scheme in ["http", "https"]:
+            registry.register(scheme, _get_rest_store)
 
-    for scheme in ["", "file"]:
-        _model_registry_store_registry.register(scheme, _get_file_store)
+        if importlib.util.find_spec("sqlalchemy") is not None:
+            for scheme in DATABASE_ENGINES:
+                registry.register(scheme, _get_sqlalchemy_store)
 
-    _model_registry_store_registry.register_entrypoints()
+        for scheme in ["", "file"]:
+            registry.register(scheme, _get_file_store)
+
+        registry.register_entrypoints()
+
+        # Publish only once the registry is fully populated, so that a thread taking the
+        # fast path above can never observe a registry that is still being built.
+        _model_registry_store_registry = registry
+
     return _model_registry_store_registry
 
 

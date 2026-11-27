@@ -1,5 +1,7 @@
 import io
+import itertools
 import pickle
+import threading
 from unittest import mock
 
 import pytest
@@ -10,6 +12,8 @@ from mlflow.store._unity_catalog.registry.uc_native_rest_store import UcNativeMo
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._model_registry import utils
+from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._model_registry.utils import (
     _get_databricks_uc_rest_store,
     _get_store,
@@ -355,3 +359,84 @@ def test_store_object_can_be_serialized_by_pickle():
     pickle.dump(_get_store("databricks"), io.BytesIO())
     # pickle.dump(_get_store(f"sqlite:///{tmpdir.strpath}/mlflow.db"), io.BytesIO())
     # This throws `AttributeError: Can't pickle local object 'create_engine.<locals>.connect'`
+
+
+def test_registry_is_not_published_until_it_is_fully_populated(monkeypatch):
+    """
+    `_get_store_registry` must not assign the module-level global until every scheme has
+    been registered. A thread taking the fast path while another is still populating the
+    registry would otherwise get an empty one.
+    https://github.com/mlflow/mlflow/issues/11283
+    """
+    monkeypatch.setattr(utils, "_model_registry_store_registry", None)
+
+    observed = []
+    real_register = ModelRegistryStoreRegistry.register
+
+    def recording_register(self, scheme, store_builder):
+        observed.append(utils._model_registry_store_registry)
+        real_register(self, scheme, store_builder)
+
+    monkeypatch.setattr(ModelRegistryStoreRegistry, "register", recording_register)
+
+    registry = utils._get_store_registry()
+
+    assert observed
+    assert all(seen is None for seen in observed)
+    assert utils._model_registry_store_registry is registry
+
+
+def test_concurrent_first_use_never_sees_a_partial_registry(monkeypatch):
+    """
+    A second thread calling `_get_store` while the first is building the registry must
+    either wait or see a complete registry, but never resolve a supported scheme against
+    a half-built one.
+    https://github.com/mlflow/mlflow/issues/11283
+    """
+    monkeypatch.setattr(utils, "_model_registry_store_registry", None)
+
+    building = threading.Event()
+    finish_building = threading.Event()
+    real_register = ModelRegistryStoreRegistry.register
+    registered = itertools.count()
+
+    def blocking_register(self, scheme, store_builder):
+        if next(registered) == 0:
+            building.set()
+            finish_building.wait(timeout=30)
+        real_register(self, scheme, store_builder)
+
+    monkeypatch.setattr(ModelRegistryStoreRegistry, "register", blocking_register)
+
+    reader_started = threading.Event()
+    result = {}
+
+    def build_registry():
+        utils._get_store_registry()
+
+    def read_registry():
+        reader_started.set()
+        try:
+            result["store"] = _get_store("https://example.com")
+        except Exception as e:
+            result["error"] = e
+
+    builder = threading.Thread(target=build_registry, name="registry-builder")
+    builder.start()
+    assert building.wait(timeout=30)
+
+    reader = threading.Thread(target=read_registry, name="registry-reader")
+    reader.start()
+    assert reader_started.wait(timeout=30)
+    # The reader is allowed to block here until the registry is complete; what it must
+    # not do is come back with an answer derived from a registry that is still empty.
+    reader.join(timeout=1)
+
+    finish_building.set()
+    builder.join(timeout=30)
+    reader.join(timeout=30)
+    assert not builder.is_alive()
+    assert not reader.is_alive()
+
+    assert result.get("error") is None
+    assert isinstance(result["store"], RestStore)
