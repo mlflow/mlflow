@@ -80,6 +80,35 @@ it('records MLflow spans without replacing an existing global provider', () => {
   }
 });
 
+it('reconfigures an isolated client without touching the host global provider', async () => {
+  const host = new BasicTracerProvider();
+  expect(otelTrace.setGlobalTracerProvider(host)).toBe(true);
+  const hosts: string[] = [];
+  jest.spyOn(MlflowClient.prototype, 'createTrace').mockImplementation(function (
+    this: MlflowClient,
+    trace,
+  ) {
+    hosts.push(this.getHost());
+    return Promise.resolve(trace);
+  });
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  try {
+    const options = { experimentId: '0', registerGlobalTracerProvider: false };
+    init({ ...options, trackingUri: 'http://localhost:6781' });
+    startSpan({ name: 'before' }).end();
+    await flushTraces();
+    init({ ...options, trackingUri: 'http://localhost:6782' });
+    startSpan({ name: 'after' }).end();
+    await flushTraces();
+
+    expect(hosts).toEqual(['http://localhost:6781', 'http://localhost:6782']);
+    expect(otelTrace.getTracer('host')).toBe(host.getTracer('host'));
+    expect(warn).not.toHaveBeenCalled();
+  } finally {
+    otelTrace.disable();
+  }
+});
+
 describe('init() with registerGlobalTracerProvider: false', () => {
   beforeAll(() => {
     init({
