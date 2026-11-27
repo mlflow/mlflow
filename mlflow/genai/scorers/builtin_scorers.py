@@ -2902,7 +2902,11 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
 
     name: str = KNOWLEDGE_RETENTION_ASSESSMENT_NAME
     model: str | None = None
-    last_turn_scorer: Scorer = pydantic.Field(default_factory=lambda: _LastTurnKnowledgeRetention())
+    # Excluded from serialization: it is rebuilt from `model`, `inference_params` and
+    # `extra_headers` when the scorer is loaded.
+    last_turn_scorer: Scorer = pydantic.Field(
+        default_factory=lambda: _LastTurnKnowledgeRetention(), exclude=True
+    )
     description: str = (
         "Evaluate whether the AI correctly retains information provided by users "
         "in earlier conversation turns without forgetting, contradicting, or distorting it."
@@ -2922,6 +2926,23 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
             if self.extra_headers is not None:
                 self.last_turn_scorer.extra_headers = self.extra_headers
 
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        rebuilt = KnowledgeRetention(
+            model=self.model,
+            inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
+        ).last_turn_scorer
+        if type(self.last_turn_scorer) is not type(rebuilt) or pydantic.BaseModel.model_dump(
+            self.last_turn_scorer
+        ) != pydantic.BaseModel.model_dump(rebuilt):
+            raise MlflowException.invalid_parameter_value(
+                "This KnowledgeRetention scorer uses a custom `last_turn_scorer` and cannot be "
+                "serialized or registered, because it would be replaced by the default one on "
+                "load. Configure `model`, `inference_params` and `extra_headers` on "
+                "KnowledgeRetention instead."
+            )
+        return super().model_dump(**kwargs)
+
     def _create_judge(self) -> Judge:
         """
         This method is required by BuiltInSessionLevelScorer but is not used.
@@ -2936,14 +2957,9 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
     @property
     def instructions(self) -> str:
         """
-        This property is required by BuiltInSessionLevelScorer but is not used.
-        KnowledgeRetention uses composition (delegating to last_turn_scorer)
-        rather than using its own instructions.
+        The instructions of ``last_turn_scorer``, which evaluates each turn.
         """
-        raise NotImplementedError(
-            "KnowledgeRetention uses composition with last_turn_scorer "
-            "and does not use instructions directly."
-        )
+        return self.last_turn_scorer.instructions
 
     @property
     def feedback_value_type(self) -> Any:
