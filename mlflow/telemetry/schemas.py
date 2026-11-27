@@ -124,5 +124,6 @@ class TelemetryInfo:
 
 @dataclass
 class TelemetryConfig:
-    ingestion_url: str
+    # None when records are forwarded to a Databricks workspace instead of the OSS endpoint
+    ingestion_url: str | None
     disable_events: set[str]
