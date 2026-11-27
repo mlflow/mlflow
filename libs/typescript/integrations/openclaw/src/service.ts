@@ -749,8 +749,13 @@ export function createMLflowService(
         reason: evt.reason,
         ...(error ? { error } : {}),
       });
-      if (error || (evt.outcome != null && evt.outcome !== 'ok')) {
+      if (error || evt.outcome === 'error' || evt.outcome === 'timeout') {
         pending.span.setStatus(SpanStatusCode.ERROR, error ?? String(evt.outcome));
+      } else if (evt.outcome != null && evt.outcome !== 'ok') {
+        // A user cancel (`killed`) or a session reset or delete is not a failure,
+        // so the span stays OK and only gets a WARNING log level. @mlflow/core
+        // 0.2.0 has no setLogLevel.
+        pending.span.setLogLevel?.('WARNING');
       }
       pending.span.end();
       trace.pendingSubagents.delete(childSessionKey);

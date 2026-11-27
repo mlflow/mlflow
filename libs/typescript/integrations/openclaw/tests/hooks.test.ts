@@ -6,6 +6,7 @@ type MockSpan = {
   setAttribute: jest.Mock;
   setOutputs: jest.Mock;
   setStatus: jest.Mock;
+  setLogLevel: jest.Mock;
   end: jest.Mock;
 };
 
@@ -17,6 +18,7 @@ jest.mock('@mlflow/core', () => ({
     setAttribute: jest.fn(),
     setOutputs: jest.fn(),
     setStatus: jest.fn(),
+    setLogLevel: jest.fn(),
     end: jest.fn(),
   })),
 }));
@@ -135,7 +137,38 @@ describe('subagent hooks', () => {
 
     const [sub] = subagentSpans();
     expect(sub.span.setStatus).toHaveBeenCalledWith('ERROR', 'timeout');
+    expect(sub.span.setLogLevel).not.toHaveBeenCalled();
     expect(sub.span.end).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['killed', 'reset', 'deleted', 'unknown'])(
+    'flags a %s subagent span as a warning without failing it',
+    (outcome) => {
+      spawn();
+      end({ reason: 'subagent-complete', outcome });
+
+      const [sub] = subagentSpans();
+      expect(sub.span.setOutputs).toHaveBeenCalledWith({ outcome, reason: 'subagent-complete' });
+      expect(sub.span.setStatus).not.toHaveBeenCalled();
+      expect(sub.span.setLogLevel).toHaveBeenCalledWith('WARNING');
+      expect(sub.span.end).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('still fails a killed subagent span that reports an error', () => {
+    spawn();
+    end({ reason: 'subagent-complete', outcome: 'killed', error: 'Aborted by tool' });
+
+    const [sub] = subagentSpans();
+    expect(sub.span.setStatus).toHaveBeenCalledWith('ERROR', 'Aborted by tool');
+    expect(sub.span.setLogLevel).not.toHaveBeenCalled();
+  });
+
+  it('does not flag an ok subagent span', () => {
+    spawn();
+    end({ reason: 'subagent-complete', outcome: 'ok' });
+
+    expect(subagentSpans()[0].span.setLogLevel).not.toHaveBeenCalled();
   });
 
   it('tracks concurrent subagents of the same agent separately', () => {
