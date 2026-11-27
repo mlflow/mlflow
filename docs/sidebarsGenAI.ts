@@ -838,6 +838,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/google-adk',
                       label: 'Google ADK',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/inspect-ai',
+                      label: 'Inspect AI',
+                    },
                   ],
                   collapsed: false,
                   link: {

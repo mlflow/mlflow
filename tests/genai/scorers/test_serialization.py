@@ -1024,15 +1024,15 @@ def test_third_party_scorer_non_scorer_class_rejected_before_instantiation():
 
 
 def test_third_party_scorer_allow_list_is_exactly_the_scorer_defining_modules():
-    """Guards the exact-match allow-list against drift: every module under the four
+    """Guards the exact-match allow-list against drift: every module under the five
     third-party packages that defines a Scorer subclass must be listed, and nothing else.
-    Uses an AST scan so the optional ragas/deepeval/trulens/phoenix packages need not be
+    Uses an AST scan so the optional ragas/deepeval/trulens/phoenix/inspect_ai packages need not be
     installed.
     """
     package_root = Path(mlflow.__file__).resolve().parent.parent
     scorers_dir = package_root / "mlflow" / "genai" / "scorers"
     defining_modules = set()
-    for framework in ("ragas", "deepeval", "trulens", "phoenix"):
+    for framework in ("ragas", "deepeval", "trulens", "phoenix", "inspect_ai"):
         for source in (scorers_dir / framework).rglob("*.py"):
             base_names = {
                 base.id if isinstance(base, ast.Name) else getattr(base, "attr", "")

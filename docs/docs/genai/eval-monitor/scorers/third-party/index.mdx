@@ -1,9 +1,10 @@
 ---
-description: Integrate third-party evaluation frameworks like DeepEval and RAGAS with MLflow for unified LLM scoring and metrics.
+description: Integrate third-party evaluation frameworks like DeepEval, RAGAS and Inspect AI with MLflow for unified LLM scoring and metrics.
 ---
 
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
+import { ShieldCheck } from "lucide-react";
 
 # Third-party Scorers
 
@@ -55,6 +56,11 @@ Click an integration below to get started with detailed setup instructions.
     imageHeight={40}
     title="Google ADK"
     href="/genai/eval-monitor/scorers/third-party/google-adk"
+  />
+  <TileCard
+    icon={ShieldCheck}
+    title="Inspect AI"
+    href="/genai/eval-monitor/scorers/third-party/inspect-ai"
   />
 </TilesGrid>
 

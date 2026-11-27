@@ -31,6 +31,12 @@ mlflow.genai
     :show-inheritance:
     :exclude-members: PhoenixScorer
 
+.. automodule:: mlflow.genai.scorers.inspect_ai
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :exclude-members: InspectAIScorer
+
 .. automodule:: mlflow.genai.scorers.trulens
     :members:
     :undoc-members:

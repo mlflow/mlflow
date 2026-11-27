@@ -1,0 +1,202 @@
+import { APILink } from "@site/src/components/APILink";
+import TileCard from '@site/src/components/TileCard';
+import TilesGrid from '@site/src/components/TilesGrid';
+import { Bot, GitBranch, Shield } from "lucide-react";
+
+# Inspect AI
+
+[Inspect AI](https://inspect.aisi.org.uk/) is the open-source evaluation framework from the UK AI Security Institute. It ships a library of scorers, from exact and pattern matching to model-graded fact and QA grading, that Inspect tasks use to score samples. MLflow's Inspect AI integration lets you run those same scorers as MLflow scorers, so the results land as assessments on your traces and in `mlflow.genai.evaluate()` results.
+
+## Prerequisites
+
+Inspect AI scorers require the `inspect-ai` package:
+
+```bash
+pip install "mlflow>=3.19" inspect-ai
+```
+
+If you run Inspect evaluations and want the runs, metrics and traces in MLflow, the [inspect-mlflow](https://github.com/debu-sinha/inspect-mlflow) package listed on the [Inspect extensions page](https://inspect.aisi.org.uk/extensions.html) covers that direction. This page covers the other direction, using Inspect scorers inside MLflow evaluations.
+
+## Quick Start
+
+You can call Inspect AI scorers directly:
+
+```python
+from mlflow.genai.scorers.inspect_ai import ExactMatch, ModelGradedFact
+
+scorer = ModelGradedFact(model="openai:/gpt-4o-mini")
+feedback = scorer(
+    inputs="What is the capital of France?",
+    outputs="Paris is the capital of France.",
+    expectations={"expected_response": "Paris"},
+)
+
+print(feedback.value)  # "yes" or "no"
+print(feedback.rationale)  # the grader's reasoning and GRADE line
+print(feedback.metadata["raw_value"])  # "C", Inspect's own grade
+
+exact = ExactMatch()
+feedback = exact(outputs="Paris", expectations={"expected_response": "Paris"})
+print(feedback.metadata["score"])  # 1.0
+```
+
+Or use them in <APILink fn="mlflow.genai.evaluate">mlflow.genai.evaluate</APILink>:
+
+```python
+import mlflow
+from mlflow.genai.scorers.inspect_ai import ExactMatch, ModelGradedFact
+
+eval_dataset = [
+    {
+        "inputs": {"question": "What is the capital of France?"},
+        "outputs": "Paris is the capital of France.",
+        "expectations": {"expected_response": "Paris"},
+    },
+    {
+        "inputs": {"question": "What is 2 + 2?"},
+        "outputs": "4",
+        "expectations": {"expected_response": "4"},
+    },
+]
+
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    scorers=[
+        ExactMatch(),
+        ModelGradedFact(model="openai:/gpt-4o-mini"),
+    ],
+)
+```
+
+## Available Inspect AI Scorers
+
+### Deterministic Scorers
+
+Deterministic scorers compare the output against the target without an LLM:
+
+| Scorer                                                                                | What does it evaluate?                                                        | Inspect Docs                                                      |
+| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| <APILink fn="mlflow.genai.scorers.inspect_ai.ExactMatch">ExactMatch</APILink>         | Does the output match the target exactly after normalization?                 | [Link](https://inspect.aisi.org.uk/scorers.html#built-in-scorers) |
+| <APILink fn="mlflow.genai.scorers.inspect_ai.Includes">Includes</APILink>             | Does the target text appear anywhere in the output?                           | [Link](https://inspect.aisi.org.uk/scorers.html#built-in-scorers) |
+| <APILink fn="mlflow.genai.scorers.inspect_ai.Match">Match</APILink>                   | Does the target appear at the beginning, the end or anywhere in the output?   | [Link](https://inspect.aisi.org.uk/scorers.html#built-in-scorers) |
+| <APILink fn="mlflow.genai.scorers.inspect_ai.Pattern">Pattern</APILink>               | Does a regular expression capture from the output match the target?           | [Link](https://inspect.aisi.org.uk/scorers.html#built-in-scorers) |
+| <APILink fn="mlflow.genai.scorers.inspect_ai.Answer">Answer</APILink>                 | Does the letter, word or line after `ANSWER:` match the target?               | [Link](https://inspect.aisi.org.uk/scorers.html#built-in-scorers) |
+| <APILink fn="mlflow.genai.scorers.inspect_ai.F1">F1</APILink>                         | How much token overlap is there between the output and the target(s)?        | [Link](https://inspect.aisi.org.uk/scorers.html#built-in-scorers) |
+
+### Model-Graded Scorers
+
+Model-graded scorers ask an LLM to grade the output and parse the `GRADE:` line from its answer:
+
+| Scorer                                                                                        | What does it evaluate?                                                | Inspect Docs                                                      |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| <APILink fn="mlflow.genai.scorers.inspect_ai.ModelGradedFact">ModelGradedFact</APILink>       | Does the output contain the facts in the target?                      | [Link](https://inspect.aisi.org.uk/scorers.html#built-in-scorers) |
+| <APILink fn="mlflow.genai.scorers.inspect_ai.ModelGradedQA">ModelGradedQA</APILink>           | Does the output answer the question according to the grading rubric?  | [Link](https://inspect.aisi.org.uk/scorers.html#built-in-scorers) |
+
+Both accept the Inspect factory arguments, such as `partial_credit=True`, `instructions="..."` or a custom `template`.
+
+### Any Other Inspect Scorer
+
+<APILink fn="mlflow.genai.scorers.inspect_ai.get_scorer">get_scorer</APILink> takes the name of any scorer factory in `inspect_ai.scorer` and forwards keyword arguments to it:
+
+```python
+from mlflow.genai.scorers.inspect_ai import get_scorer
+
+scorer = get_scorer("match", location="any", ignore_case=True)
+feedback = scorer(outputs="The answer is Paris.", expectations={"target": "paris"})
+```
+
+You can also wrap a scorer you already built with Inspect, including a custom `@scorer` function. Pass it as `scorer` together with a name for the Feedback:
+
+```python
+from inspect_ai.scorer import model_graded_fact
+
+from mlflow.genai.scorers.inspect_ai import InspectAIScorer
+
+grader = model_graded_fact(model="openai/gpt-4o-mini")  # an Inspect model name, not an MLflow URI
+scorer = InspectAIScorer("facts", scorer=grader)
+```
+
+A wrapped scorer object uses whatever grader model you built it with, so the `model` argument does not apply. It also can't be registered or stored, because MLflow has no way to rebuild it from a name.
+
+## How Inputs Map to Inspect
+
+Inspect scorers receive a `TaskState` and a `Target`. The wrapper builds them like this:
+
+- The `inputs` become the Inspect input text and the message history. A dict with a `messages` list is converted message by message, anything else becomes a single user message.
+- The `outputs` become the model output and are appended as the assistant message.
+- When a `trace` is passed, inputs, outputs and expectations are read from it, the same way the other third-party scorers do.
+- When a `session` is passed, each trace becomes a user and an assistant turn and the last turn supplies the input and the output.
+- The target comes from the first of these expectation keys that is set: `expected_response`, `expected_output`, `reference`, `expected_facts` or `target`. A list becomes a multi-value target, which `F1` and `Match` use.
+
+A scorer that needs a target and doesn't get one returns a `Feedback` with an `error` rather than scoring against an empty target.
+
+## Judge Models
+
+The `model` argument on the model-graded scorers is a standard MLflow judge model URI. The grader calls go through the same backends MLflow's built-in judges use, so `databricks`, native providers like `openai:/gpt-4o-mini` and the LiteLLM fallback all work:
+
+```python
+# OpenAI through MLflow's native provider
+scorer = ModelGradedFact(model="openai:/gpt-4o-mini")
+
+# Databricks managed judge (the default on a Databricks tracking URI)
+scorer = ModelGradedFact(model="databricks")
+
+# Grader parameters
+scorer = ModelGradedQA(model="anthropic:/claude-3-5-sonnet-20241022", model_kwargs={"temperature": 0.0})
+```
+
+When `model` is omitted the default judge model is used, following the same rules as the built-in judges.
+
+## Verdicts, Scores and Terminal States
+
+Inspect scorers return a `Score` whose value is a grade letter (`C`, `P`, `I` or `N`), a number, a boolean, a list or a dict. The wrapper maps scalar values to a number the same way Inspect does (`C` is 1.0, `P` is 0.5, `I` and `N` are 0.0, numbers and booleans pass through) and records a `yes` verdict when that number reaches `threshold` (default 0.5). The number is stored as `metadata["score"]` and the original Inspect value as `metadata["raw_value"]`. List and dict values are passed through as the Feedback value.
+
+Every Feedback also carries `metadata["terminal_state"]`, so a scorer that couldn't run is never mistaken for a failing grade:
+
+| `terminal_state` | Meaning                                                                                              |
+| ---------------- | ---------------------------------------------------------------------------------------------------- |
+| `"scored"`       | The scorer returned a `Score`. `value`, `rationale` and `metadata["score"]` are populated.         |
+| `"not_run"`      | The scorer returned no score. The Feedback has an `error` with code `INSPECT_AI_SCORER_NOT_RUN`.   |
+| `"error"`        | The scorer raised, timed out, or the target was missing. The Feedback has an `error`.             |
+
+```python
+feedback = scorer(inputs="...", outputs="...", expectations={"expected_response": "..."})
+
+if feedback.metadata["terminal_state"] == "scored":
+    print(feedback.value, feedback.metadata["score"])
+else:
+    print(feedback.error.error_message)
+```
+
+A grader answer without a `GRADE:` line is still a scored result. Inspect records it as `I` with an explanation that the grade was not found, and that explanation is the Feedback rationale.
+
+## Timeouts
+
+Each call awaits the Inspect scorer with a timeout. The `timeout` argument sets it in seconds, `None` uses MLflow's default scorer timeout and `0` disables it. A timeout returns a Feedback with an `error` and `terminal_state` set to `"error"`.
+
+```python
+scorer = ModelGradedFact(model="openai:/gpt-4o-mini", timeout=60)
+```
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Bot}
+    title="Evaluate Agents"
+    description="Learn specialized techniques for evaluating AI agents with tool usage"
+    href="/genai/eval-monitor/running-evaluation/agents"
+  />
+  <TileCard
+    icon={GitBranch}
+    title="Evaluate Traces"
+    description="Evaluate production traces to understand application behavior"
+    href="/genai/eval-monitor/running-evaluation/traces"
+  />
+  <TileCard
+    icon={Shield}
+    title="Built-in Judges"
+    description="Explore MLflow's built-in evaluation judges"
+    href="/genai/eval-monitor/scorers/llm-judge/predefined"
+  />
+</TilesGrid>
