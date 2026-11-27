@@ -938,6 +938,57 @@ async def test_bedrock_converse_chat_with_tool_call():
     assert tool_calls[0]["function"]["name"] == "add"
 
 
+_TOOL_PARAMS = {"type": "object", "properties": {"city": {"type": "string"}}}
+
+
+@pytest.mark.parametrize(
+    ("function", "expected_tool_spec"),
+    [
+        (
+            {"name": "get_weather", "parameters": _TOOL_PARAMS},
+            {"name": "get_weather", "inputSchema": {"json": _TOOL_PARAMS}},
+        ),
+        (
+            {"name": "get_time", "description": "Get the time"},
+            {
+                "name": "get_time",
+                "description": "Get the time",
+                "inputSchema": {"json": {"type": "object", "properties": {}}},
+            },
+        ),
+        (
+            {"name": "get_time"},
+            {"name": "get_time", "inputSchema": {"json": {"type": "object", "properties": {}}}},
+        ),
+        (
+            {"name": "get_weather", "description": "Get weather", "parameters": _TOOL_PARAMS},
+            {
+                "name": "get_weather",
+                "description": "Get weather",
+                "inputSchema": {"json": _TOOL_PARAMS},
+            },
+        ),
+    ],
+    ids=["no-description", "no-parameters", "name-only", "all-fields"],
+)
+@pytest.mark.asyncio
+async def test_bedrock_converse_tool_optional_fields(function, expected_tool_spec):
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "hi"}],
+            tools=[{"type": "function", "function": function}],
+        )
+        await provider.chat(payload)
+
+    mock_client.converse.assert_called_once()
+    call_kwargs = mock_client.converse.call_args.kwargs
+    assert call_kwargs["toolConfig"] == {"tools": [{"toolSpec": expected_tool_spec}]}
+
+
 @pytest.mark.asyncio
 async def test_bedrock_converse_serializes_assistant_tool_call_history():
     provider = _make_converse_provider()
