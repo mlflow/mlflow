@@ -6,13 +6,15 @@ review queue REST API: questions, queues, members, and items are separate resour
 nested under an experiment, and every function takes the ``experiment_id`` explicitly.
 They require a Databricks tracking URI.
 
-The member functions also accept a :py:class:`mlflow.genai.LabelingSession` in place of
-``experiment_id`` and ``queue_id``, so code written for labeling sessions can use them too.
+The member functions and :py:func:`add_review_queue_items` also accept a
+:py:class:`mlflow.genai.LabelingSession` in place of ``experiment_id`` and ``queue_id``, so
+code written for labeling sessions can use them too.
 """
 
+import functools
 import json
 import sys
-from typing import TYPE_CHECKING, Any, Iterable, Literal, overload
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Literal, ParamSpec, TypeVar, overload
 from urllib.parse import quote
 
 from mlflow.entities import Trace
@@ -35,6 +37,7 @@ from mlflow.genai.labeling import stores as labeling_stores
 from mlflow.genai.labeling.labeling import LabelingSession
 from mlflow.protos.databricks_pb2 import INVALID_STATE, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.tracing.fluent import get_trace
 from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.utils.annotations import experimental
 from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH
@@ -426,6 +429,27 @@ def _add_session_members(session: LabelingSession, users: list[str]) -> None:
     current = _current_labeling_session(session)
     if new_users := [u for u in users if u not in current.assigned_users]:
         current.set_assigned_users(current.assigned_users + new_users)
+
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def _queues_only(function: Callable[_P, _R]) -> Callable[_P, _R]:
+    # Checks the first argument before Python binds the rest, so a session gets this error
+    # rather than one about a missing `queue_id`, and the signature stays as it is.
+    @functools.wraps(function)
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        target = args[0] if args else kwargs.get("experiment_id")
+        if isinstance(target, LabelingSession):
+            raise MlflowException.invalid_parameter_value(
+                f"`{function.__name__}` works on review queues only: labeling sessions have no "
+                "equivalent. Migrate the session to a review queue with "
+                "`migrate_labeling_session`, then pass the queue's `experiment_id` and `queue_id`."
+            )
+        return function(*args, **kwargs)
+
+    return wrapper
 
 
 def _reject_grant_access_for_session(function: str, grant_access: bool) -> None:
@@ -952,7 +976,30 @@ def _dataset_record_ids(dataset_id: str) -> list[str]:
             return record_ids
 
 
-@experimental(version="3.17.1")
+def _add_session_items(
+    session: LabelingSession,
+    trace_ids: list[str] | None,
+    traces: "Iterable[Trace] | Iterable[str] | pd.DataFrame | None",
+    dataset: str | None,
+    dataset_record_ids: list[str] | None,
+) -> None:
+    if trace_ids:
+        # The labeling SDK takes traces, not IDs, so fetch them all before adding any.
+        fetched = []
+        for trace_id in trace_ids:
+            if (trace := get_trace(trace_id, silent=True)) is None:
+                raise MlflowException(
+                    f"Trace {trace_id!r} was not found.", error_code=RESOURCE_DOES_NOT_EXIST
+                )
+            fetched.append(trace)
+        session.add_traces(fetched)
+    if traces is not None:
+        session.add_traces(traces)
+    if dataset is not None:
+        session.add_dataset(dataset, record_ids=dataset_record_ids)
+
+
+@overload
 def add_review_queue_items(
     experiment_id: str,
     queue_id: str,
@@ -962,15 +1009,50 @@ def add_review_queue_items(
     dataset_record_ids: list[str] | None = None,
     traces: "Iterable[Trace] | Iterable[str] | pd.DataFrame | None" = None,
     dataset: str | None = None,
+) -> list[ReviewQueueItem]: ...
+
+
+@overload
+def add_review_queue_items(
+    labeling_session: LabelingSession,
+    /,
+    *,
+    trace_ids: list[str] | None = None,
+    traces: "Iterable[Trace] | Iterable[str] | pd.DataFrame | None" = None,
+    dataset: str | None = None,
+    dataset_record_ids: list[str] | None = None,
+) -> list[ReviewQueueItem]: ...
+
+
+@experimental(version="3.17.1")
+def add_review_queue_items(
+    experiment_id: str | LabelingSession,
+    queue_id: str | None = None,
+    *,
+    trace_ids: list[str] | None = None,
+    dataset_id: str | None = None,
+    dataset_record_ids: list[str] | None = None,
+    traces: "Iterable[Trace] | Iterable[str] | pd.DataFrame | None" = None,
+    dataset: str | None = None,
 ) -> list[ReviewQueueItem]:
     """
-    Attach traces and/or dataset records to a queue.
+    Attach traces and/or dataset records to a queue or a labeling session.
 
     Idempotent per item: re-attaching an item keeps its existing status.
 
     Items are sent in batches of 100, the most the server accepts at once. If a later batch
     fails, the earlier ones stay attached and the error says how many were; attaching the
     same items again is safe. The server caps how many items a queue holds.
+
+    To add items to a :py:class:`mlflow.genai.LabelingSession`, pass the session in place of
+    ``experiment_id`` and ``queue_id``, with the other arguments by keyword. They're added
+    with the session's own methods, as they are today:
+    :py:meth:`mlflow.genai.LabelingSession.add_traces` for ``traces``, which also copies
+    traces from other experiments into the session's experiment, and for ``trace_ids``, whose
+    traces are fetched first; and :py:meth:`mlflow.genai.LabelingSession.add_dataset` for
+    ``dataset``, which also grants the session's assigned users ``SELECT`` on it. A session
+    takes datasets by name only, not ``dataset_id``. The labeling backend doesn't return the
+    items it adds, so for a session this returns an empty list.
 
     .. code-block:: python
 
@@ -980,9 +1062,12 @@ def add_review_queue_items(
         add_review_queue_items("123", "rq-1", traces=mlflow.search_traces(max_results=10))
         add_review_queue_items("123", "rq-1", dataset="catalog.schema.eval_set")
 
+        session = mlflow.genai.get_labeling_session(run_id="<run-id>")
+        add_review_queue_items(session, dataset="catalog.schema.eval_set")
+
     Args:
-        experiment_id: The experiment that owns the queue.
-        queue_id: The queue to attach to.
+        experiment_id: The experiment that owns the queue, or a labeling session.
+        queue_id: The queue to attach to. Omit it for a labeling session.
         trace_ids: Trace IDs to attach, either ``tr-<id>`` or, for traces stored in
             Unity Catalog, ``trace:/<location>/<id>``.
         dataset_id: Unity Catalog table ID of the dataset that owns ``dataset_record_ids``.
@@ -998,8 +1083,27 @@ def add_review_queue_items(
             as :py:meth:`mlflow.genai.LabelingSession.add_dataset` does.
 
     Returns:
-        The resulting list of :py:class:`ReviewQueueItem`.
+        The resulting list of :py:class:`ReviewQueueItem`, or an empty list for a labeling
+        session.
     """
+    if isinstance(experiment_id, LabelingSession):
+        _reject_queue_id_for_session("add_review_queue_items", queue_id, None)
+        if dataset_id is not None:
+            raise MlflowException.invalid_parameter_value(
+                "A `LabelingSession` takes datasets by name: pass `dataset` instead of "
+                "`dataset_id`."
+            )
+        if dataset_record_ids and dataset is None:
+            raise MlflowException.invalid_parameter_value(
+                "`dataset` is required when `dataset_record_ids` is set."
+            )
+        if not trace_ids and traces is None and dataset is None:
+            raise MlflowException.invalid_parameter_value(
+                "Specify `trace_ids`, `traces` or `dataset`."
+            )
+        _add_session_items(experiment_id, trace_ids, traces, dataset, dataset_record_ids)
+        return []
+    queue_id = _require(queue_id, "queue_id")
     if dataset is not None and dataset_id is not None:
         raise MlflowException.invalid_parameter_value(
             "Pass the dataset by `dataset_id` or by name with `dataset`, not both."
@@ -1055,9 +1159,14 @@ def add_review_queue_items(
 
 
 @experimental(version="3.17.1")
+@_queues_only
 def remove_review_queue_items(experiment_id: str, queue_id: str, item_ids: list[str]) -> None:
     """
     Detach items from a queue. Items that are not attached are ignored.
+
+    Labeling sessions have no equivalent, so passing a
+    :py:class:`mlflow.genai.LabelingSession` raises an error. Migrate it to a review queue
+    with :py:func:`migrate_labeling_session` first.
 
     Args:
         experiment_id: The experiment that owns the queue.
@@ -1073,6 +1182,7 @@ def remove_review_queue_items(experiment_id: str, queue_id: str, item_ids: list[
 
 
 @experimental(version="3.17.1")
+@_queues_only
 def list_review_queue_items(
     experiment_id: str,
     queue_id: str,
@@ -1083,6 +1193,10 @@ def list_review_queue_items(
 ) -> PagedList[ReviewQueueItem]:
     """
     List a queue's items.
+
+    Labeling sessions have no equivalent, so passing a
+    :py:class:`mlflow.genai.LabelingSession` raises an error. Migrate it to a review queue
+    with :py:func:`migrate_labeling_session` first.
 
     Args:
         experiment_id: The experiment that owns the queue.
@@ -1110,6 +1224,7 @@ def list_review_queue_items(
 
 
 @experimental(version="3.17.1")
+@_queues_only
 def set_review_queue_item_status(
     experiment_id: str,
     queue_id: str,
@@ -1118,6 +1233,10 @@ def set_review_queue_item_status(
 ) -> ReviewQueueItem:
     """
     Set an item's review status.
+
+    Labeling sessions have no equivalent, so passing a
+    :py:class:`mlflow.genai.LabelingSession` raises an error. Migrate it to a review queue
+    with :py:func:`migrate_labeling_session` first.
 
     ``completed_by`` is recorded by the server from the caller when moving to
     ``COMPLETE`` or ``DECLINED``, and cleared when moving back to ``PENDING``.

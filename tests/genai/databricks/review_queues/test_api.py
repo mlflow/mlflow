@@ -1,3 +1,4 @@
+import inspect
 from unittest import mock
 
 import pandas as pd
@@ -960,6 +961,108 @@ def test_add_review_queue_items_first_batch_failure_is_unchanged():
     with mock.patch(_CALL, side_effect=cap):
         with pytest.raises(MlflowException, match="^Queue rq1 has 150 of at most 150 items.$"):
             add_review_queue_items("1", "rq1", trace_ids=["tr-1"])
+
+
+_GET_TRACE = "mlflow.genai.databricks.review_queues.api.get_trace"
+
+
+@pytest.mark.parametrize(
+    "traces",
+    [
+        # A trace from another experiment too: the labeling SDK copies it in, as it does today.
+        [_v3_trace("tr-1", "2"), _v3_trace("tr-2").to_json()],
+        pd.DataFrame({"trace": [_v3_trace("tr-1", "2"), _v3_trace("tr-2")]}),
+    ],
+)
+def test_add_review_queue_items_session_traces(labeling_store, traces):
+    session = _session([])
+    with mock.patch(_CALL) as mock_call:
+        items = add_review_queue_items(session, traces=traces)
+    assert items == []
+    mock_call.assert_not_called()
+    [call] = labeling_store.add_traces_to_session.call_args_list
+    assert call.args[0] is session
+    assert [t.info.trace_id for t in call.args[1]] == ["tr-1", "tr-2"]
+
+
+def test_add_review_queue_items_session_fetches_trace_ids(labeling_store):
+    fetched = {"tr-1": _v3_trace("tr-1"), "tr-2": _v3_trace("tr-2")}
+    with mock.patch(_GET_TRACE, side_effect=lambda trace_id, silent: fetched[trace_id]):
+        add_review_queue_items(_session([]), trace_ids=["tr-1", "tr-2"])
+    [call] = labeling_store.add_traces_to_session.call_args_list
+    assert call.args[1] == [fetched["tr-1"], fetched["tr-2"]]
+
+
+def test_add_review_queue_items_session_missing_trace_adds_nothing(labeling_store):
+    with mock.patch(_GET_TRACE, side_effect=[_v3_trace("tr-1"), None]):
+        with pytest.raises(MlflowException, match="Trace 'tr-9' was not found") as e:
+            add_review_queue_items(_session([]), trace_ids=["tr-1", "tr-9"])
+    assert e.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    labeling_store.add_traces_to_session.assert_not_called()
+
+
+@pytest.mark.parametrize("record_ids", [None, ["r1"]])
+def test_add_review_queue_items_session_dataset(labeling_store, record_ids):
+    session = _session([])
+    with mock.patch(_CALL) as mock_call:
+        add_review_queue_items(session, dataset="main.evals.set_a", dataset_record_ids=record_ids)
+    mock_call.assert_not_called()
+    labeling_store.add_dataset_to_session.assert_called_once_with(
+        session, "main.evals.set_a", record_ids
+    )
+
+
+@pytest.mark.parametrize(
+    ("args", "kwargs", "match"),
+    [
+        (("rq1",), {"dataset": "main.evals.set_a"}, "takes no `queue_id`"),
+        ((), {"dataset_id": "ds1", "dataset_record_ids": ["r1"]}, "instead of `dataset_id`"),
+        ((), {"dataset_record_ids": ["r1"]}, "`dataset` is required"),
+        ((), {}, "Specify `trace_ids`, `traces` or `dataset`"),
+    ],
+)
+def test_add_review_queue_items_session_validation(labeling_store, args, kwargs, match):
+    with mock.patch(_CALL) as mock_call:
+        with pytest.raises(MlflowException, match=match):
+            add_review_queue_items(_session([]), *args, **kwargs)
+    mock_call.assert_not_called()
+    labeling_store.add_traces_to_session.assert_not_called()
+    labeling_store.add_dataset_to_session.assert_not_called()
+
+
+def test_add_review_queue_items_requires_queue_id():
+    with mock.patch(_CALL) as mock_call:
+        with pytest.raises(MlflowException, match="`queue_id` is required"):
+            add_review_queue_items("1", trace_ids=["tr-1"])
+    mock_call.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("function", "args", "kwargs"),
+    [
+        (remove_review_queue_items, (), {"item_ids": ["i1"]}),
+        (remove_review_queue_items, (["i1"],), {}),
+        (list_review_queue_items, (), {}),
+        (set_review_queue_item_status, (), {"item_id": "i1", "status": "COMPLETE"}),
+        (set_review_queue_item_status, ("i1", "COMPLETE"), {}),
+    ],
+)
+def test_queue_only_item_functions_reject_sessions(function, args, kwargs):
+    with mock.patch(_CALL) as mock_call:
+        with pytest.raises(MlflowException, match="works on review queues only") as e:
+            function(_session([]), *args, **kwargs)
+        with pytest.raises(MlflowException, match="works on review queues only"):
+            function(experiment_id=_session([]), **kwargs)
+    assert f"`{function.__name__}`" in e.value.message
+    assert "`migrate_labeling_session`" in e.value.message
+    mock_call.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "function", [remove_review_queue_items, list_review_queue_items, set_review_queue_item_status]
+)
+def test_queue_only_item_functions_keep_their_signatures(function):
+    assert inspect.signature(function).parameters["queue_id"].default is inspect.Parameter.empty
 
 
 def test_remove_review_queue_items():
