@@ -50,7 +50,7 @@ Start the MLflow server (self-hosting) following the [instructions](https://mlfl
 openclaw mlflow configure
 ```
 
-Enter the MLflow tracking URI and experiment ID. You can [create an experiment](https://mlflow.org/docs/latest/genai/tracing/quickstart/#create-a-mlflow-experiment) from the MLflow UI. If the plugin does not already have [conversation access](#conversation-access), choose **Yes** to let it export conversation content in traces. The default is **No**.
+Enter the MLflow tracking URI and experiment ID. You can [create an experiment](https://mlflow.org/docs/latest/genai/tracing/quickstart/#create-a-mlflow-experiment) from the MLflow UI. If the plugin does not already have [conversation access](#conversation-access), choose **Yes** to let it export conversation content in traces. The default is **Yes**.
 
 ```
 ~$ openclaw mlflow configure

@@ -90,7 +90,7 @@ describe('openclaw mlflow configure', () => {
     });
   });
 
-  it('defaults to no and creates the plugin entry without a conversation grant', async () => {
+  it('defaults to yes and grants conversation access', async () => {
     const config: Config = {};
     const { actions } = setup(config);
     answers.push('http://localhost:5000', '0');
@@ -99,8 +99,32 @@ describe('openclaw mlflow configure', () => {
 
     expect(confirm).toHaveBeenCalledWith({
       message: 'Allow MLflow to access conversation content and export it in traces?',
-      initialValue: false,
+      initialValue: true,
     });
+    expect(outro).toHaveBeenCalledWith(
+      'MLflow configuration saved. Conversation access is enabled. Restart the gateway to apply.',
+    );
+    expect(config).toEqual({
+      plugins: {
+        entries: {
+          'mlflow-openclaw': {
+            enabled: true,
+            hooks: { allowConversationAccess: true },
+            config: { trackingUri: 'http://localhost:5000', experimentId: '0' },
+          },
+        },
+      },
+    });
+  });
+
+  it('creates the plugin entry without a conversation grant when declined', async () => {
+    const config: Config = {};
+    const { actions } = setup(config);
+    answers.push('http://localhost:5000', '0');
+    confirmationAnswers.push(false);
+
+    await actions.get('configure')!();
+
     expect(outro).toHaveBeenCalledWith(
       'MLflow configuration saved. Conversation access is not enabled. OpenClaw will block the hooks required for tracing. Restart the gateway to apply.',
     );

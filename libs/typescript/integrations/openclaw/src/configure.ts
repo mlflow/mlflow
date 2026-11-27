@@ -155,7 +155,7 @@ async function runConfigure(deps: ConfigDeps): Promise<void> {
   if (!entry.conversationAccess) {
     const answer = await p.confirm({
       message: 'Allow MLflow to access conversation content and export it in traces?',
-      initialValue: false,
+      initialValue: true,
     });
     if (p.isCancel(answer)) {
       p.cancel('Configuration cancelled');
