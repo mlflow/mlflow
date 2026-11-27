@@ -2474,6 +2474,34 @@ def test_model_version_artifact_handler_serves_authorized_uri(monkeypatch, tmp_p
     registry_store.get_model_version_download_uri.assert_not_called()
 
 
+@pytest.mark.parametrize(("recorded_name", "recorded_version"), [("other", "1"), ("model", "2")])
+def test_model_version_artifact_handler_ignores_uri_recorded_for_other_version(
+    monkeypatch, tmp_path, recorded_name, recorded_version
+):
+    recorded_root = tmp_path / "recorded"
+    recorded_root.mkdir()
+    (recorded_root / "MLmodel").write_text("recorded")
+    store_root = tmp_path / "store"
+    store_root.mkdir()
+    (store_root / "MLmodel").write_text("store")
+    registry_store = mock.Mock()
+    registry_store.get_model_version_download_uri.return_value = str(store_root)
+    monkeypatch.setattr(handlers_module, "_get_model_registry_store", lambda: registry_store)
+
+    with auth_module.app.test_request_context(
+        "/model-versions/get-artifact?name=model&version=1&path=MLmodel"
+    ):
+        handlers_module._remember_authorized_model_version_artifact_uri(
+            recorded_name, recorded_version, str(recorded_root)
+        )
+        response = handlers_module.get_model_version_artifact_handler()
+        response.direct_passthrough = False
+        body = response.get_data(as_text=True)
+
+    assert body == "store"
+    registry_store.get_model_version_download_uri.assert_called_once_with("model", "1")
+
+
 def _mock_source_root_stores(monkeypatch, download_uri, failing_method, error):
     registry_store = mock.Mock()
     registry_store.get_model_version.return_value = SimpleNamespace(
