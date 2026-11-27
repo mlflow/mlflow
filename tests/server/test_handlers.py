@@ -305,6 +305,7 @@ from mlflow.store.artifact.artifact_repo import (
     PresignedUploadMixin,
 )
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
+from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
@@ -8361,6 +8362,38 @@ def test_download_artifact_cleans_up_tmp_dir_when_download_fails(enable_serve_ar
     mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
     mock_artifact_repo.download_artifacts.assert_called_once_with(artifact_path, str(tmp_path))
     mock_tmp_dir_instance.cleanup.assert_called_once()
+
+
+@pytest.mark.parametrize("failure_phase", ["download", "pages", "blobs"])
+def test_download_artifact_returns_404_for_missing_gcs_blob(enable_serve_artifacts, failure_phase):
+    NotFound = pytest.importorskip("google.api_core.exceptions").NotFound
+    pytest.importorskip("google.cloud.storage")
+
+    client = mock.MagicMock()
+    if failure_phase == "download":
+        client.bucket.return_value.blob.return_value.download_to_filename.side_effect = NotFound(
+            "missing object"
+        )
+    else:
+        results = client.bucket.return_value.list_blobs.return_value
+        iterator = results.pages if failure_phase == "pages" else results
+        iterator.__iter__.side_effect = NotFound("missing bucket")
+    artifact_repo = GCSArtifactRepository("gs://test_bucket/root", client=client)
+    try:
+        with (
+            app.test_request_context(method="GET"),
+            mock.patch(
+                "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+                return_value=artifact_repo,
+            ) as mock_get_artifact_repo,
+        ):
+            response = _download_artifact("missing.txt")
+    finally:
+        artifact_repo.thread_pool.shutdown()
+
+    mock_get_artifact_repo.assert_called_once_with()
+    assert response.status_code == 404
+    assert json.loads(response.get_data())["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
 def test_download_artifact_returns_404_for_missing_azure_blob(enable_serve_artifacts):
