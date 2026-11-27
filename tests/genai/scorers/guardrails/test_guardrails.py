@@ -4,10 +4,12 @@ import guardrails
 import pytest
 from guardrails import Validator, register_validator
 from guardrails.classes.validation.validation_result import FailResult, PassResult
+from guardrails_ai.regex_match import RegexMatch
 
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers.guardrails import (
     DetectJailbreak,
@@ -274,3 +276,36 @@ def test_guardrails_scorer_tracking_class_name(mock_validator_class, scorer_clas
         scorer = scorer_class()
 
     assert _get_scorer_class_name_for_tracking(scorer) == expected_class
+
+
+@pytest.mark.parametrize(
+    ("outputs", "expected_value", "expected_rationale"),
+    [
+        ("Hello world.", CategoricalRating.YES, None),
+        ("hello world", CategoricalRating.NO, r"RegexMatch: Result must match ^[A-Z].*\.$"),
+    ],
+)
+def test_guardrails_scorer_with_installed_validator_package(
+    outputs, expected_value, expected_rationale
+):
+    # Real validator from its PyPI package, no mocks anywhere in the path.
+    scorer = get_scorer("RegexMatch", regex=r"^[A-Z].*\.$")
+
+    assert isinstance(scorer._guard, guardrails.Guard)
+    assert isinstance(scorer._guard._validators[0], RegexMatch)
+
+    result = scorer(outputs=outputs)
+
+    assert result.name == "RegexMatch"
+    assert result.value == expected_value
+    assert result.rationale == expected_rationale
+    assert result.source == AssessmentSource(
+        source_type=AssessmentSourceType.CODE,
+        source_id="guardrails/RegexMatch",
+    )
+    assert result.metadata == {"mlflow.scorer.framework": "guardrails-ai"}
+
+
+def test_guardrails_scorer_unknown_validator_names_pip_package():
+    with pytest.raises(MlflowException, match="pip install guardrails-ai-no-such-validator"):
+        get_scorer("NoSuchValidator")

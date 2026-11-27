@@ -8,15 +8,17 @@ import TabsWrapper from '@site/src/components/TabsWrapper';
 
 # Guardrails AI
 
-[Guardrails AI](https://guardrailsai.com/) is a framework for validating LLM outputs using a community-driven hub of validators for safety, PII detection, content quality, and more. MLflow's Guardrails AI integration allows you to use Guardrails validators as MLflow scorers, providing rule-based evaluation without requiring LLM calls.
+[Guardrails AI](https://guardrailsai.com/) is a framework for validating LLM outputs with a catalog of validators for safety, PII detection, content quality, and more. MLflow's Guardrails AI integration allows you to use Guardrails validators as MLflow scorers, providing rule-based evaluation without requiring LLM calls.
 
 ## Prerequisites
 
-Guardrails AI scorers require the `guardrails-ai` package:
+Guardrails AI scorers require the `guardrails-ai` package plus one package per validator. Guardrails publishes each validator to PyPI as `guardrails-ai-<name>`, for example:
 
 ```bash
-pip install guardrails-ai
+pip install guardrails-ai guardrails-ai-toxic-language guardrails-ai-detect-pii
 ```
+
+The scorer imports the validator from its package (`guardrails_ai.toxic_language`, `guardrails_ai.detect_pii`, and so on). If the package is missing, the scorer raises an error that names the `pip install` command to run.
 
 ## Quick Start
 
@@ -72,18 +74,18 @@ results = mlflow.genai.evaluate(
 
 Detect harmful content, PII, and other safety issues in LLM outputs:
 
-| Scorer                                                                                  | What does it evaluate?                                          | Guardrails Hub                                                             |
-| --------------------------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| <APILink fn="mlflow.genai.scorers.guardrails.ToxicLanguage">ToxicLanguage</APILink>     | Does the output contain toxic or offensive language?            | [Link](https://guardrailsai.com/hub/validator/guardrails/toxic_language)   |
-| <APILink fn="mlflow.genai.scorers.guardrails.NSFWText">NSFWText</APILink>               | Does the output contain NSFW or explicit content?               | [Link](https://guardrailsai.com/hub/validator/guardrails/nsfw_text)        |
-| <APILink fn="mlflow.genai.scorers.guardrails.DetectJailbreak">DetectJailbreak</APILink> | Does the input contain a jailbreak or prompt injection attempt? | [Link](https://guardrailsai.com/hub/validator/guardrails/detect_jailbreak) |
-| <APILink fn="mlflow.genai.scorers.guardrails.DetectPII">DetectPII</APILink>             | Does the output contain personally identifiable information?    | [Link](https://guardrailsai.com/hub/validator/guardrails/detect_pii)       |
-| <APILink fn="mlflow.genai.scorers.guardrails.SecretsPresent">SecretsPresent</APILink>   | Does the output contain API keys, tokens, or other secrets?     | [Link](https://guardrailsai.com/hub/validator/guardrails/secrets_present)  |
-| <APILink fn="mlflow.genai.scorers.guardrails.GibberishText">GibberishText</APILink>     | Does the output contain nonsensical or incoherent text?         | [Link](https://guardrailsai.com/hub/validator/guardrails/gibberish_text)   |
+| Scorer                                                                                  | What does it evaluate?                                          | PyPI package                                                                               |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| <APILink fn="mlflow.genai.scorers.guardrails.ToxicLanguage">ToxicLanguage</APILink>     | Does the output contain toxic or offensive language?            | [guardrails-ai-toxic-language](https://pypi.org/project/guardrails-ai-toxic-language/)     |
+| <APILink fn="mlflow.genai.scorers.guardrails.NSFWText">NSFWText</APILink>               | Does the output contain NSFW or explicit content?               | [guardrails-ai-nsfw-text](https://pypi.org/project/guardrails-ai-nsfw-text/)               |
+| <APILink fn="mlflow.genai.scorers.guardrails.DetectJailbreak">DetectJailbreak</APILink> | Does the input contain a jailbreak or prompt injection attempt? | [guardrails-ai-detect-jailbreak](https://pypi.org/project/guardrails-ai-detect-jailbreak/) |
+| <APILink fn="mlflow.genai.scorers.guardrails.DetectPII">DetectPII</APILink>             | Does the output contain personally identifiable information?    | [guardrails-ai-detect-pii](https://pypi.org/project/guardrails-ai-detect-pii/)             |
+| <APILink fn="mlflow.genai.scorers.guardrails.SecretsPresent">SecretsPresent</APILink>   | Does the output contain API keys, tokens, or other secrets?     | [guardrails-ai-secrets-present](https://pypi.org/project/guardrails-ai-secrets-present/)   |
+| <APILink fn="mlflow.genai.scorers.guardrails.GibberishText">GibberishText</APILink>     | Does the output contain nonsensical or incoherent text?         | [guardrails-ai-gibberish-text](https://pypi.org/project/guardrails-ai-gibberish-text/)     |
 
 ## Creating Scorers by Name
 
-You can also create Guardrails AI scorers dynamically using <APILink fn="mlflow.genai.scorers.guardrails.get_scorer">get_scorer</APILink>:
+You can also create Guardrails AI scorers dynamically using <APILink fn="mlflow.genai.scorers.guardrails.get_scorer">get_scorer</APILink>. This works for any validator whose package is installed, not only the ones listed above:
 
 ```python
 from mlflow.genai.scorers.guardrails import get_scorer
@@ -97,6 +99,9 @@ scorer = get_scorer(
 feedback = scorer(
     outputs="This is a professional response.",
 )
+
+# Any installed validator package works, e.g. pip install guardrails-ai-regex-match
+regex_scorer = get_scorer(validator_name="RegexMatch", regex=r"^[A-Z].*\.$")
 ```
 
 ## Configuration
@@ -123,7 +128,7 @@ jailbreak_scorer = DetectJailbreak(
 )
 ```
 
-Refer to the [Guardrails AI documentation](https://guardrailsai.com/) and the [Guardrails Hub](https://guardrailsai.com/hub) for validator-specific parameters and the full list of available validators.
+Refer to the [Guardrails AI documentation](https://guardrailsai.com/) for validator-specific parameters, and search PyPI for `guardrails-ai-` to see the available validator packages.
 
 ## Next Steps
 

@@ -4,6 +4,9 @@ Guardrails AI integration for MLflow.
 This module provides integration with Guardrails AI validators, allowing them to be used
 with MLflow's scorer interface for LLM safety, PII detection, and content quality evaluation.
 
+Each validator ships as its own PyPI package named ``guardrails-ai-<name>``, for example
+``pip install guardrails-ai-toxic-language guardrails-ai-detect-pii``.
+
 Example usage:
 
 .. code-block:: python
