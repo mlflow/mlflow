@@ -1,12 +1,31 @@
 import { existsSync } from 'node:fs';
-import { context, trace, ProxyTracerProvider, Tracer, TracerProvider } from '@opentelemetry/api';
+import {
+  context,
+  diag,
+  propagation,
+  trace,
+  ProxyTracerProvider,
+  TextMapPropagator,
+  Tracer,
+  TracerProvider,
+} from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
+import {
+  CompositePropagator,
+  getStringListFromEnv,
+  W3CBaggagePropagator,
+  W3CTraceContextPropagator,
+} from '@opentelemetry/core';
+import { B3InjectEncoding, B3Propagator } from '@opentelemetry/propagator-b3';
 import {
   defaultResource,
   detectResources,
   envDetector,
   hostDetector,
+  osDetector,
   processDetector,
+  ResourceDetector,
+  serviceInstanceIdDetector,
 } from '@opentelemetry/resources';
 import { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
@@ -24,6 +43,7 @@ import { asyncExportEnabled } from './utils/env';
 
 let provider: NodeTracerProvider | null = null;
 let globalRegistration: TracerProvider | null = null;
+let globalPropagator: TextMapPropagator | null = null;
 // Keep a reference to the active span processor for flushing.
 let processor: SpanProcessor | null = null;
 const noopProvider = new ProxyTracerProvider();
@@ -49,6 +69,10 @@ export function initializeSDK(): void {
     trace.disable();
   }
   globalRegistration = null;
+  if (globalPropagator) {
+    propagation.disable();
+    globalPropagator = null;
+  }
   if (provider) {
     provider.shutdown().catch((error) => {
       console.error('Error shutting down existing SDK:', error);
@@ -103,20 +127,17 @@ export function initializeSDK(): void {
       }
     }
 
-    const detectors =
-      config.registerGlobalTracerProvider === false
-        ? [envDetector]
-        : [envDetector, processDetector, hostDetector];
     provider = new NodeTracerProvider({
-      resource: defaultResource().merge(detectResources({ detectors })),
+      resource: defaultResource().merge(detectResources({ detectors: getResourceDetectors() })),
       spanProcessors: [processor],
     });
     ensureContextManager();
     if (config.registerGlobalTracerProvider !== false) {
-      provider.register({ contextManager: null });
+      provider.register({ contextManager: null, propagator: null });
       const global = trace.getTracerProvider();
       if (global instanceof ProxyTracerProvider && global.getDelegate() === provider) {
         globalRegistration = global;
+        registerPropagator();
       } else {
         console.warn(
           '[mlflow] Global tracer registration failed. MLflow will use its own provider.',
@@ -147,6 +168,72 @@ function resolveUcLocation(options: UnityCatalogLocationOptions): UnityCatalogLo
     schemaName: options.schemaName,
     tablePrefix: options.tablePrefix,
   };
+}
+
+// Same names and default as NodeSDK, which MLflow used before.
+const RESOURCE_DETECTORS = new Map<string, ResourceDetector>([
+  ['env', envDetector],
+  ['host', hostDetector],
+  ['os', osDetector],
+  ['serviceinstance', serviceInstanceIdDetector],
+  ['process', processDetector],
+]);
+
+function getResourceDetectors(): ResourceDetector[] {
+  const names = getStringListFromEnv('OTEL_NODE_RESOURCE_DETECTORS');
+  if (!names?.length) {
+    return [envDetector, processDetector, hostDetector];
+  }
+  if (names.includes('all')) {
+    return [...RESOURCE_DETECTORS.values()];
+  }
+  if (names.includes('none')) {
+    return [];
+  }
+  return names.flatMap((name) => {
+    const detector = RESOURCE_DETECTORS.get(name);
+    if (!detector) {
+      diag.warn(`Invalid resource detector "${name}" in OTEL_NODE_RESOURCE_DETECTORS`);
+      return [];
+    }
+    return [detector];
+  });
+}
+
+const PROPAGATORS = new Map<string, () => TextMapPropagator>([
+  ['tracecontext', () => new W3CTraceContextPropagator()],
+  ['baggage', () => new W3CBaggagePropagator()],
+  ['b3', () => new B3Propagator()],
+  ['b3multi', () => new B3Propagator({ injectEncoding: B3InjectEncoding.MULTI_HEADER })],
+]);
+
+/**
+ * Register the global propagator from `OTEL_PROPAGATORS` like NodeSDK did,
+ * defaulting to W3C trace context and baggage. Keep a host propagator if one
+ * is already registered.
+ */
+function registerPropagator(): void {
+  const names = [
+    ...new Set(getStringListFromEnv('OTEL_PROPAGATORS') ?? ['tracecontext', 'baggage']),
+  ];
+  const propagators = names.flatMap((name) => {
+    const create = PROPAGATORS.get(name);
+    if (!create) {
+      if (name !== 'none') {
+        diag.warn(`Propagator "${name}" in OTEL_PROPAGATORS is unavailable`);
+      }
+      return [];
+    }
+    return [create()];
+  });
+  if (propagators.length === 0) {
+    return;
+  }
+  const propagator =
+    propagators.length === 1 ? propagators[0] : new CompositePropagator({ propagators });
+  if (propagation.setGlobalPropagator(propagator)) {
+    globalPropagator = propagator;
+  }
 }
 
 /**

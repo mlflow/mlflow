@@ -148,8 +148,9 @@ export interface MLflowTracingConfig {
    * Set to `false` to keep MLflow's tracer provider private. Only spans
    * created through the MLflow API are recorded then. Use this when MLflow
    * runs inside a host process whose other libraries emit OpenTelemetry spans
-   * that should not become MLflow traces. MLflow still installs a global
-   * context manager if the host has not installed one.
+   * that should not become MLflow traces. MLflow then registers no global
+   * propagator, but still installs a global context manager if the host has
+   * not installed one.
    */
   registerGlobalTracerProvider?: boolean;
 }
