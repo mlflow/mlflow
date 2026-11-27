@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { escapeRegExp } from 'lodash';
 import { useIntl, type IntlShape } from 'react-intl';
 import {
   FilterOp,
@@ -307,6 +308,22 @@ const compileSpanTextClause = (field: string, operator: FilterOp, value: string)
 };
 
 /**
+ * The Source column shows only the last `/` segment, so equality operators match that segment as
+ * well as the full source name. A value containing `/` can only be the full name.
+ */
+const compileSourceClause = (operator: FilterOp, value: string): string => {
+  const field = 'request_metadata."mlflow.source.name"';
+  if (operator === FilterOp.EQUALS && !value.includes('/')) {
+    return `${field} RLIKE '(^|/)${escapeFilterValue(escapeRegExp(value))}$'`;
+  }
+  if (operator === FilterOp.NOT_EQUALS && !value.includes('/')) {
+    // The search grammar has no `NOT RLIKE` or `OR`, so negate both forms inside one supported regex.
+    return `${field} RLIKE '^(?!(?:.*/)?${escapeFilterValue(escapeRegExp(value))}$).*'`;
+  }
+  return compileContainsAwareClause(field, operator, value);
+};
+
+/**
  * The `tags.<key>` field reference, backticked only when the key contains a `.` or a space (matching
  * the shared `createMlflowSearchFilter` tag clause), so dotted/spaced keys survive.
  */
@@ -387,7 +404,7 @@ const compileClause = (
     case 'run_name':
       return `attributes.run_id = '${v}'`;
     case 'source':
-      return compileContainsAwareClause('request_metadata."mlflow.source.name"', operator, value);
+      return compileSourceClause(operator, value);
     case 'input':
       return `span.content ILIKE '%${v}%'`;
     case 'output':

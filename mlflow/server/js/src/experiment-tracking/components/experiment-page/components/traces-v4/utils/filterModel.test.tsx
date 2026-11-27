@@ -64,9 +64,29 @@ describe('compileFilterModel', () => {
         expected: "attributes.run_id = 'run-9'",
       },
       {
-        name: 'source → quoted source name with the chosen operator',
-        clause: { field: 'source', operator: FilterOp.NOT_EQUALS, value: 'app.py' },
-        expected: `request_metadata."mlflow.source.name" != 'app.py'`,
+        name: 'source equals → full name or its last path segment (what the Source column shows)',
+        clause: { field: 'source', operator: FilterOp.EQUALS, value: 'app.py' },
+        expected: `request_metadata."mlflow.source.name" RLIKE '(^|/)app\\.py$'`,
+      },
+      {
+        name: 'source equals → regex and SQL-escaped displayed name',
+        clause: { field: 'source', operator: FilterOp.EQUALS, value: "O'Reilly.app" },
+        expected: `request_metadata."mlflow.source.name" RLIKE '(^|/)O''Reilly\\.app$'`,
+      },
+      {
+        name: 'source not-equals → excludes the full name and the last path segment',
+        clause: { field: 'source', operator: FilterOp.NOT_EQUALS, value: 'my_app.py' },
+        expected: `request_metadata."mlflow.source.name" RLIKE '^(?!(?:.*/)?my_app\\.py$).*'`,
+      },
+      {
+        name: 'source equals a path → exact full-name match',
+        clause: { field: 'source', operator: FilterOp.EQUALS, value: '/Users/me/app.py' },
+        expected: `request_metadata."mlflow.source.name" = '/Users/me/app.py'`,
+      },
+      {
+        name: 'source not-equals a path → exact full-name exclusion',
+        clause: { field: 'source', operator: FilterOp.NOT_EQUALS, value: '/Users/me/app.py' },
+        expected: `request_metadata."mlflow.source.name" != '/Users/me/app.py'`,
       },
       {
         name: 'source contains → ILIKE substring (backend has no CONTAINS token)',
