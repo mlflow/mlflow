@@ -508,6 +508,17 @@ if _HAS_LANGCHAIN_BASE_MESSAGE:
                 continue
 
 
+def _reasoning_done_event(
+    msg_id: str,
+    reasoning_content: str,
+    aggregator: list[dict[str, Any]] | None,
+) -> ResponsesAgentStreamEvent:
+    reasoning_item = create_reasoning_item(msg_id, reasoning_content)
+    if aggregator is not None:
+        aggregator.append(reasoning_item)
+    return ResponsesAgentStreamEvent(type="response.output_item.done", item=reasoning_item)
+
+
 def _cc_stream_to_responses_stream(
     chunks: Iterator[dict[str, Any]],
     aggregator: list[dict[str, Any]] | None = None,
@@ -558,18 +569,17 @@ def _cc_stream_to_responses_stream(
                             )
             elif reasoning_content != "":
                 # reasoning content is done streaming
-                reasoning_item = create_reasoning_item(msg_id, reasoning_content)
-                if aggregator is not None:
-                    aggregator.append(reasoning_item)
-                yield ResponsesAgentStreamEvent(
-                    type="response.output_item.done",
-                    item=reasoning_item,
-                )
+                yield _reasoning_done_event(msg_id, reasoning_content, aggregator)
                 reasoning_content = ""
 
             if isinstance(content, str):
                 llm_content += content
                 yield ResponsesAgentStreamEvent(**create_text_delta(content, item_id=msg_id))
+
+    # reasoning that no plain string chunk followed, e.g. when a tool call or list
+    # form text came next, is still pending here
+    if reasoning_content != "":
+        yield _reasoning_done_event(msg_id, reasoning_content, aggregator)
 
     # yield an `output_item.done` `output_text` event that aggregates the stream
     # this enables tracing and payload logging
