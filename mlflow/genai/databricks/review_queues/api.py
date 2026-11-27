@@ -10,9 +10,13 @@ The member functions also accept a :py:class:`mlflow.genai.LabelingSession` in p
 ``experiment_id`` and ``queue_id``, so code written for labeling sessions can use them too.
 """
 
-from typing import Any, Literal, overload
+import json
+import sys
+from typing import TYPE_CHECKING, Any, Iterable, Literal, overload
 from urllib.parse import quote
 
+from mlflow.entities import Trace
+from mlflow.entities.trace_location import TraceLocationType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.databricks.review_queues import _client, _grants
 from mlflow.genai.databricks.review_queues.entities import (
@@ -33,6 +37,10 @@ from mlflow.protos.databricks_pb2 import INVALID_STATE, RESOURCE_DOES_NOT_EXIST,
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.utils.annotations import experimental
+from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 def _experiment(experiment_id: str) -> str:
@@ -852,6 +860,98 @@ def _trace_item(trace_id: str) -> dict[str, Any]:
     return {"kind": ItemKind.V4_TRACE.value, "v4_trace": {"trace_id": tid}}
 
 
+# The server rejects a batch of more items than this.
+_MAX_ITEMS_PER_REQUEST = 100
+
+
+def _to_trace(trace: Any) -> Trace:
+    if isinstance(trace, Trace):
+        return trace
+    if isinstance(trace, str):
+        try:
+            return Trace.from_json(trace)
+        except (MlflowException, ValueError, KeyError, TypeError) as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Couldn't read a trace from {trace[:80]!r}. `traces` takes `Trace` objects or "
+                "their JSON; pass trace IDs with `trace_ids`."
+            ) from e
+    raise MlflowException.invalid_parameter_value(
+        f"`traces` takes `Trace` objects or their JSON, got {type(trace).__name__}."
+    )
+
+
+def _trace_ids_from(
+    experiment_id: str, traces: "Iterable[Trace] | Iterable[str] | pd.DataFrame"
+) -> list[str]:
+    # The inputs `LabelingSession.add_traces` takes. A caller passing a DataFrame has
+    # already imported pandas, so there's no need to import it (or require it) here.
+    if (pandas := sys.modules.get("pandas")) and isinstance(traces, pandas.DataFrame):
+        if "trace" not in traces.columns:
+            raise MlflowException.invalid_parameter_value(
+                "`traces` must have a 'trace' column, like the result of `mlflow.search_traces()`."
+            )
+        traces = traces["trace"].to_list()
+    parsed = [_to_trace(t) for t in traces]
+    _check_trace_experiments(experiment_id, parsed)
+    return [t.info.trace_id for t in parsed]
+
+
+def _check_trace_experiments(experiment_id: str, traces: list[Trace]) -> None:
+    # Items carry only the bare trace ID, which the server looks up in the queue's experiment,
+    # so a trace from anywhere else would become an item with no trace behind it.
+    in_uc = []
+    for trace in traces:
+        match trace.info.trace_location.type:
+            case TraceLocationType.MLFLOW_EXPERIMENT:
+                if str(trace.info.experiment_id) != str(experiment_id):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Trace {trace.info.trace_id!r} is in experiment "
+                        f"{trace.info.experiment_id!r}, but a review queue can only hold traces "
+                        f"from its own experiment, {experiment_id!r}."
+                    )
+            case TraceLocationType.UC_SCHEMA | TraceLocationType.UC_TABLE_PREFIX:
+                in_uc.append(trace)
+    if not in_uc:
+        return
+    experiment = _client.call_api(
+        "GET", "/api/2.0/mlflow/experiments/get", params={"experiment_id": experiment_id}
+    ).get("experiment", {})
+    tags = {tag.get("key"): tag.get("value") for tag in experiment.get("tags", [])}
+    experiment_location = tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH)
+    for trace in in_uc:
+        location, _ = parse_trace_id_v4(trace.info.trace_id)
+        if location != experiment_location:
+            stores = (
+                f"which stores its traces in {experiment_location!r}"
+                if experiment_location
+                else "which doesn't store traces in Unity Catalog"
+            )
+            raise MlflowException.invalid_parameter_value(
+                f"Trace {trace.info.trace_id!r} is stored in {location!r}, but a review queue "
+                f"can only hold traces from its own experiment, {experiment_id!r}, {stores}."
+            )
+
+
+def _dataset_id_from_name(name: str) -> str:
+    # A dataset's ID is the ID of its Unity Catalog table, as in `databricks-agents`.
+    table = quote(name.replace("`", ""), safe=".")
+    return _client.call_api("GET", f"/api/2.1/unity-catalog/tables/{table}")["table_id"]
+
+
+def _dataset_record_ids(dataset_id: str) -> list[str]:
+    record_ids: list[str] = []
+    page_token = None
+    while True:
+        resp = _client.call(
+            "GET",
+            f"datasets/{quote(dataset_id, safe='')}/records",
+            params={"page_token": page_token},
+        )
+        record_ids += [r["dataset_record_id"] for r in resp.get("dataset_records", [])]
+        if not (page_token := resp.get("next_page_token")):
+            return record_ids
+
+
 @experimental(version="3.17.1")
 def add_review_queue_items(
     experiment_id: str,
@@ -860,11 +960,25 @@ def add_review_queue_items(
     trace_ids: list[str] | None = None,
     dataset_id: str | None = None,
     dataset_record_ids: list[str] | None = None,
+    traces: "Iterable[Trace] | Iterable[str] | pd.DataFrame | None" = None,
+    dataset: str | None = None,
 ) -> list[ReviewQueueItem]:
     """
     Attach traces and/or dataset records to a queue.
 
     Idempotent per item: re-attaching an item keeps its existing status.
+
+    Items are sent in batches of 100, the most the server accepts at once. If a later batch
+    fails, the earlier ones stay attached and the error says how many were; attaching the
+    same items again is safe. A queue holds at most 150 items by default.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.databricks.review_queues import add_review_queue_items
+
+        add_review_queue_items("123", "rq-1", traces=mlflow.search_traces(max_results=10))
+        add_review_queue_items("123", "rq-1", dataset="catalog.schema.eval_set")
 
     Args:
         experiment_id: The experiment that owns the queue.
@@ -872,16 +986,36 @@ def add_review_queue_items(
         trace_ids: Trace IDs to attach, either ``tr-<id>`` or, for traces stored in
             Unity Catalog, ``trace:/<location>/<id>``.
         dataset_id: Unity Catalog table ID of the dataset that owns ``dataset_record_ids``.
-        dataset_record_ids: Dataset record IDs to attach. Requires ``dataset_id``.
+        dataset_record_ids: Dataset record IDs to attach. Requires ``dataset_id`` or
+            ``dataset``.
+        traces: Traces to attach, as :py:class:`mlflow.entities.Trace` objects, their JSON,
+            or a pandas DataFrame with a ``trace`` column such as the result of
+            :py:func:`mlflow.search_traces`. The same inputs as
+            :py:meth:`mlflow.genai.LabelingSession.add_traces`. Each must be from the queue's
+            experiment.
+        dataset: The name of a dataset, i.e. its Unity Catalog table, in place of
+            ``dataset_id``. Without ``dataset_record_ids``, every record in it is attached,
+            as :py:meth:`mlflow.genai.LabelingSession.add_dataset` does.
 
     Returns:
         The resulting list of :py:class:`ReviewQueueItem`.
     """
-    if dataset_record_ids and dataset_id is None:
+    if dataset is not None and dataset_id is not None:
         raise MlflowException.invalid_parameter_value(
-            "`dataset_id` is required when `dataset_record_ids` is set."
+            "Pass the dataset by `dataset_id` or by name with `dataset`, not both."
+        )
+    if dataset_record_ids and dataset_id is None and dataset is None:
+        raise MlflowException.invalid_parameter_value(
+            "`dataset_id` is required when `dataset_record_ids` is set. Pass the dataset's "
+            "table ID, or its name with `dataset`."
         )
     items = [_trace_item(t) for t in trace_ids or []]
+    if traces is not None:
+        items += [_trace_item(t) for t in _trace_ids_from(experiment_id, traces)]
+    if dataset is not None:
+        dataset_id = _dataset_id_from_name(dataset)
+        if dataset_record_ids is None:
+            dataset_record_ids = _dataset_record_ids(dataset_id)
     items += [
         {
             "kind": ItemKind.DATASET_RECORD.value,
@@ -889,17 +1023,35 @@ def add_review_queue_items(
         }
         for r in dataset_record_ids or []
     ]
+    # The same item twice would count twice against the queue's item cap.
+    items = list({json.dumps(i, sort_keys=True): i for i in items}.values())
     if not items:
+        if dataset is not None:
+            raise MlflowException.invalid_parameter_value(f"Dataset {dataset!r} has no records.")
         raise MlflowException.invalid_parameter_value(
-            "Specify `trace_ids` and/or `dataset_record_ids`."
+            "Specify `trace_ids` and/or `dataset_record_ids`, or `traces` or `dataset`."
         )
     parent = _queue(experiment_id, queue_id)
-    resp = _client.call(
-        "POST",
-        f"{parent}/items:batchCreate",
-        json={"requests": [{"parent": parent, "review_queue_item": i} for i in items]},
-    )
-    return [ReviewQueueItem.from_dict(i) for i in resp.get("review_queue_items", [])]
+    added: list[ReviewQueueItem] = []
+    for start in range(0, len(items), _MAX_ITEMS_PER_REQUEST):
+        batch = items[start : start + _MAX_ITEMS_PER_REQUEST]
+        try:
+            resp = _client.call(
+                "POST",
+                f"{parent}/items:batchCreate",
+                json={"requests": [{"parent": parent, "review_queue_item": i} for i in batch]},
+            )
+        except MlflowException as e:
+            if start == 0:
+                raise
+            raise MlflowException(
+                f"Attached {start} of {len(items)} items to review queue {queue_id!r} before "
+                f"the server refused the rest. Attaching the same items again is safe. "
+                f"Error: {e.message}",
+                error_code=ErrorCode.Value(e.error_code),
+            ) from e
+        added += [ReviewQueueItem.from_dict(i) for i in resp.get("review_queue_items", [])]
+    return added
 
 
 @experimental(version="3.17.1")

@@ -1,9 +1,11 @@
 from unittest import mock
 
+import pandas as pd
 import pytest
 import requests
 
 import mlflow
+from mlflow.entities import Trace, TraceData, TraceInfo, TraceLocation, TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.databricks.review_queues import (
     InputCategorical,
@@ -742,6 +744,222 @@ def test_add_review_queue_items_validation(kwargs, match):
         with pytest.raises(MlflowException, match=match):
             add_review_queue_items("1", "rq1", **kwargs)
     mock_call.assert_not_called()
+
+
+_CALL_API = "mlflow.genai.databricks.review_queues._client.call_api"
+_ITEMS_PATH = "experiments/1/reviewQueues/rq1/items:batchCreate"
+
+
+def _trace(trace_id, location):
+    info = TraceInfo(
+        trace_id=trace_id, trace_location=location, request_time=0, state=TraceState.OK
+    )
+    return Trace(info=info, data=TraceData(spans=[]))
+
+
+def _v3_trace(trace_id, experiment_id="1"):
+    return _trace(trace_id, TraceLocation.from_experiment_id(experiment_id))
+
+
+def _uc_trace(trace_id, prefix="pfx"):
+    location = TraceLocation.from_databricks_uc_table_prefix("main", "traces", prefix)
+    return _trace(f"trace:/main.traces.{prefix}/{trace_id}", location)
+
+
+def _experiment_at(location):
+    tags = [{"key": "mlflow.experiment.databricksTraceDestinationPath", "value": location}]
+    return {"experiment": {"tags": tags if location else []}}
+
+
+def _sent_items(mock_call):
+    return [
+        r["review_queue_item"]
+        for c in mock_call.call_args_list
+        if c.args[1].endswith(":batchCreate")
+        for r in c.kwargs["json"]["requests"]
+    ]
+
+
+def _trace_items(*trace_ids):
+    return [{"kind": "V4_TRACE", "v4_trace": {"trace_id": t}} for t in trace_ids]
+
+
+def _record_items(dataset_id, *record_ids):
+    return [
+        {
+            "kind": "DATASET_RECORD",
+            "dataset_record": {"dataset_id": dataset_id, "dataset_record_id": r},
+        }
+        for r in record_ids
+    ]
+
+
+@pytest.mark.parametrize(
+    "traces",
+    [
+        [_v3_trace("tr-1"), _v3_trace("tr-2")],
+        [_v3_trace("tr-1").to_json(), _v3_trace("tr-2").to_json()],
+        pd.DataFrame({"trace": [_v3_trace("tr-1"), _v3_trace("tr-2").to_json()]}),
+    ],
+)
+def test_add_review_queue_items_from_traces(traces):
+    with (
+        mock.patch(_CALL, return_value={"review_queue_items": [_ITEM]}) as mock_call,
+        mock.patch(_CALL_API) as mock_call_api,
+    ):
+        items = add_review_queue_items("1", "rq1", traces=traces)
+    assert _sent_items(mock_call) == _trace_items("tr-1", "tr-2")
+    assert [i.item_id for i in items] == ["i1"]
+    # Traces stored in the experiment need no lookup to check where they're from.
+    mock_call_api.assert_not_called()
+
+
+def test_add_review_queue_items_from_uc_traces_checks_the_experiment_location():
+    with (
+        mock.patch(_CALL, return_value={"review_queue_items": [_ITEM]}) as mock_call,
+        mock.patch(_CALL_API, return_value=_experiment_at("main.traces.pfx")) as mock_call_api,
+    ):
+        add_review_queue_items("1", "rq1", traces=[_uc_trace("a1"), _uc_trace("a2")])
+    mock_call_api.assert_called_once_with(
+        "GET", "/api/2.0/mlflow/experiments/get", params={"experiment_id": "1"}
+    )
+    assert _sent_items(mock_call) == _trace_items("a1", "a2")
+
+
+@pytest.mark.parametrize(
+    ("trace", "experiment", "match"),
+    [
+        (_v3_trace("tr-9", "2"), None, "is in experiment '2', but a review queue can only hold"),
+        (
+            _uc_trace("a1", "other"),
+            "main.traces.pfx",
+            "which stores its traces in 'main.traces.pfx'",
+        ),
+        (_uc_trace("a1"), None, "which doesn't store traces in Unity Catalog"),
+    ],
+)
+def test_add_review_queue_items_rejects_traces_from_elsewhere(trace, experiment, match):
+    with (
+        mock.patch(_CALL) as mock_call,
+        mock.patch(_CALL_API, return_value=_experiment_at(experiment)),
+    ):
+        with pytest.raises(MlflowException, match=match):
+            add_review_queue_items("1", "rq1", trace_ids=["tr-1"], traces=[trace])
+    mock_call.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("traces", "match"),
+    [
+        (pd.DataFrame({"trace_id": ["tr-1"]}), "must have a 'trace' column"),
+        (["tr-1"], "pass trace IDs with `trace_ids`"),
+        ([1], "got int"),
+        ([None], "got NoneType"),
+    ],
+)
+def test_add_review_queue_items_rejects_what_isnt_a_trace(traces, match):
+    with mock.patch(_CALL) as mock_call:
+        with pytest.raises(MlflowException, match=match):
+            add_review_queue_items("1", "rq1", traces=traces)
+    mock_call.assert_not_called()
+
+
+def test_add_review_queue_items_dataset_by_name_adds_every_record():
+    records = "datasets/tid-1/records"
+    responses = {
+        ("GET", records, None): {
+            "dataset_records": [{"dataset_record_id": "r1"}, {"dataset_record_id": "r2"}],
+            "next_page_token": "tok",
+        },
+        ("GET", records, "tok"): {"dataset_records": [{"dataset_record_id": "r3"}]},
+        ("POST", _ITEMS_PATH, None): {"review_queue_items": [_ITEM]},
+    }
+
+    def call(method, path, *, json=None, params=None):
+        return responses[(method, path, (params or {}).get("page_token"))]
+
+    with (
+        mock.patch(_CALL, side_effect=call) as mock_call,
+        mock.patch(_CALL_API, return_value={"table_id": "tid-1"}) as mock_call_api,
+    ):
+        add_review_queue_items("1", "rq1", dataset="`main`.`evals`.`set a`")
+    mock_call_api.assert_called_once_with("GET", "/api/2.1/unity-catalog/tables/main.evals.set%20a")
+    assert _sent_items(mock_call) == _record_items("tid-1", "r1", "r2", "r3")
+
+
+def test_add_review_queue_items_dataset_by_name_with_record_ids():
+    with (
+        mock.patch(_CALL, return_value={"review_queue_items": [_ITEM]}) as mock_call,
+        mock.patch(_CALL_API, return_value={"table_id": "tid-1"}),
+    ):
+        add_review_queue_items(
+            "1", "rq1", dataset="main.evals.set_a", dataset_record_ids=["r2"], trace_ids=["tr-1"]
+        )
+    # Only the records asked for: the dataset's records aren't listed.
+    assert mock_call.call_count == 1
+    assert _sent_items(mock_call) == _trace_items("tr-1") + _record_items("tid-1", "r2")
+
+
+def test_add_review_queue_items_empty_dataset():
+    with (
+        mock.patch(_CALL, return_value={"dataset_records": []}) as mock_call,
+        mock.patch(_CALL_API, return_value={"table_id": "tid-1"}),
+    ):
+        with pytest.raises(MlflowException, match="Dataset 'main.evals.empty' has no records"):
+            add_review_queue_items("1", "rq1", dataset="main.evals.empty")
+    assert _sent_items(mock_call) == []
+
+
+def test_add_review_queue_items_rejects_dataset_and_dataset_id():
+    with mock.patch(_CALL) as mock_call:
+        with pytest.raises(MlflowException, match="not both"):
+            add_review_queue_items("1", "rq1", dataset="main.evals.set_a", dataset_id="ds1")
+    mock_call.assert_not_called()
+
+
+def test_add_review_queue_items_dataset_id_without_records_is_unchanged():
+    # As before `dataset` was added, `dataset_id` only qualifies `dataset_record_ids`.
+    with mock.patch(_CALL, return_value={"review_queue_items": [_ITEM]}) as mock_call:
+        add_review_queue_items("1", "rq1", trace_ids=["tr-1"], dataset_id="ds1")
+    assert _sent_items(mock_call) == _trace_items("tr-1")
+
+
+def test_add_review_queue_items_sends_each_item_once():
+    with mock.patch(_CALL, return_value={"review_queue_items": [_ITEM]}) as mock_call:
+        add_review_queue_items(
+            "1", "rq1", trace_ids=["tr-1", "tr-2", "tr-1"], traces=[_v3_trace("tr-2")]
+        )
+    assert _sent_items(mock_call) == _trace_items("tr-1", "tr-2")
+
+
+def test_add_review_queue_items_sends_batches_of_100():
+    trace_ids = [f"tr-{i}" for i in range(250)]
+
+    def call(method, path, *, json=None, params=None):
+        name = f"experiments/1/reviewQueues/rq1/items/b{len(json['requests'])}"
+        return {"review_queue_items": [{**_ITEM, "name": name}]}
+
+    with mock.patch(_CALL, side_effect=call) as mock_call:
+        items = add_review_queue_items("1", "rq1", trace_ids=trace_ids)
+    assert [len(c.kwargs["json"]["requests"]) for c in mock_call.call_args_list] == [100, 100, 50]
+    assert _sent_items(mock_call) == _trace_items(*trace_ids)
+    assert [i.item_id for i in items] == ["b100", "b100", "b50"]
+
+
+def test_add_review_queue_items_names_what_was_attached_when_a_later_batch_fails():
+    cap = MlflowException("Queue rq1 has 100 of at most 150 items.", INVALID_STATE)
+    with mock.patch(_CALL, side_effect=[{"review_queue_items": [_ITEM]}, cap]):
+        with pytest.raises(MlflowException, match="Attached 100 of 160 items") as e:
+            add_review_queue_items("1", "rq1", trace_ids=[f"tr-{i}" for i in range(160)])
+    assert "Queue rq1 has 100 of at most 150 items." in e.value.message
+    assert e.value.error_code == "INVALID_STATE"
+
+
+def test_add_review_queue_items_first_batch_failure_is_unchanged():
+    cap = MlflowException("Queue rq1 has 150 of at most 150 items.", INVALID_STATE)
+    with mock.patch(_CALL, side_effect=cap):
+        with pytest.raises(MlflowException, match="^Queue rq1 has 150 of at most 150 items.$"):
+            add_review_queue_items("1", "rq1", trace_ids=["tr-1"])
 
 
 def test_remove_review_queue_items():
