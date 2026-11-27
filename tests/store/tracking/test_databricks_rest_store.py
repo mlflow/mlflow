@@ -2813,19 +2813,34 @@ def test_detect_issues_sends_an_empty_body_without_a_filter_or_warehouse(detecti
     assert http.call_args.kwargs["json"] == {}
 
 
+def test_detect_issues_sends_bare_deduplicated_trace_ids(detection_http):
+    store, http = detection_http
+    first = "5b8aedc3e2a4f1b09c7d6e5f4a3b2c1d"
+    second = "0123456789abcdef0123456789abcdef"
+
+    store.detect_issues(
+        "123",
+        trace_ids=[f"trace:/catalog.schema/{first}", second, first, f"trace:/c.s/{second}"],
+        idempotency_token="retry-1",
+    )
+
+    assert http.call_args.kwargs["json"] == {
+        "trace_ids": [first, second],
+        "idempotency_token": "retry-1",
+    }
+
+
 @pytest.mark.parametrize(
     ("kwargs", "match"),
     [
         ({"model": "openai:/gpt-5-mini"}, "`model` is not supported"),
-        # The Databricks Issues API has no trace selection, so the request is refused rather
-        # than sent with a field it doesn't take.
-        ({"trace_ids": ["5b8aedc3e2a4f1b09c7d6e5f4a3b2c1d"]}, "`trace_ids` is not supported"),
         (
             {"trace_ids": ["5b8aedc3e2a4f1b09c7d6e5f4a3b2c1d"], "filter_string": "tags.a = 'b'"},
-            "`trace_ids` is not supported",
+            "cannot be combined",
         ),
+        ({"trace_ids": ["trace:/catalog.schema"]}, "Invalid trace ID format"),
     ],
-    ids=["model", "trace_ids", "trace_ids_and_filter"],
+    ids=["model", "trace_ids_and_filter", "malformed_trace_id"],
 )
 def test_detect_issues_rejects_unsupported_arguments_on_databricks(detection_http, kwargs, match):
     store, http = detection_http
