@@ -1,5 +1,5 @@
 # Use a branch in mlflow/mlflow to test PRs that update this workflow or files it depends on.
-# gh workflow run repair.yml --ref <branch>
+# gh workflow run repair.yml --ref <branch> -F dry_run=true
 # Dispatches from a PR branch require dry_run=true (the default).
 name: Repair
 
