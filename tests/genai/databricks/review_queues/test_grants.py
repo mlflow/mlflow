@@ -360,3 +360,195 @@ def test_unexpected_error_is_warned_instead_of_raised(monkeypatch, caplog):
 
     assert "Couldn't give alice@example.com the access" in caplog.records[0].message
     assert "No credentials." in caplog.records[0].message
+
+
+_QUEUE_PATH = "experiments/1/reviewQueues/rq1"
+_MEMBERS_PATH = f"{_QUEUE_PATH}/members"
+
+
+def _queue(queue_type, owner=None):
+    return {("GET", _QUEUE_PATH, None): {"queue_type": queue_type, "owner": owner}}
+
+
+def _can(level, user="bob@example.com"):
+    return (
+        "PATCH",
+        _PERMISSIONS,
+        {"access_control_list": [{"user_name": user, "permission_level": level}]},
+    )
+
+
+def _trace_table_grants(users):
+    return [
+        _uc_grant("catalog", "main", ["USE_CATALOG"], users),
+        _uc_grant("schema", "main.traces", ["USE_SCHEMA"], users),
+        _uc_grant("table", "main.traces.ann", ["SELECT", "MODIFY"], users),
+        _uc_grant("table", "main.traces.spans", ["SELECT"], users),
+        _uc_grant("table", "main.traces.logs", ["SELECT"], users),
+    ]
+
+
+def test_traces_in_a_user_queue_grant_its_owner_can_read_and_the_trace_tables(api):
+    fake = api({
+        **_queue("USER", "bob@example.com"),
+        _EXPERIMENT: {"experiment": {"tags": _UC_TAGS}},
+    })
+
+    _grants.grant_item_access("1", "rq1", trace_ids=["a" * 32], dataset_ids=[])
+
+    assert fake.calls[2:] == [
+        ("GET", _PERMISSIONS, None),
+        _can("CAN_READ"),
+        *_trace_table_grants(["bob@example.com"]),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("tags", "trace_ids"),
+    [
+        # A trace stored in MLflow needs edit access, even in an experiment linked to UC.
+        (_UC_TAGS, ["a" * 32, "tr-1"]),
+        ([], ["tr-1"]),
+    ],
+)
+def test_traces_stored_in_mlflow_grant_the_owner_can_edit(api, tags, trace_ids):
+    fake = api({**_queue("USER", "bob@example.com"), _EXPERIMENT: {"experiment": {"tags": tags}}})
+
+    _grants.grant_item_access("1", "rq1", trace_ids=trace_ids, dataset_ids=[])
+
+    assert _can("CAN_EDIT") in fake.calls
+    assert any(_UC in c[1] for c in fake.calls) == bool(tags)
+
+
+def test_trace_tables_the_owner_already_holds_are_not_granted_again(api):
+    fake = api({
+        **_queue("USER", "bob@example.com"),
+        _EXPERIMENT: {"experiment": {"tags": _UC_TAGS}},
+    })
+
+    _grants.grant_item_access(
+        "1", "rq1", trace_ids=["a" * 32], dataset_ids=[], trace_tables_held=True
+    )
+
+    assert fake.calls[-1] == _can("CAN_READ")
+    assert not any(_UC in c[1] for c in fake.calls)
+
+
+@pytest.mark.parametrize(
+    "queue",
+    [
+        _queue("USER", "Owner@example.com"),
+        # A CUSTOM queue's members got the trace tables when they joined.
+        _queue("CUSTOM"),
+    ],
+)
+def test_traces_need_no_grant_for_the_caller_or_a_custom_queue(api, queue):
+    fake = api(queue)
+
+    _grants.grant_item_access("1", "rq1", trace_ids=["tr-1"], dataset_ids=[])
+
+    assert fake.calls == [(*_ME, None)]
+
+
+def test_dataset_records_grant_every_custom_queue_member(api):
+    fake = api({
+        **_queue("CUSTOM"),
+        ("GET", _MEMBERS_PATH, None): {
+            "review_queue_members": [{"user": "alice@example.com"}, {"user": "owner@example.com"}],
+            "next_page_token": "tok",
+        },
+        ("GET", _MEMBERS_PATH, "tok"): {"review_queue_members": [{"user": "bob@example.com"}]},
+        _EXPERIMENT: {"experiment": {"tags": []}},
+        ("GET", "datasets/d1", None): {"name": "data.eval.set_a"},
+    })
+
+    _grants.grant_item_access("1", "rq1", trace_ids=["tr-1"], dataset_ids=["d1"])
+
+    # The caller is skipped, and dataset records need only CAN_READ, whatever the experiment.
+    users = ["alice@example.com", "bob@example.com"]
+    assert fake.calls[2:] == [
+        ("GET", _PERMISSIONS, None),
+        (
+            "PATCH",
+            _PERMISSIONS,
+            {
+                "access_control_list": [
+                    {"user_name": u, "permission_level": "CAN_READ"} for u in users
+                ]
+            },
+        ),
+        _uc_grant("catalog", "data", ["USE_CATALOG"], users),
+        _uc_grant("schema", "data.eval", ["USE_SCHEMA"], users),
+        _uc_grant("table", "data.eval.set_a", ["SELECT", "MODIFY"], users),
+    ]
+
+
+def test_dataset_records_grant_a_user_queues_owner(api):
+    fake = api({
+        **_queue("USER", "bob@example.com"),
+        _EXPERIMENT: {"experiment": {"tags": _UC_TAGS}},
+        ("GET", "datasets/d1", None): {"name": "data.eval.set_a"},
+    })
+
+    _grants.grant_item_access("1", "rq1", trace_ids=[], dataset_ids=["d1"])
+
+    # Without traces, the trace tables aren't granted.
+    assert fake.calls[2:] == [
+        ("GET", _PERMISSIONS, None),
+        _can("CAN_READ"),
+        _uc_grant("catalog", "data", ["USE_CATALOG"], ["bob@example.com"]),
+        _uc_grant("schema", "data.eval", ["USE_SCHEMA"], ["bob@example.com"]),
+        _uc_grant("table", "data.eval.set_a", ["SELECT", "MODIFY"], ["bob@example.com"]),
+    ]
+
+
+def test_members_listed_before_a_failure_are_still_granted(api, caplog):
+    fake = api({
+        **_queue("CUSTOM"),
+        ("GET", _MEMBERS_PATH, None): {
+            "review_queue_members": [{"user": "alice@example.com"}],
+            "next_page_token": "tok",
+        },
+        ("GET", _MEMBERS_PATH, "tok"): _denied(),
+        _EXPERIMENT: {"experiment": {"tags": []}},
+        ("GET", "datasets/d1", None): {"name": "data.eval.set_a"},
+    })
+
+    with caplog.at_level(logging.WARNING, logger=_grants.__name__):
+        _grants.grant_item_access("1", "rq1", trace_ids=[], dataset_ids=["d1"])
+
+    assert fake.calls[-1] == _uc_grant(
+        "table", "data.eval.set_a", ["SELECT", "MODIFY"], ["alice@example.com"]
+    )
+    [record] = caplog.records
+    assert "access for the other members of review queue 'rq1'" in record.message
+
+
+def test_queue_lookup_failure_is_warned_and_grants_nothing(api, caplog):
+    fake = api({("GET", _QUEUE_PATH, None): _denied()})
+
+    with caplog.at_level(logging.WARNING, logger=_grants.__name__):
+        _grants.grant_item_access("1", "rq1", trace_ids=["tr-1"], dataset_ids=[])
+
+    assert fake.calls == [(*_ME, None)]
+    assert (
+        "Couldn't give the reviewers of review queue 'rq1' the access" in caplog.records[0].message
+    )
+
+
+def test_caller_who_cant_be_identified_means_no_item_grants(api, caplog):
+    fake = api({_ME: _denied()})
+
+    with caplog.at_level(logging.WARNING, logger=_grants.__name__):
+        _grants.grant_item_access("1", "rq1", trace_ids=["tr-1"], dataset_ids=["d1"])
+
+    assert fake.calls == [(*_ME, None)]
+    assert "because the current user couldn't be identified" in caplog.records[0].message
+
+
+def test_nothing_added_means_nothing_to_grant(api):
+    fake = api({})
+
+    _grants.grant_item_access("1", "rq1", trace_ids=[], dataset_ids=[])
+
+    assert fake.calls == []
