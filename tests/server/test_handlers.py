@@ -3680,11 +3680,12 @@ def test_upsert_dataset_records_accepts_max_records(mock_tracking_store):
 @pytest.mark.parametrize(
     ("records_json", "match"),
     [
-        (
+        pytest.param(
             json.dumps([
                 {"inputs": {"q": str(i)}} for i in range(MAX_DATASET_RECORDS_PER_UPSERT + 1)
             ]),
             f"at most {MAX_DATASET_RECORDS_PER_UPSERT} records",
+            id="too-many-records",
         ),
         (json.dumps({"inputs": {"q": "test"}}), "must be a JSON list"),
         (json.dumps("not a list"), "must be a JSON list"),

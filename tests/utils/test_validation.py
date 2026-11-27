@@ -1144,8 +1144,8 @@ def test_validate_gateway_secret_auth_config_rejects_vertex_credentials(key, val
         service_account_key(type="external_account"),
         json.dumps(["service_account"]),
         "/etc/service-account.json",
-        "1" * 5000,
-        "[" * 100_000,
+        pytest.param("1" * 5000, id="integer-too-long"),
+        pytest.param("[" * 100_000, id="too-deeply-nested"),
     ],
 )
 def test_validate_gateway_vertex_credentials_rejects_untrusted_document(key, value):
