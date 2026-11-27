@@ -514,11 +514,41 @@ def _mock_getaddrinfo_by_host(host_to_ip: dict[str, str]):
         ("ftp://example.com", "Invalid webhook URL scheme"),
         ("http://example.com", "Invalid webhook URL scheme"),
         ("https://", "must include a hostname"),
+        ("https://127.0.0.1:6379\\@1.2.3.4/hook", "must not contain a backslash"),
+        ("https://*.example.com/hook", "Invalid webhook URL"),
     ],
 )
 def test_validate_webhook_url_rejects_invalid_input(url, expected_match):
     with pytest.raises(MlflowException, match=expected_match):
         _validate_webhook_url(url)
+
+
+@pytest.mark.parametrize(
+    ("url", "parsed_host", "delivery_host"),
+    [
+        ("https://straße.example.com/hook", "straße.example.com", "xn--strae-oqa.example.com"),
+        ('https://a"b.example.com/hook', 'a"b.example.com', "a%22b.example.com"),
+    ],
+)
+def test_validate_webhook_url_resolves_host_used_for_delivery(url, parsed_host, delivery_host):
+    resolve = _mock_getaddrinfo_by_host({parsed_host: "8.8.8.8", delivery_host: "10.0.0.1"})
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo", side_effect=resolve
+    ) as mock_getaddrinfo:
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
+            _validate_webhook_url(url)
+    mock_getaddrinfo.assert_called_once_with(delivery_host, None)
+
+
+def test_validate_webhook_url_reports_preparation_value_error_as_invalid_parameter():
+    with patch(
+        "mlflow.utils.validation.requests.PreparedRequest.prepare_url",
+        side_effect=ValueError("invalid literal for int() with base 10: 'x'"),
+    ) as mock_prepare_url:
+        with pytest.raises(MlflowException, match="Invalid webhook URL") as e:
+            _validate_webhook_url("https://example.com/hook")
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    mock_prepare_url.assert_called_once_with("https://example.com/hook", None)
 
 
 @pytest.mark.parametrize(
@@ -568,12 +598,19 @@ def test_validate_webhook_url_rejects_if_any_resolved_address_is_private():
             _validate_webhook_url("https://dual-homed.example.com/hook")
 
 
-def test_validate_webhook_url_accepts_public_ip():
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com/webhook",
+        "https://example.com/a\\b?x=\\y",
+    ],
+)
+def test_validate_webhook_url_accepts_public_ip(url):
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
         side_effect=_mock_getaddrinfo("8.8.8.8"),
     ):
-        _validate_webhook_url("https://example.com/webhook")
+        _validate_webhook_url(url)
 
 
 def test_validate_webhook_url_allow_private_ips_env_var(monkeypatch):
