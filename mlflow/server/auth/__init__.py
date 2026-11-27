@@ -449,10 +449,10 @@ from mlflow.server.handlers import (
     _get_scoped_experiment_ids,
     _get_tracking_store,
     _get_validated_flask_request_json,
-    _is_uri_within_root,
     _iteratively_unquote,
     _raw_request_has_field,
     _remember_authorized_detection_model,
+    _remember_authorized_model_version_artifact_uri,
     catch_mlflow_exception,
     get_endpoints,
     get_service_endpoints,
@@ -501,7 +501,7 @@ from mlflow.server.workspace_helpers import (
     resolve_workspace_for_request_if_enabled,
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.store.artifact.utils.models import _parse_model_uri
+from mlflow.store.artifact.utils.models import ParsedModelUri, _parse_model_uri
 from mlflow.store.entities import PagedList
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.skill_registry.artifact_paths import (
@@ -2783,13 +2783,18 @@ def _authorize_create_version(target: "tuple[str, str]") -> bool:
     )
 
 
-def _model_id_from_source_uri(source: str) -> str | None:
+def _parse_models_source_uri(source: str) -> ParsedModelUri | None:
     if not source or urllib.parse.urlparse(source).scheme != "models":
         return None
     try:
-        return _parse_model_uri(source).model_id
+        return _parse_model_uri(source)
     except Exception:
         return None
+
+
+def _model_id_from_source_uri(source: str) -> str | None:
+    parsed = _parse_models_source_uri(source)
+    return parsed.model_id if parsed else None
 
 
 def _can_read_model_version_source(
@@ -4449,7 +4454,8 @@ def validate_can_read_model_version_artifact():
 
     Passing the permission checks is not enough on its own: the handler reads the download URI
     with the server's credentials, so the version's source must also be inside the artifact root of
-    its recorded run or logged model (see `_is_model_version_artifact_within_source_root`).
+    its recorded run or logged model (see `_model_version_artifact_uri_within_source_root`). The
+    checked URI is recorded for the handler so that it serves exactly what was checked.
     """
     if not _get_permission_from_model_version().can_read:
         return False
@@ -4463,7 +4469,7 @@ def validate_can_read_model_version_artifact():
         else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
     )
     container = (container_type, name)
-    return authorize(
+    if not authorize(
         authenticate_request().username,
         container,
         [
@@ -4474,7 +4480,13 @@ def validate_can_read_model_version_artifact():
                 fallback_if_no_grant=(container,),
             )
         ],
-    ) and _is_model_version_artifact_within_source_root(name, request.args.get("version"))
+    ):
+        return False
+    version = request.args.get("version")
+    if (artifact_uri := _model_version_artifact_uri_within_source_root(name, version)) is None:
+        return False
+    _remember_authorized_model_version_artifact_uri(request.args.get("name"), version, artifact_uri)
+    return True
 
 
 def _is_uri_within_artifact_root(uri: str, root: str | None) -> bool:
@@ -4491,43 +4503,80 @@ def _is_uri_within_artifact_root(uri: str, root: str | None) -> bool:
         path = pathlib.Path(local_file_uri_to_path(uri)).resolve()
         root_path = pathlib.Path(local_file_uri_to_path(root)).resolve()
         return root_path in [path, *path.parents]
-    path_parts = _iteratively_unquote(urllib.parse.urlsplit(uri).path).split("/")
-    return ".." not in path_parts and _is_uri_within_root(uri, root)
+    parsed_uri = urllib.parse.urlsplit(uri)
+    if ".." in _iteratively_unquote(parsed_uri.path).split("/"):
+        return False
+    # Object stores such as S3 and GCS treat the key literally: `%31` and `1//x` name objects
+    # distinct from `1` and `1/x`. Compare the raw path prefix rather than decoded segments.
+    parsed_root = urllib.parse.urlsplit(root)
+    root_path = parsed_root.path.rstrip("/")
+    return (
+        bool(root_path)
+        and parsed_uri.scheme.lower() == parsed_root.scheme.lower()
+        and parsed_uri.netloc.lower() == parsed_root.netloc.lower()
+        and (parsed_uri.path == root_path or parsed_uri.path.startswith(f"{root_path}/"))
+    )
 
 
-def _is_model_version_artifact_within_source_root(name: str, version: str | None) -> bool:
+def _model_version_artifact_uri_within_source_root(name: str, version: str | None) -> str | None:
     """
     The artifact route reads the version's download URI with the server's own credentials, so it
     serves only URIs inside the artifact root of the run or logged model recorded on the version.
-    A source outside those roots, such as an external object store path, is refused.
+    Returns the checked download URI, or None for a source outside those roots, such as an
+    external object store path.
     """
     if not version:
-        return False
+        return None
     registry_store = _get_model_registry_store()
     tracking_store = _get_tracking_store()
     model_version = _fetch_or_none(
         functools.partial(registry_store.get_model_version, name), version
     )
     if model_version is None:
-        return False
+        return None
     download_uri = registry_store.get_model_version_download_uri(name, version)
 
     run_id = model_version.run_id
     if RunsArtifactRepository.is_runs_uri(download_uri):
         if urllib.parse.urlparse(download_uri).netloc:
-            return False
+            return None
         source_run_id, source_path = RunsArtifactRepository.parse_runs_uri(download_uri)
         source_path_parts = _iteratively_unquote(source_path or "").split("/")
-        return bool(run_id) and source_run_id == run_id and ".." not in source_path_parts
+        within = bool(run_id) and source_run_id == run_id and ".." not in source_path_parts
+    else:
+        within = any(
+            _is_uri_within_artifact_root(download_uri, root)
+            for root in _iter_model_version_source_roots(
+                registry_store, tracking_store, model_version
+            )
+        )
+    return download_uri if within else None
 
-    if run_id and (run := _fetch_or_none(tracking_store.get_run, run_id)):
-        if _is_uri_within_artifact_root(download_uri, run.info.artifact_uri):
-            return True
-    model_id = model_version.model_id or _model_id_from_source_uri(model_version.source)
-    if model_id and (model := _fetch_or_none(tracking_store.get_logged_model, model_id)):
-        if _is_uri_within_artifact_root(download_uri, model.artifact_location):
-            return True
-    return False
+
+_MAX_MODEL_VERSION_SOURCE_HOPS = 10
+
+
+def _iter_model_version_source_roots(registry_store, tracking_store, model_version):
+    # `copy_model_version` records `models:/<name>/<version>` as the copy's source and stores the
+    # referenced version's download URI, so the referenced version's recorded roots bound the copy.
+    get_logged_model = functools.partial(tracking_store.get_logged_model, allow_deleted=True)
+    for _ in range(_MAX_MODEL_VERSION_SOURCE_HOPS):
+        if model_version.run_id and (
+            run := _fetch_or_none(tracking_store.get_run, model_version.run_id)
+        ):
+            yield run.info.artifact_uri
+        model_id = model_version.model_id or _model_id_from_source_uri(model_version.source)
+        # A soft-deleted logged model keeps its artifact location, and its versions stay readable.
+        if model_id and (model := _fetch_or_none(get_logged_model, model_id)):
+            yield model.artifact_location
+        source = _parse_models_source_uri(model_version.source)
+        if source is None or source.name is None or source.version is None:
+            return
+        model_version = _fetch_or_none(
+            functools.partial(registry_store.get_model_version, source.name), source.version
+        )
+        if model_version is None:
+            return
 
 
 def validate_can_read_trace_artifact():

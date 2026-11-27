@@ -3588,6 +3588,29 @@ def _is_prompt(name: str) -> bool:
     return rm._is_prompt()
 
 
+_AUTHORIZED_MODEL_VERSION_ARTIFACT_URI_ATTR = "mlflow_model_version_artifact_authorized_uri"
+
+
+def _remember_authorized_model_version_artifact_uri(
+    name: str | None, version: str | None, artifact_uri: str
+) -> None:
+    """
+    Record the download URI the auth plugin checked for this request's model version artifact.
+
+    The handler would otherwise look the URI up again after authorization, and renaming models in
+    between could swap in a version whose source was never checked. Recording what was checked lets
+    the handler serve exactly that.
+    """
+    setattr(g, _AUTHORIZED_MODEL_VERSION_ARTIFACT_URI_ATTR, (name, version, artifact_uri))
+
+
+def _authorized_model_version_artifact_uri(name: str | None, version: str | None) -> str | None:
+    authorized = getattr(g, _AUTHORIZED_MODEL_VERSION_ARTIFACT_URI_ATTR, None)
+    if authorized is not None and authorized[:2] == (name, version):
+        return authorized[2]
+    return None
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 @_disable_if_artifacts_presigned_only(allow_presigned=True)
@@ -3596,7 +3619,9 @@ def get_model_version_artifact_handler():
     version = request.args.get("version")
     path = request.args["path"]
     path = validate_path_is_safe(path)
-    artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
+    artifact_uri = _authorized_model_version_artifact_uri(
+        name, version
+    ) or _get_model_registry_store().get_model_version_download_uri(name, version)
     if request.args.get("presigned") == "true" and RunsArtifactRepository.is_runs_uri(artifact_uri):
         run_id, source_path = RunsArtifactRepository.parse_runs_uri(artifact_uri)
         if urllib.parse.urlparse(artifact_uri).netloc:

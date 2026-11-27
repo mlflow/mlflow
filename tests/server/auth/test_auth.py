@@ -41,6 +41,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.server import auth as auth_module
+from mlflow.server import handlers as handlers_module
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.assistant.delegation import mint_delegation_credential
 from mlflow.server.auth import (
@@ -2247,17 +2248,68 @@ def test_model_version_artifact_requires_source_within_recorded_root(
     assert get_artifact(external.version, presigned="true").status_code == 403
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_model_version_artifact_from_copied_and_deleted_logged_model(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    username, password = create_user(client.tracking_uri)
+    with User(username, password, monkeypatch):
+        exp_id = client.create_experiment("mv-artifact-logged-model-exp")
+        rm = client.create_registered_model("mv-artifact-logged-model")
+        client.create_registered_model("mv-artifact-logged-model-copy")
+    grant_role_permission(client.tracking_uri, username, "experiment", exp_id, "READ")
+
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "MLmodel").write_text("flavors: {}")
+    with User(username, password, monkeypatch):
+        run_id = client.create_run(exp_id).info.run_id
+        logged_model = client.create_logged_model(exp_id, source_run_id=run_id)
+        client.log_model_artifacts(logged_model.model_id, str(model_dir))
+        original = client.create_model_version(
+            rm.name,
+            f"models:/{logged_model.model_id}",
+            run_id=run_id,
+            model_id=logged_model.model_id,
+        )
+        copy = client.copy_model_version(
+            f"models:/{rm.name}/{original.version}", "mv-artifact-logged-model-copy"
+        )
+        client.delete_logged_model(logged_model.model_id)
+
+    for name, version in [(rm.name, original.version), (copy.name, copy.version)]:
+        response = requests.get(
+            f"{client.tracking_uri}/model-versions/get-artifact",
+            params={"name": name, "version": version, "path": "MLmodel"},
+            auth=(username, password),
+        )
+        assert response.status_code == 200
+        assert response.text == "flavors: {}"
+
+
 _RUN_ROOT = "s3://bucket/1/run-1/artifacts"
 _MODEL_ROOT = "s3://bucket/1/models/m-1/artifacts"
 
 
 def _check_model_version_artifact_source_root(
-    monkeypatch, source, run_id, download_uri, run_root, model_id=None
+    monkeypatch, source, run_id, download_uri, run_root, model_id=None, referenced=None
 ):
+    model_version = SimpleNamespace(source=source, run_id=run_id, model_id=model_id)
+    versions = {("model", "1"): model_version}
+    if referenced is not None:
+        versions[("other-model", "1")] = referenced
+
+    def get_model_version(name, version):
+        if (name, version) not in versions:
+            raise MlflowException("not found", error_code=RESOURCE_DOES_NOT_EXIST)
+        return versions[(name, version)]
+
     registry_store = mock.Mock()
-    registry_store.get_model_version.return_value = SimpleNamespace(
-        source=source, run_id=run_id, model_id=model_id
-    )
+    registry_store.get_model_version.side_effect = get_model_version
     registry_store.get_model_version_download_uri.return_value = download_uri
     tracking_store = mock.Mock()
     tracking_store.get_run.return_value = SimpleNamespace(
@@ -2267,11 +2319,27 @@ def _check_model_version_artifact_source_root(
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
 
-    result = auth_module._is_model_version_artifact_within_source_root("model", "1")
+    artifact_uri = auth_module._model_version_artifact_uri_within_source_root("model", "1")
 
-    registry_store.get_model_version.assert_called_once_with("model", "1")
+    assert registry_store.get_model_version.call_args_list[0] == mock.call("model", "1")
     registry_store.get_model_version_download_uri.assert_called_once_with("model", "1")
-    return result
+    assert artifact_uri in (download_uri, None)
+    # The stores return the same root for any ID, so only looking up the recorded IDs proves the
+    # check is bound to the version's own lineage.
+    recorded = list(versions.values())
+    recorded_run_ids = {v.run_id for v in recorded if v.run_id}
+    recorded_model_ids = {v.model_id for v in recorded if v.model_id} | {
+        v.source.removeprefix("models:/") for v in recorded if v.source.startswith("models:/m-")
+    }
+    if download_uri.startswith("runs:"):
+        tracking_store.get_run.assert_not_called()
+        tracking_store.get_logged_model.assert_not_called()
+    for call in tracking_store.get_run.call_args_list:
+        assert call.args[0] in recorded_run_ids
+    for call in tracking_store.get_logged_model.call_args_list:
+        assert call.args[0] in recorded_model_ids
+        assert call.kwargs == {"allow_deleted": True}
+    return artifact_uri is not None
 
 
 @pytest.mark.parametrize(
@@ -2297,6 +2365,10 @@ def _check_model_version_artifact_source_root(
         (f"{_RUN_ROOT}/%252e%252e/%252e%252e/run-2/artifacts", "run-1", None, False),
         (f"{_RUN_ROOT}-evil/model", "run-1", None, False),
         (f"{_MODEL_ROOT}-evil/model", None, None, False),
+        ("s3://bucket/%31/run-1/artifacts/model", "run-1", None, False),
+        ("s3://bucket/1//run-1/artifacts/model", "run-1", None, False),
+        ("s3://bucket//1/run-1/artifacts/model", "run-1", None, False),
+        ("s3://bucket/1/run-1/%61rtifacts/model", "run-1", None, False),
     ],
 )
 def test_model_version_artifact_source_root_check(
@@ -2323,7 +2395,83 @@ def test_model_version_artifact_source_root_check_uses_recorded_model_id(
         monkeypatch, source, None, source, _RUN_ROOT, model_id="m-1"
     )
     assert result is expected
-    auth_module._get_tracking_store().get_logged_model.assert_called_once_with("m-1")
+    auth_module._get_tracking_store().get_logged_model.assert_called_once_with(
+        "m-1", allow_deleted=True
+    )
+
+
+@pytest.mark.parametrize(
+    ("referenced", "download_uri", "expected"),
+    [
+        # copy_model_version of a logged-model-backed version outside the run root
+        (
+            SimpleNamespace(source="models:/m-1", run_id="run-1", model_id=None),
+            f"{_MODEL_ROOT}/model",
+            True,
+        ),
+        (
+            SimpleNamespace(source="models:/m-1", run_id="run-1", model_id=None),
+            "s3://other-bucket/model",
+            False,
+        ),
+        (None, f"{_MODEL_ROOT}/model", False),
+        # A copy referencing itself is followed only a bounded number of times.
+        (
+            SimpleNamespace(source="models:/other-model/1", run_id=None, model_id=None),
+            f"{_MODEL_ROOT}/model",
+            False,
+        ),
+    ],
+)
+def test_model_version_artifact_source_root_check_follows_copied_version(
+    monkeypatch, referenced, download_uri, expected
+):
+    result = _check_model_version_artifact_source_root(
+        monkeypatch, "models:/other-model/1", None, download_uri, _RUN_ROOT, referenced=referenced
+    )
+    assert result is expected
+
+
+@pytest.mark.parametrize(
+    ("uri", "root", "expected"),
+    [
+        (f"{_RUN_ROOT}/model", _RUN_ROOT, True),
+        (f"{_RUN_ROOT}/model", f"{_RUN_ROOT}/", True),
+        (_RUN_ROOT, _RUN_ROOT, True),
+        ("s3://bucket/%31/run-1/artifacts/model", _RUN_ROOT, False),
+        ("s3://bucket/1//run-1/artifacts/model", _RUN_ROOT, False),
+        ("gs://bucket/%31/run-1/artifacts/model", "gs://bucket/1/run-1/artifacts", False),
+        ("gs://bucket/1//run-1/artifacts/model", "gs://bucket/1/run-1/artifacts", False),
+        ("s3://other-bucket/1/run-1/artifacts/model", _RUN_ROOT, False),
+        ("gs://bucket/1/run-1/artifacts/model", _RUN_ROOT, False),
+        ("s3://bucket/model", "s3://bucket/", False),
+    ],
+)
+def test_is_uri_within_artifact_root_compares_object_keys_literally(uri, root, expected):
+    assert auth_module._is_uri_within_artifact_root(uri, root) is expected
+
+
+def test_model_version_artifact_handler_serves_authorized_uri(monkeypatch, tmp_path):
+    authorized_root = tmp_path / "authorized"
+    authorized_root.mkdir()
+    (authorized_root / "MLmodel").write_text("authorized")
+    registry_store = mock.Mock()
+    registry_store.get_model_version_download_uri.return_value = "s3://external-bucket/model"
+    monkeypatch.setattr(handlers_module, "_get_model_registry_store", lambda: registry_store)
+
+    with auth_module.app.test_request_context(
+        "/model-versions/get-artifact?name=model&version=1&path=MLmodel"
+    ):
+        # Simulates the version being swapped for an external one after authorization.
+        handlers_module._remember_authorized_model_version_artifact_uri(
+            "model", "1", str(authorized_root)
+        )
+        response = handlers_module.get_model_version_artifact_handler()
+        response.direct_passthrough = False
+        body = response.get_data(as_text=True)
+
+    assert body == "authorized"
+    registry_store.get_model_version_download_uri.assert_not_called()
 
 
 def _mock_source_root_stores(monkeypatch, download_uri, failing_method, error):
@@ -2354,7 +2502,8 @@ def test_model_version_artifact_source_root_check_missing_resource(monkeypatch, 
         method,
         MlflowException("not found", error_code=RESOURCE_DOES_NOT_EXIST),
     )
-    assert auth_module._is_model_version_artifact_within_source_root("model", "1") is expected
+    artifact_uri = auth_module._model_version_artifact_uri_within_source_root("model", "1")
+    assert (artifact_uri is not None) is expected
 
 
 @pytest.mark.parametrize("method", ["get_model_version", "get_run", "get_logged_model"])
@@ -2363,7 +2512,7 @@ def test_model_version_artifact_source_root_check_reraises_store_failures(monkey
         monkeypatch, "s3://other-bucket/model", method, MlflowException("store unavailable")
     )
     with pytest.raises(MlflowException, match="store unavailable"):
-        auth_module._is_model_version_artifact_within_source_root("model", "1")
+        auth_module._model_version_artifact_uri_within_source_root("model", "1")
 
 
 @pytest.mark.parametrize(
