@@ -15,6 +15,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
@@ -91,6 +92,14 @@ def _get_root_uri_and_artifact_path(artifact_uri):
     # the model name portion of the URI, then call download_artifacts with the version info.
     if ModelsArtifactRepository.is_models_uri(artifact_uri):
         root_uri, artifact_path = ModelsArtifactRepository.split_models_uri(artifact_uri)
+    elif (
+        RunsArtifactRepository.is_runs_uri(artifact_uri)
+        and RunsArtifactRepository.parse_runs_uri(artifact_uri)[1] is None
+    ):
+        # `runs:/<run_id>` is the run's artifact root. Splitting off its last segment would
+        # treat the run ID as an artifact path under the invalid root `runs:/`.
+        root_uri = artifact_uri
+        artifact_path = ""
     else:
         artifact_path = posixpath.basename(parsed_uri.path)
         if is_file_uri:
