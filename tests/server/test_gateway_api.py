@@ -255,6 +255,10 @@ _STORED_VERTEX_CREDENTIAL_CASES = [
     "value",
     [
         service_account_key(token_uri="http://127.0.0.1:8080/token"),
+        service_account_key(
+            token_uri="https://accounts.google.com/o/oauth2/v2/auth?client_id=id"
+            "&redirect_uri=https://evil.example/cb&response_type=code&prompt=none"
+        ),
         service_account_key(auth_uri="https://evil.example/auth"),
         service_account_key(type="external_account"),
         "/etc/service-account.json",
@@ -268,6 +272,7 @@ def test_build_endpoint_config_rejects_untrusted_stored_vertex_credentials(provi
         _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
     assert exc.value.status_code == 502
     assert exc.value.detail.startswith("The endpoint's secret is invalid")
+    assert "'default_chain'" in exc.value.detail
     assert "evil" not in exc.value.detail
     assert "/etc/" not in exc.value.detail
 

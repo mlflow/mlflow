@@ -1094,7 +1094,16 @@ def test_validate_gateway_secret_value_rejects_litellm_destination_aliases(key):
 
 
 @pytest.mark.parametrize("key", ["vertex_credentials", "vertex_ai_credentials"])
-@pytest.mark.parametrize("value", ["", service_account_key()])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        service_account_key(),
+        service_account_key(token_uri="https://accounts.google.com/o/oauth2/token"),
+        service_account_key(token_uri="https://oauth2.mtls.googleapis.com/token"),
+        service_account_key(token_uri="https://oauth2-my-endpoint.p.googleapis.com/token"),
+    ],
+)
 def test_validate_gateway_vertex_credentials_accepts_service_account_key(key, value):
     assert _validate_gateway_secret_auth_config({key: value}) == {key: value}
     _validate_gateway_secret_value({key: value})
@@ -1108,6 +1117,15 @@ def test_validate_gateway_vertex_credentials_accepts_service_account_key(key, va
         service_account_key(token_uri="http://oauth2.googleapis.com/token"),
         service_account_key(token_uri="https://oauth2.googleapis.com.evil.example/token"),
         service_account_key(token_uri="https://user@oauth2.googleapis.com/token"),
+        # Google URLs other than a token endpoint can redirect to a URL of the caller's choosing.
+        service_account_key(
+            token_uri="https://accounts.google.com/o/oauth2/v2/auth?client_id=id"
+            "&redirect_uri=https://evil.example/cb&response_type=code&prompt=none"
+        ),
+        service_account_key(token_uri="https://storage.googleapis.com/bucket/token"),
+        service_account_key(token_uri="https://oauth2.googleapis.com/token?next=evil.example"),
+        service_account_key(token_uri="https://oauth2.googleapis.com:8443/token"),
+        service_account_key(token_uri="https://oauth2.googleapis.com/token\n"),
         service_account_key(token_uri=None),
         service_account_key(auth_uri="https://evil.example/auth"),
         service_account_key(client_x509_cert_url="https://169.254.169.254/"),
@@ -1136,7 +1154,7 @@ def test_validate_gateway_vertex_credentials_reads_file_only_with_opt_in(tmp_pat
         _validate_gateway_secret_value({"vertex_credentials": str(path)})
 
     monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
-    with pytest.raises(MlflowException, match="'token_uri' must be an https URL"):
+    with pytest.raises(MlflowException, match="'token_uri' must be a Google OAuth token endpoint"):
         _validate_gateway_secret_value({"vertex_credentials": str(path)})
     path.write_text(service_account_key())
     _validate_gateway_secret_value({"vertex_credentials": str(path)})

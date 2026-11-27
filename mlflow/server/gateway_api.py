@@ -378,7 +378,10 @@ def _resolve_stored_vertex_credential(value: Any, key: str) -> str:
         info = _load_gateway_vertex_credentials(value, repr(key))
     except MlflowException as e:
         raise HTTPException(
-            status_code=502, detail=f"The endpoint's secret is invalid: {e.message}"
+            status_code=502,
+            detail=f"The endpoint's secret is invalid: {e.message}. Store a service account key "
+            "JSON in the secret, or set its auth mode to 'default_chain' to use the server's "
+            "Application Default Credentials.",
         ) from None
     return json.dumps(info)
 

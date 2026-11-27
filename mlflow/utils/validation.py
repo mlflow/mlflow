@@ -1264,18 +1264,39 @@ def _is_google_auth_url(value: Any) -> bool:
     )
 
 
+# The token endpoints a service account key can name: the current one, its mTLS host, its
+# Private Service Connect hosts (``oauth2-<endpoint>.p.googleapis.com``) and the one older keys
+# carry. The whole URL is matched, not just the host, because google-auth follows redirects and
+# other paths on these hosts can redirect elsewhere, such as the OAuth authorization endpoint
+# on accounts.google.com.
+_GOOGLE_TOKEN_URL_REGEX = re.compile(
+    r"https://(oauth2(\.mtls|-[a-z0-9-]+\.p)?\.googleapis\.com/token"
+    r"|accounts\.google\.com/o/oauth2/token)"
+)
+
+
+def _is_google_token_url(value: Any) -> bool:
+    return isinstance(value, str) and _GOOGLE_TOKEN_URL_REGEX.fullmatch(value) is not None
+
+
 def _validate_vertex_service_account_info(info: Any, field_name: str) -> None:
     """Raise unless ``info`` is a service account key whose URLs all point to Google.
 
     google-auth sends the signed token request to ``token_uri`` through ``requests``, outside
     the gateway's SSRF-guarded transport and with redirects followed, so a stored key must not
-    choose where it goes. Every ``*_uri``/``*_url`` field is held to the same rule, and other
+    choose where it goes: ``token_uri`` must be one of Google's token endpoints, which don't
+    redirect. Every other ``*_uri``/``*_url`` field must be on a Google host, and other
     credential types are refused because they carry further URLs and local file sources.
     """
     if not isinstance(info, dict) or info.get("type") != "service_account":
         raise MlflowException.invalid_parameter_value(
             f'{field_name} must be a service account key: a JSON object with "type": '
             '"service_account"'
+        )
+    if "token_uri" in info and not _is_google_token_url(info["token_uri"]):
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} field 'token_uri' must be a Google OAuth token endpoint, such as "
+            "https://oauth2.googleapis.com/token"
         )
     for key in sorted(k for k in info if k.endswith(("_uri", "_url"))):
         if not _is_google_auth_url(info[key]):
