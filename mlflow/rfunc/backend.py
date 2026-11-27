@@ -5,10 +5,35 @@ import subprocess
 import sys
 
 from mlflow.exceptions import MlflowException
-from mlflow.models import FlavorBackend
+from mlflow.models import FlavorBackend, docker_utils
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.file_utils import TempDir
 
 _logger = logging.getLogger(__name__)
+
+R_BASE_IMAGE = "rocker/r-ver:4.4.2"
+
+_R_DOCKERFILE_TEMPLATE = """# Build an image that serves an MLflow R model.
+FROM {base_image}
+
+WORKDIR /opt/mlflow
+
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+    libcurl4-openssl-dev libssl-dev libxml2-dev \\
+    && rm -rf /var/lib/apt/lists/*
+
+RUN R -e "install.packages('mlflow', repos = 'https://cloud.r-project.org')"
+
+{model_copy_step}
+
+EXPOSE 8080
+
+ENTRYPOINT ["Rscript", "-e", "{serve_command}"]
+"""
+
+_R_SERVE_COMMAND = (
+    "mlflow::mlflow_rfunc_serve('/opt/ml/model', port = 8080, host = '0.0.0.0')"
+)
 
 
 class RFuncBackend(FlavorBackend):
@@ -26,7 +51,18 @@ class RFuncBackend(FlavorBackend):
         mlflow_home=None,
         base_image=None,
     ):
-        pass
+        with TempDir() as tmp:
+            cwd = tmp.path()
+            self.generate_dockerfile(
+                model_uri=model_uri,
+                output_dir=cwd,
+                install_java=install_java,
+                install_mlflow=install_mlflow,
+                mlflow_home=mlflow_home,
+                base_image=base_image,
+            )
+            _logger.info("Building docker image with name %s", image_name)
+            docker_utils.build_image_from_context(context_dir=cwd, image_name=image_name)
 
     def generate_dockerfile(
         self,
@@ -37,7 +73,37 @@ class RFuncBackend(FlavorBackend):
         mlflow_home=None,
         base_image=None,
     ):
-        pass
+        """
+        Write a Dockerfile (and the model, if ``model_uri`` is given) into ``output_dir``.
+        The image installs the ``mlflow`` R package and serves the model with
+        ``mlflow_rfunc_serve`` on port 8080.
+        """
+        if install_java:
+            _logger.warning("`install_java` is not used by the R backend and is ignored.")
+        if mlflow_home or install_mlflow:
+            _logger.warning(
+                "The R backend installs the `mlflow` R package from CRAN; `install_mlflow` "
+                "and `mlflow_home` are ignored."
+            )
+        os.makedirs(output_dir, exist_ok=True)
+
+        model_dir_name = "model"
+        if model_uri:
+            model_path = os.path.join(output_dir, model_dir_name)
+            _download_artifact_from_uri(model_uri, output_path=model_path)
+            model_copy_step = f"COPY {model_dir_name} /opt/ml/model"
+        else:
+            # No model baked in: the caller must mount or copy a model at /opt/ml/model.
+            model_copy_step = "# No model baked in; mount an R model at /opt/ml/model."
+
+        base = base_image or R_BASE_IMAGE
+        dockerfile = _R_DOCKERFILE_TEMPLATE.format(
+            base_image=base,
+            model_copy_step=model_copy_step,
+            serve_command=_R_SERVE_COMMAND,
+        )
+        with open(os.path.join(output_dir, "Dockerfile"), "w") as f:
+            f.write(dockerfile)
 
     version_pattern = re.compile(r"version ([0-9]+\.[0-9]+\.[0-9]+)")
 
