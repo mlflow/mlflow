@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import json
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -70,6 +69,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         self.version = version
         self._experiment_ids = None
         self._records = None
+        # Set when a merge fails partway, since earlier batches may already be committed
+        self._metadata_stale = False
 
         source = EvaluationDatasetSource(dataset_id=self.dataset_id)
         Dataset.__init__(self, source=source, name=name, digest=digest)
@@ -87,10 +88,19 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         return self._source
 
     @property
+    def digest(self) -> str:
+        """
+        A unique hash or fingerprint of the dataset, e.g. ``"498c7496"``.
+        """
+        self._refresh_metadata_if_stale()
+        return self._digest
+
+    @property
     def schema(self) -> str | None:
         """
         Dataset schema information.
         """
+        self._refresh_metadata_if_stale()
         return self._schema
 
     @property
@@ -98,6 +108,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         """
         Dataset profile information.
         """
+        self._refresh_metadata_if_stale()
         return self._profile
 
     @property
@@ -300,26 +311,34 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
         try:
             tracking_store.upsert_dataset_records(dataset_id=self.dataset_id, records=record_dicts)
-        except Exception:
-            # Earlier batches of a remote upsert may already be committed, so refresh the cached
-            # state, keeping the upsert error if the refresh also fails.
-            with contextlib.suppress(Exception):
-                self._refresh_from_store(tracking_store)
+        except BaseException:
+            # Earlier batches of a remote upsert may already be committed. Defer the refresh to
+            # the next metadata access so that a failure caused by an unreachable server, or an
+            # interrupt, surfaces without another network round trip.
+            self._records = None
+            self._metadata_stale = True
             raise
+        self._records = None
         self._refresh_from_store(tracking_store)
 
         return self
 
+    def _refresh_metadata_if_stale(self) -> None:
+        if self._metadata_stale:
+            from mlflow.tracking._tracking_service.utils import _get_store
+
+            self._refresh_from_store(_get_store())
+
     def _refresh_from_store(self, tracking_store) -> None:
         # The upsert updates the digest, schema, and profile in the backend; refresh them so
         # this object's identity matches its records when logged as a run input.
-        self._records = None
         updated_dataset = tracking_store.get_dataset(self.dataset_id)
         self._digest = updated_dataset.digest
         self._schema = updated_dataset.schema
         self._profile = updated_dataset.profile
         self.last_update_time = updated_dataset.last_update_time
         self.last_updated_by = updated_dataset.last_updated_by
+        self._metadata_stale = False
 
     def _validate_record_dicts(self, record_dicts: list[dict[str, Any]]) -> None:
         """Validate that record dictionaries have the required structure.

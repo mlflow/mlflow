@@ -258,7 +258,15 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self,
         records: "list[dict[str, Any]] | pd.DataFrame | pyspark.sql.DataFrame",
     ) -> "EvaluationDataset":
-        """Merge records into the dataset."""
+        """
+        Merge records into the dataset.
+
+        .. note::
+            When the tracking backend is a remote server, large merges are sent in batches of
+            up to 1,000 records, and each batch is committed independently. If a batch fails,
+            records from earlier batches remain in the dataset. Retrying the merge is safe
+            because records are deduplicated by their inputs.
+        """
         if self._mlflow_dataset:
             self._mlflow_dataset.merge_records(records)
             return self

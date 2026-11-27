@@ -3690,6 +3690,8 @@ def test_upsert_dataset_records_accepts_max_records(mock_tracking_store):
         (json.dumps("not a list"), "must be a JSON list"),
         ("[1, null]", "must be a JSON list"),
         ("[{", "must be valid JSON"),
+        pytest.param("[" + "1" * 5000 + "]", "must be valid JSON", id="integer-too-long"),
+        pytest.param("[" * 100_000 + "]" * 100_000, "must be valid JSON", id="too-deeply-nested"),
     ],
 )
 def test_upsert_dataset_records_rejects_invalid_records(mock_tracking_store, records_json, match):

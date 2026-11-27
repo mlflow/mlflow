@@ -8806,7 +8806,9 @@ def _upsert_dataset_records_handler(dataset_id):
 
     try:
         records = json.loads(request_message.records)
-    except json.JSONDecodeError as e:
+    # JSONDecodeError subclasses ValueError, which also covers integers over Python's digit
+    # limit; RecursionError covers deeply nested input.
+    except (ValueError, RecursionError) as e:
         raise MlflowException(
             f"The 'records' parameter must be valid JSON: {e}",
             error_code=INVALID_PARAMETER_VALUE,
