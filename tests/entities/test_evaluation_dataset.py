@@ -824,3 +824,47 @@ def test_merge_records_does_not_modify_input_records():
         {"team": "eval", MLFLOW_USER: "alice"},
         {MLFLOW_USER: "alice"},
     ]
+
+
+def test_merge_records_refreshes_state_when_upsert_fails():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+    dataset._records = []
+
+    mock_store = Mock()
+    mock_store.get_dataset.return_value.schema = None
+    mock_store.get_dataset.return_value.digest = "digest456"
+    mock_store.upsert_dataset_records.side_effect = MlflowException("chunk failed")
+
+    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        with pytest.raises(MlflowException, match="chunk failed"):
+            dataset.merge_records([{"inputs": {"q": "a"}}])
+
+    assert dataset._records is None
+    assert dataset.digest == "digest456"
+
+
+def test_merge_records_keeps_upsert_error_when_refresh_fails():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+    dataset._records = []
+
+    mock_store = Mock()
+    mock_store.get_dataset.side_effect = [Mock(schema=None), MlflowException("refresh failed")]
+    mock_store.upsert_dataset_records.side_effect = MlflowException("chunk failed")
+
+    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        with pytest.raises(MlflowException, match="chunk failed"):
+            dataset.merge_records([{"inputs": {"q": "a"}}])
+
+    assert dataset._records is None

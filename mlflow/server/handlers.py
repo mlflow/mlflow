@@ -8804,10 +8804,16 @@ def _upsert_dataset_records_handler(dataset_id):
         },
     )
 
-    records = json.loads(request_message.records)
-    if not isinstance(records, list):
+    try:
+        records = json.loads(request_message.records)
+    except json.JSONDecodeError as e:
         raise MlflowException(
-            "The 'records' parameter must be a JSON list of records.",
+            f"The 'records' parameter must be valid JSON: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e
+    if not isinstance(records, list) or not all(isinstance(r, dict) for r in records):
+        raise MlflowException(
+            "The 'records' parameter must be a JSON list of record objects.",
             error_code=INVALID_PARAMETER_VALUE,
         )
     if len(records) > MAX_DATASET_RECORDS_PER_UPSERT:

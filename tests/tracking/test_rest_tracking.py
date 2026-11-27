@@ -3952,6 +3952,26 @@ def test_evaluation_dataset_upsert_records(mlflow_client, store_type):
     assert response.status_code != 200
 
 
+def test_evaluation_dataset_merge_records_in_chunks(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Evaluation datasets not supported for FileStore")
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("merge_records_chunks_test")
+    dataset = create_dataset(name="chunked_merge_dataset", experiment_id=experiment_id)
+
+    records = [
+        {"inputs": {"question": f"q{i}"}, "expectations": {"answer": f"a{i}"}} for i in range(2500)
+    ]
+    dataset.merge_records(records)
+
+    fetched = mlflow_client.get_dataset(dataset.dataset_id)
+    assert len(fetched.to_df()) == 2500
+    assert dataset.digest == fetched.digest
+    assert dataset.schema == fetched.schema
+    assert dataset.profile == fetched.profile
+    assert json.loads(fetched.profile)["num_records"] == 2500
+
+
 def test_add_dataset_to_experiments_rest_tracking(mlflow_client, store_type):
     if store_type == "file":
         pytest.skip("File store doesn't support dataset operations")

@@ -2317,17 +2317,28 @@ class RestStore(
             records[i : i + _UPSERT_DATASET_RECORDS_CHUNK_SIZE]
             for i in range(0, len(records), _UPSERT_DATASET_RECORDS_CHUNK_SIZE)
         ] or [records]
-        inserted = updated = 0
+        inserted = updated = committed = 0
         for chunk in chunks:
             req = UpsertDatasetRecords(
                 records=json.dumps(chunk),
             )
             req_body = message_to_json(req)
-            response_proto = self._call_endpoint(
-                UpsertDatasetRecords,
-                req_body,
-                endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
-            )
+            try:
+                response_proto = self._call_endpoint(
+                    UpsertDatasetRecords,
+                    req_body,
+                    endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+                )
+            except MlflowException as e:
+                if committed == 0:
+                    raise
+                raise MlflowException(
+                    f"Failed to upsert records into dataset {dataset_id} after {committed} of "
+                    f"{len(records)} records were committed. Retrying the upsert is safe because "
+                    f"records are deduplicated by their inputs. Error: {e.message}",
+                    error_code=databricks_pb2.ErrorCode.Value(e.error_code),
+                ) from e
+            committed += len(chunk)
             inserted += response_proto.inserted_count
             updated += response_proto.updated_count
         return {"inserted": inserted, "updated": updated}

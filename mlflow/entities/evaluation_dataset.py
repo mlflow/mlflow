@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -232,6 +233,12 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         Returns:
             Self for method chaining
 
+        .. note::
+            When the tracking backend is a remote server, large merges are sent in batches of
+            up to 1,000 records, and each batch is committed independently. If a batch fails,
+            records from earlier batches remain in the dataset. Retrying the merge is safe
+            because records are deduplicated by their inputs.
+
         Example:
             .. code-block:: python
 
@@ -291,19 +298,28 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             for record in record_dicts:
                 record["tags"] = {MLFLOW_USER: user_tag, **(record.get("tags") or {})}
 
-        tracking_store.upsert_dataset_records(dataset_id=self.dataset_id, records=record_dicts)
-        self._records = None
+        try:
+            tracking_store.upsert_dataset_records(dataset_id=self.dataset_id, records=record_dicts)
+        except Exception:
+            # Earlier batches of a remote upsert may already be committed, so refresh the cached
+            # state, keeping the upsert error if the refresh also fails.
+            with contextlib.suppress(Exception):
+                self._refresh_from_store(tracking_store)
+            raise
+        self._refresh_from_store(tracking_store)
 
+        return self
+
+    def _refresh_from_store(self, tracking_store) -> None:
         # The upsert updates the digest, schema, and profile in the backend; refresh them so
         # this object's identity matches its records when logged as a run input.
+        self._records = None
         updated_dataset = tracking_store.get_dataset(self.dataset_id)
         self._digest = updated_dataset.digest
         self._schema = updated_dataset.schema
         self._profile = updated_dataset.profile
         self.last_update_time = updated_dataset.last_update_time
         self.last_updated_by = updated_dataset.last_updated_by
-
-        return self
 
     def _validate_record_dicts(self, record_dicts: list[dict[str, Any]]) -> None:
         """Validate that record dictionaries have the required structure.

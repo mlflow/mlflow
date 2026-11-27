@@ -3678,18 +3678,22 @@ def test_upsert_dataset_records_accepts_max_records(mock_tracking_store):
 
 
 @pytest.mark.parametrize(
-    ("records", "match"),
+    ("records_json", "match"),
     [
         (
-            [{"inputs": {"q": str(i)}} for i in range(MAX_DATASET_RECORDS_PER_UPSERT + 1)],
-            "at most 10000 records",
+            json.dumps([
+                {"inputs": {"q": str(i)}} for i in range(MAX_DATASET_RECORDS_PER_UPSERT + 1)
+            ]),
+            f"at most {MAX_DATASET_RECORDS_PER_UPSERT} records",
         ),
-        ({"inputs": {"q": "test"}}, "must be a JSON list"),
-        ("not a list", "must be a JSON list"),
+        (json.dumps({"inputs": {"q": "test"}}), "must be a JSON list"),
+        (json.dumps("not a list"), "must be a JSON list"),
+        ("[1, null]", "must be a JSON list"),
+        ("[{", "must be valid JSON"),
     ],
 )
-def test_upsert_dataset_records_rejects_invalid_records(mock_tracking_store, records, match):
-    with app.test_request_context(method="POST", json={"records": json.dumps(records)}):
+def test_upsert_dataset_records_rejects_invalid_records(mock_tracking_store, records_json, match):
+    with app.test_request_context(method="POST", json={"records": records_json}):
         resp = _upsert_dataset_records_handler("d-123")
 
     assert resp.status_code == 400
