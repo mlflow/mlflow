@@ -12,6 +12,7 @@ from mlflow.gateway.providers.litellm import LiteLLMAdapter, LiteLLMProvider
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.ssrf import upstream_ssrf_protection
 from mlflow.utils.validation import (
+    GATEWAY_VERTEX_CREDENTIAL_KEYS,
     _validate_gateway_secret_auth_config,
     _validate_gateway_secret_value,
 )
@@ -1441,7 +1442,9 @@ def test_credential_selector_guard_precedes_configuration_merge(payload, auth_co
     ],
 )
 def test_credential_guard_preserves_stored_configuration(auth_config, protected):
-    assert _validate_gateway_secret_auth_config(auth_config) == auth_config
+    # A Vertex AI service account key is only accepted in secret_value on write.
+    if not GATEWAY_VERTEX_CREDENTIAL_KEYS & set(auth_config):
+        assert _validate_gateway_secret_auth_config(auth_config) == auth_config
     _validate_gateway_secret_value(auth_config)
     payload = {"messages": [], "temperature": 0.5, "top_k": 2}
     assert _prepare_litellm_kwargs(payload, auth_config, protected) == payload | auth_config

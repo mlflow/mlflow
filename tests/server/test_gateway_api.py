@@ -194,7 +194,7 @@ def test_build_endpoint_config_vertex_ai_reads_anthropic_betas_from_auth_config(
         model_definition_id="md-test",
         provider="vertex_ai",
         model_name="claude-sonnet-4-5@20251101",
-        secret_value={"vertex_credentials": '{"type": "service_account"}'},
+        secret_value={"vertex_credentials": service_account_key()},
         auth_config={
             "vertex_project": "my-project",
             "vertex_location": "us-east5",
@@ -209,7 +209,7 @@ def test_build_endpoint_config_vertex_ai_reads_anthropic_betas_from_auth_config(
 @pytest.mark.parametrize(
     ("auth_mode", "expected"),
     [
-        ("service_account_json", '{"type": "service_account"}'),
+        ("service_account_json", service_account_key()),
         ("default_chain", None),
     ],
 )
@@ -219,12 +219,27 @@ def test_build_endpoint_config_vertex_ai_credentials_follow_auth_mode(auth_mode,
         model_definition_id="md-test",
         provider="vertex_ai",
         model_name="gemini-2.5-flash",
-        secret_value={"vertex_credentials": '{"type": "service_account"}'},
+        secret_value={"vertex_credentials": service_account_key()},
         auth_config={"auth_mode": auth_mode, "vertex_project": "my-project"},
     )
     config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
     assert isinstance(config.model.config, VertexAIConfig)
     assert config.model.config.vertex_credentials == expected
+
+
+@pytest.mark.parametrize("key", ["vertex_credentials", "vertex_ai_credentials"])
+@pytest.mark.parametrize("value", [service_account_key(), "/etc/service-account.json"])
+def test_build_endpoint_config_litellm_default_chain_drops_vertex_credentials(key, value):
+    # Secrets stored before auth_config rejected these keys can still carry one there.
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="vertex_ai_beta",
+        model_name="gemini-2.5-flash",
+        secret_value={key: value},
+        auth_config={"auth_mode": "default_chain", "vertex_project": "my-project", key: value},
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert config.model.config.litellm_auth_config == {"vertex_project": "my-project"}
 
 
 def _vertex_model_config(provider, key, value):

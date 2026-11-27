@@ -1285,15 +1285,16 @@ def _validate_vertex_service_account_info(info: Any, field_name: str) -> None:
     google-auth sends the signed token request to ``token_uri`` through ``requests``, outside
     the gateway's SSRF-guarded transport and with redirects followed, so a stored key must not
     choose where it goes: ``token_uri`` must be one of Google's token endpoints, which don't
-    redirect. Every other ``*_uri``/``*_url`` field must be on a Google host, and other
-    credential types are refused because they carry further URLs and local file sources.
+    redirect. It is required, since google-auth can't load a key without it. Every other
+    ``*_uri``/``*_url`` field must be on a Google host, and other credential types are refused
+    because they carry further URLs and local file sources.
     """
     if not isinstance(info, dict) or info.get("type") != "service_account":
         raise MlflowException.invalid_parameter_value(
             f'{field_name} must be a service account key: a JSON object with "type": '
             '"service_account"'
         )
-    if "token_uri" in info and not _is_google_token_url(info["token_uri"]):
+    if not _is_google_token_url(info.get("token_uri")):
         raise MlflowException.invalid_parameter_value(
             f"{field_name} field 'token_uri' must be a Google OAuth token endpoint, such as "
             "https://oauth2.googleapis.com/token"
@@ -1388,8 +1389,15 @@ def _validate_gateway_secret_auth_config(
             "options choose where the gateway sends requests. Set the upstream with "
             "'api_base', which is validated."
         )
+    # auth_config is stored unencrypted and returned by the secret APIs, and a service account
+    # key holds a private key.
+    if credential_keys := sorted(GATEWAY_VERTEX_CREDENTIAL_KEYS & set(normalized)):
+        raise MlflowException.invalid_parameter_value(
+            f"auth_config must not contain {', '.join(map(repr, credential_keys))}: "
+            "auth_config is stored unencrypted and returned by the API. Put the service account "
+            "key in secret_value."
+        )
     _validate_gateway_region_keys(normalized, "auth_config")
-    _validate_gateway_vertex_credentials(normalized, "auth_config")
     if auth_url := normalized.get("auth_url"):
         _validate_gateway_api_base(auth_url)
     api_base = normalized.get("api_base")

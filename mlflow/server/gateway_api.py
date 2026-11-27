@@ -380,8 +380,8 @@ def _resolve_stored_vertex_credential(value: Any, key: str) -> str:
         raise HTTPException(
             status_code=502,
             detail=f"The endpoint's secret is invalid: {e.message}. Store a service account key "
-            "JSON in the secret, or set its auth mode to 'default_chain' to use the server's "
-            "Application Default Credentials.",
+            "JSON in the secret's secret_value, or set its auth mode to 'default_chain' to use "
+            "the server's Application Default Credentials.",
         ) from None
     return json.dumps(info)
 
@@ -602,9 +602,14 @@ def _build_endpoint_config(
         # api_base is validated on auth_config at write time, so the encrypted, unvalidated
         # secret map must never be allowed to override it.
         # default_chain modes (e.g. SageMaker) resolve credentials from the server environment,
-        # so ignore any secrets left over from a previous auth mode.
+        # so ignore any secrets left over from a previous auth mode. Older secrets can also keep
+        # a Vertex AI service account key in auth_config, which LiteLLM would prefer over the
+        # server's Application Default Credentials.
         if auth_config.get(_AuthConfigKey.AUTH_MODE) == "default_chain":
             secret_value = {}
+            auth_config = {
+                k: v for k, v in auth_config.items() if k not in GATEWAY_VERTEX_CREDENTIAL_KEYS
+            }
         else:
             secret_value = {
                 k: v for k, v in model_config.secret_value.items() if k != _AuthConfigKey.API_BASE

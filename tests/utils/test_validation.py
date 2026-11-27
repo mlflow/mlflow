@@ -1105,8 +1105,20 @@ def test_validate_gateway_secret_value_rejects_litellm_destination_aliases(key):
     ],
 )
 def test_validate_gateway_vertex_credentials_accepts_service_account_key(key, value):
-    assert _validate_gateway_secret_auth_config({key: value}) == {key: value}
     _validate_gateway_secret_value({key: value})
+
+
+@pytest.mark.parametrize("key", ["vertex_credentials", "vertex_ai_credentials"])
+@pytest.mark.parametrize("value", ["", service_account_key(), "/etc/service-account.json"])
+def test_validate_gateway_secret_auth_config_rejects_vertex_credentials(key, value):
+    # auth_config is stored unencrypted and returned by the API.
+    with pytest.raises(
+        MlflowException, match=f"auth_config must not contain '{key}'.*secret_value"
+    ) as exc:
+        _validate_gateway_secret_auth_config({"vertex_project": "my-project", key: value})
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "PRIVATE KEY" not in exc.value.message
+    assert "/etc/" not in exc.value.message
 
 
 @pytest.mark.parametrize("key", ["vertex_credentials", "vertex_ai_credentials"])
@@ -1137,13 +1149,18 @@ def test_validate_gateway_vertex_credentials_accepts_service_account_key(key, va
     ],
 )
 def test_validate_gateway_vertex_credentials_rejects_untrusted_document(key, value):
-    with pytest.raises(MlflowException, match=f"auth_config '{key}'") as exc:
-        _validate_gateway_secret_auth_config({key: value})
-    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(MlflowException, match=f"secret_value '{key}'") as exc:
         _validate_gateway_secret_value({key: value})
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert "evil" not in exc.value.message
     assert "/etc/" not in exc.value.message
+
+
+def test_validate_gateway_vertex_credentials_requires_token_uri():
+    info = json.loads(service_account_key())
+    del info["token_uri"]
+    with pytest.raises(MlflowException, match="'token_uri' must be a Google OAuth token endpoint"):
+        _validate_gateway_secret_value({"vertex_credentials": json.dumps(info)})
 
 
 def test_validate_gateway_vertex_credentials_reads_file_only_with_opt_in(tmp_path, monkeypatch):
