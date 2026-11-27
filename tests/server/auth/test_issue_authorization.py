@@ -10,7 +10,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.schedule import DetectionCadence, DetectionSchedule, ScheduleModel
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
-from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_ISSUE_DETECTION_SCHEDULE,
+)
 
 
 def _run(monkeypatch, validator, body, *, can_update=False, can_read=False):
@@ -151,6 +153,30 @@ def test_detect_issues_skips_the_secret_check_when_none_is_used(monkeypatch):
 
 def test_detect_issues_denies_a_missing_experiment(monkeypatch):
     assert _run_detect_issues(monkeypatch, {"experiment_id": "missing"}) == (False, [])
+
+
+def _run_cancel_detection(monkeypatch, *, can_update=True, run=True):
+    monkeypatch.setattr(a, "authenticate_request", lambda: SimpleNamespace(username="u"))
+
+    def authorize_run(action):
+        # A missing run resolves to no requirement, which denies.
+        return run and action == "update" and can_update
+
+    monkeypatch.setattr(a, "_authorize_run", authorize_run)
+    app = flask.Flask(__name__)
+    with app.test_request_context(
+        "/api/3.0/mlflow/issues/detection-runs/r1/cancel", method="POST", json={"run_id": "r1"}
+    ):
+        return a.validate_can_cancel_issue_detection_run()
+
+
+def test_cancel_issue_detection_run_requires_update_on_the_run(monkeypatch):
+    assert _run_cancel_detection(monkeypatch, can_update=True) is True
+    assert _run_cancel_detection(monkeypatch, can_update=False) is False
+
+
+def test_cancel_issue_detection_run_denies_a_missing_run(monkeypatch):
+    assert _run_cancel_detection(monkeypatch, run=False) is False
 
 
 def test_detect_issues_requires_that_assessments_are_not_denied(monkeypatch):

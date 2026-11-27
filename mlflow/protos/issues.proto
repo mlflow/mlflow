@@ -232,3 +232,27 @@ message DetectIssues {
     optional IssueDetectionRun issue_detection_run = 1;
   }
 }
+
+// Request to get an issue detection run.
+message GetIssueDetectionRun {
+  // ID of the run.
+  optional string run_id = 1 [(validate_required) = true];
+
+  message Response {
+    // The run.
+    optional IssueDetectionRun issue_detection_run = 1;
+  }
+}
+
+// Request to cancel an issue detection run. Canceling a run that has ended returns it unchanged.
+// When the server has authentication enabled, the caller needs EDIT on the run's experiment,
+// whoever started the run.
+message CancelIssueDetectionRun {
+  // ID of the run.
+  optional string run_id = 1 [(validate_required) = true];
+
+  message Response {
+    // The run.
+    optional IssueDetectionRun issue_detection_run = 1;
+  }
+}
