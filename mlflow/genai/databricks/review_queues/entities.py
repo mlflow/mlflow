@@ -1,9 +1,16 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlencode
 
 from mlflow.genai.utils.enum_utils import StrEnum
+from mlflow.tracking import get_tracking_uri
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import (
+    get_databricks_host_creds,
+    get_workspace_id,
+    get_workspace_url,
+)
 
 
 def _parse_time_ms(value: str | None) -> int | None:
@@ -211,6 +218,20 @@ class ReviewQueue:
             last_updated_by=d.get("last_updated_by"),
             update_time_ms=_parse_time_ms(d.get("update_time")),
         )
+
+    @property
+    def url(self) -> str:
+        """A link to the queue in the Databricks UI, like a labeling session's ``url``."""
+        query = {"selectedQueueId": self.queue_id}
+        if workspace_url := get_workspace_url():
+            # In a Databricks notebook the workspace is known, so name it, as the UI's links do.
+            host = workspace_url
+            if (workspace_id := get_workspace_id()) and str(workspace_id) != "0":
+                query = {"o": str(workspace_id), **query}
+        else:
+            host = get_databricks_host_creds(get_tracking_uri()).host
+        path = f"/ml/experiments/{self.experiment_id}/review-queue"
+        return f"{host.rstrip('/')}{path}?{urlencode(query)}"
 
 
 @experimental(version="3.17.1")
