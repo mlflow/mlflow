@@ -30,6 +30,7 @@ import {
   KnownEvaluationResultAssessmentValueMissingTooltip,
   ASSESSMENTS_DOC_LINKS,
   getJudgeMetricsLink,
+  normalizeAssessmentStringValue,
 } from './GenAiEvaluationTracesReview.utils';
 import type { AssessmentInfo, RunEvaluationResultAssessment } from '../types';
 import {
@@ -46,9 +47,11 @@ export const isAssessmentPassing = (
 ) => {
   if (!isNil(assessmentValue)) {
     if (assessmentInfo.dtype === 'pass-fail') {
-      if (assessmentValue === KnownEvaluationResultAssessmentStringValue.YES) {
+      const normalizedValue =
+        typeof assessmentValue === 'string' ? normalizeAssessmentStringValue(assessmentValue) : assessmentValue;
+      if (normalizedValue === KnownEvaluationResultAssessmentStringValue.YES) {
         return true;
-      } else if (assessmentValue === KnownEvaluationResultAssessmentStringValue.NO) {
+      } else if (normalizedValue === KnownEvaluationResultAssessmentStringValue.NO) {
         return false;
       }
     } else if (assessmentInfo.dtype === 'boolean') {
