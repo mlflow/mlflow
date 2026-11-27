@@ -1083,6 +1083,18 @@ def test_builtin_cost_uses_databricks_catalog_for_databricks_names_with_provider
     assert result["total_cost"] > 0
 
 
+def test_builtin_cost_for_vertex_ai_publisher_prefixed_model(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "zai-org/glm-5.2-maas",
+            {"input_tokens": 1000, "output_tokens": 500},
+            model_provider="vertex_ai",
+        )
+    assert result is not None
+    assert result["total_cost"] > 0
+
+
 @pytest.fixture
 def custom_model_catalog(tmp_path, monkeypatch):
     catalog = {
@@ -1102,6 +1114,10 @@ def custom_model_catalog(tmp_path, monkeypatch):
                 "pricing": {"input_per_million_tokens": 0.0, "output_per_million_tokens": 0.0},
             },
             "unpriced-model": {"mode": "chat"},
+            "acme/prefixed-model": {
+                "mode": "chat",
+                "pricing": {"input_per_million_tokens": 10.0, "output_per_million_tokens": 10.0},
+            },
         },
     }
     (tmp_path / "ollama.json").write_text(json.dumps(catalog))
@@ -1121,7 +1137,12 @@ def litellm_cost(mock_litellm_cost):
 @pytest.mark.usefixtures("custom_model_catalog")
 @pytest.mark.parametrize(
     ("model_name", "expected_cost"),
-    [("my-model", 0.01), ("ollama/my-model", 0.01), ("free-model", 0.0)],
+    [
+        ("my-model", 0.01),
+        ("ollama/my-model", 0.01),
+        ("free-model", 0.0),
+        ("acme/prefixed-model", 0.01),
+    ],
 )
 def test_custom_model_catalog_price_takes_precedence_over_litellm(
     litellm_cost, model_name, expected_cost

@@ -333,18 +333,22 @@ def _load_provider(provider: str) -> dict[str, ModelInfo]:
     return _load_bundled_provider(provider)
 
 
+def _get_catalog_entry(models: dict[str, ModelInfo], model: str) -> ModelInfo | None:
+    # Strip a leading provider prefix (e.g. "openai/gpt-4o"), then fall back to the full name
+    # for catalog keys that carry a publisher prefix (e.g. Vertex AI's "zai-org/glm-5.2-maas").
+    return models.get(model.split("/", 1)[-1]) or models.get(model)
+
+
 def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> ModelInfo | None:
     """Look up model cost info, loading only the relevant provider file."""
-    bare_model = model.split("/", 1)[-1]
-
     if custom_llm_provider:
-        return _load_provider(custom_llm_provider).get(bare_model)
+        return _get_catalog_entry(_load_provider(custom_llm_provider), model)
 
     # No provider given — scan bundled providers only (no remote fetch)
     # to avoid O(N) network requests across all providers.
     fallback = None
     for provider in _list_provider_names():
-        if info := _load_bundled_provider(provider).get(bare_model):
+        if info := _get_catalog_entry(_load_bundled_provider(provider), model):
             if info.get("input_cost_per_token"):
                 return info
             if fallback is None:
@@ -413,7 +417,7 @@ def _cost_per_token_from_custom_catalog(
         return None
     if not (models := _fetch_remote_provider(provider)):
         return None
-    info = models.get(model.split("/", 1)[-1])
+    info = _get_catalog_entry(models, model)
     if info is None or not ({"input_cost_per_token", "output_cost_per_token"} & info.keys()):
         return None
     return _cost_from_model_info(
