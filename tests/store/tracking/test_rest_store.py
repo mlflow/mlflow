@@ -2219,6 +2219,27 @@ def test_upsert_evaluation_dataset_records():
         )
 
 
+def test_upsert_dataset_records_sends_chunks():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    records = [{"inputs": {"q": str(i)}} for i in range(2500)]
+
+    def respond(api, json_body, endpoint):
+        chunk = json.loads(json.loads(json_body)["records"])
+        response = UpsertDatasetRecords.Response()
+        response.inserted_count = len(chunk) - 1
+        response.updated_count = 1
+        return response
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=respond) as mock_call:
+        result = store.upsert_dataset_records(dataset_id="d-123", records=records)
+
+    assert result == {"inserted": 2497, "updated": 3}
+    sent = [json.loads(json.loads(c.args[1])["records"]) for c in mock_call.call_args_list]
+    assert [len(chunk) for chunk in sent] == [1000, 1000, 500]
+    assert [r for chunk in sent for r in chunk] == records
+
+
 def test_delete_evaluation_dataset_records():
     creds = MlflowHostCreds("https://test-server")
     store = RestStore(lambda: creds)

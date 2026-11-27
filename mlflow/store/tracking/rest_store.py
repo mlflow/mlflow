@@ -191,6 +191,8 @@ from mlflow.utils.validation import _resolve_experiment_ids_and_locations
 
 _logger = logging.getLogger(__name__)
 
+_UPSERT_DATASET_RECORDS_CHUNK_SIZE = 1000
+
 
 # MRO Note: RestGatewayStoreMixin must be listed before AbstractStore in the inheritance chain.
 # AbstractStore inherits from GatewayStoreMixin which defines abstract Gateway methods.
@@ -2306,19 +2308,25 @@ class RestStore(
         Returns:
             Dictionary with 'inserted' and 'updated' counts.
         """
-        req = UpsertDatasetRecords(
-            records=json.dumps(records),
-        )
-        req_body = message_to_json(req)
-        response_proto = self._call_endpoint(
-            UpsertDatasetRecords,
-            req_body,
-            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
-        )
-        return {
-            "inserted": response_proto.inserted_count,
-            "updated": response_proto.updated_count,
-        }
+        # Send at least one request so an empty upsert still reaches the server.
+        chunks = [
+            records[i : i + _UPSERT_DATASET_RECORDS_CHUNK_SIZE]
+            for i in range(0, len(records), _UPSERT_DATASET_RECORDS_CHUNK_SIZE)
+        ] or [records]
+        inserted = updated = 0
+        for chunk in chunks:
+            req = UpsertDatasetRecords(
+                records=json.dumps(chunk),
+            )
+            req_body = message_to_json(req)
+            response_proto = self._call_endpoint(
+                UpsertDatasetRecords,
+                req_body,
+                endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+            )
+            inserted += response_proto.inserted_count
+            updated += response_proto.updated_count
+        return {"inserted": inserted, "updated": updated}
 
     @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
     def delete_dataset_records(self, dataset_id: str, dataset_record_ids: list[str]) -> int:
