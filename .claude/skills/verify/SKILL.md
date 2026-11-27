@@ -161,11 +161,11 @@ which source, module, or build path each process actually loaded.
 Write `$tmp_dir/out/payload.json` using the [payload schema](payload.schema.yml), including its
 instructions for the summary and optional Evidence section. Report an exercisable candidate
 as a finding when its check reproduces it, citing its capture if you reproduced it in the
-browser. Drop it when the checks rule out every trigger it names or the base behaves the
-same. Report a candidate you could not exercise only when the source evidence is conclusive,
-and say what kept you from running it. Include findings discovered while running the checks.
-If a review thread already covers a finding, mention it in the body and account for it in
-the verdict.
+browser. Drop it when the checks rule out every trigger it names. Also drop a candidate
+regression when the base behaves the same. Report a candidate you could not exercise only
+when the source evidence is conclusive, and say what kept you from running it. Include
+findings discovered while running the checks. If a review thread already covers a finding,
+mention it in the body and account for it in the verdict.
 
 Label the diff with the following command, then use its labels for each inline comment's
 `side` and `line`.
