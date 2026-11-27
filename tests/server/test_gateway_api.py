@@ -64,6 +64,7 @@ from mlflow.server.gateway_api import (
     _create_provider_from_endpoint_name,
     _decompress_zstd,
     _enable_upstream_ssrf_protection,
+    _get_request_body,
     _get_request_username,
     anthropic_passthrough_messages,
     chat_completions,
@@ -114,6 +115,7 @@ def create_mock_request(
     mock_request.state.cached_body = cached_body
     mock_request.state.username = username
     mock_request.state.user_id = user_id
+    mock_request.headers = {"content-type": "application/json"}
     return mock_request
 
 
@@ -1111,7 +1113,7 @@ async def test_invocations_handler_zstd_success(store: SqlAlchemyStore):
 
     # Mock request with zstd compressed body
     mock_request = create_mock_request()
-    mock_request.headers = {"content-encoding": "zstd"}
+    mock_request.headers = {"content-type": "application/json", "content-encoding": "zstd"}
 
     payload = {
         "messages": [{"role": "user", "content": "Hi"}],
@@ -1182,7 +1184,7 @@ async def test_invocations_handler_zstd_invalid_zstd(store: SqlAlchemyStore):
 
     # Mock request with invalid zstd bytes
     mock_request = create_mock_request()
-    mock_request.headers = {"content-encoding": "zstd"}
+    mock_request.headers = {"content-type": "application/json", "content-encoding": "zstd"}
     mock_request.body = AsyncMock(return_value=b"not a valid zstd payload")
 
     with pytest.raises(HTTPException, match="Invalid zstd payload") as exc_info:
@@ -1217,7 +1219,7 @@ async def test_invocations_handler_zstd_invalid_json(store: SqlAlchemyStore):
 
     # Mock request with valid zstd but invalid JSON
     mock_request = create_mock_request()
-    mock_request.headers = {"content-encoding": "zstd"}
+    mock_request.headers = {"content-type": "application/json", "content-encoding": "zstd"}
     compressed = zstandard.ZstdCompressor().compress(b"not a valid json payload")
     mock_request.body = AsyncMock(return_value=compressed)
 
@@ -1247,6 +1249,54 @@ def test_decompress_zstd_import_error_reports_original_error():
             _decompress_zstd(b"")
 
     assert exc_info.value.status_code == 400
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/gateway/my-endpoint/mlflow/invocations",
+        "/gateway/mlflow/v1/chat/completions",
+        "/gateway/proxy/my-endpoint/chat/completions",
+    ],
+)
+@pytest.mark.parametrize(
+    "content_type",
+    [None, "text/plain", "application/x-www-form-urlencoded", "multipart/form-data; boundary=x"],
+)
+def test_gateway_routes_reject_non_json_content_type(path: str, content_type: str | None):
+    app = FastAPI()
+    app.include_router(gateway_router)
+    headers = {"Content-Type": content_type} if content_type else {}
+    with patch("mlflow.server.gateway_api._get_store") as mock_get_store:
+        response = TestClient(app).post(
+            path, content=b'{"messages": [{"role": "user", "content": "Hi"}]}', headers=headers
+        )
+
+    assert response.status_code == 415
+    assert "application/json" in response.json()["detail"]
+    mock_get_store.assert_not_called()
+
+
+@pytest.mark.parametrize("content_type", ["application/json", "Application/JSON; charset=utf-8"])
+@pytest.mark.asyncio
+async def test_get_request_body_accepts_json_content_type(content_type: str):
+    mock_request = create_mock_request()
+    mock_request.headers = {"content-type": content_type}
+    mock_request.json = AsyncMock(return_value={"model": "m"})
+
+    assert await _get_request_body(mock_request) == {"model": "m"}
+    mock_request.json.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_get_request_body_rejects_non_json_content_type_with_cached_body():
+    mock_request = create_mock_request(cached_body={"model": "m"})
+    mock_request.headers = {"content-type": "text/plain"}
+
+    with pytest.raises(HTTPException, match="application/json") as exc_info:
+        await _get_request_body(mock_request)
+
+    assert exc_info.value.status_code == 415
 
 
 @pytest.mark.asyncio
@@ -3839,7 +3889,7 @@ async def test_openai_passthrough_streaming_captures_chunks(store: SqlAlchemySto
             "stream": True,
         }
     )
-    mock_request.headers = {}
+    mock_request.headers = {"content-type": "application/json"}
 
     mock_stream_chunks = [
         b'data: {"id":"chatcmpl-123","choices":[{"delta":{"content":"Hi"}}]}\n\n',
@@ -3937,7 +3987,7 @@ def _make_guardrail_mock_request(body: dict[str, Any], headers: dict[str, str] |
     req.state.username = None
     req.state.user_id = None
     req.json = AsyncMock(return_value=body)
-    req.headers = headers or {}
+    req.headers = {"content-type": "application/json", **(headers or {})}
     req.scope = {"server": ("127.0.0.1", 5000)}
     return req
 
