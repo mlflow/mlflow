@@ -2,8 +2,7 @@
  * Type declarations for the OpenClaw plugin SDK subpath imports.
  *
  * These types represent the OpenClaw plugin-sdk interface that this integration
- * targets. Once OpenClaw publishes official TypeScript types, this file can
- * be removed in favor of the `openclaw` package's own type definitions.
+ * uses without requiring the optional OpenClaw peer at build time.
  */
 
 declare module 'openclaw/plugin-sdk/plugin-entry' {

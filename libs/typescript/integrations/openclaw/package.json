@@ -61,7 +61,10 @@
   "openclaw": {
     "extensions": [
       "./dist/index.js"
-    ]
+    ],
+    "install": {
+      "minHostVersion": ">=2026.4.26"
+    }
   },
   "files": [
     "dist/",

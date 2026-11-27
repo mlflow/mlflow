@@ -50,7 +50,7 @@ Start the MLflow server (self-hosting) following the [instructions](https://mlfl
 openclaw mlflow configure
 ```
 
-The plugin will prompt you for the MLflow tracking URI and experiment ID. You can [create an experiment](https://mlflow.org/docs/latest/genai/tracing/quickstart/#create-a-mlflow-experiment) from the MLflow UI. It also grants the plugin [conversation access](#conversation-access), which OpenClaw requires before it runs the hooks the plugin traces.
+Enter the MLflow tracking URI and experiment ID. You can [create an experiment](https://mlflow.org/docs/latest/genai/tracing/quickstart/#create-a-mlflow-experiment) from the MLflow UI. If the plugin does not already have [conversation access](#conversation-access), choose **Yes** to let it export conversation content in traces. The default is **No**.
 
 ```
 ~$ openclaw mlflow configure
@@ -63,7 +63,10 @@ The plugin will prompt you for the MLflow tracking URI and experiment ID. You ca
 ◇  Experiment ID
 │  2
 │
-└  MLflow configuration saved. Granted conversation access (hooks.allowConversationAccess), which tracing needs. Restart the gateway to apply.
+◇  Allow MLflow to access conversation content and export it in traces?
+│  Yes
+│
+└  MLflow configuration saved. Conversation access is enabled. Restart the gateway to apply.
 ```
 
 ### 4. Check the Status
@@ -104,7 +107,9 @@ export MLFLOW_EXPERIMENT_ID=<your-experiment-id>
 
 ### Conversation Access
 
-OpenClaw runs the `llm_input`, `llm_output`, and `agent_end` hooks of a community plugin only when its entry grants conversation access. `openclaw mlflow configure` sets this for you. If you configure the plugin through environment variables or edit `openclaw.json` by hand, add it yourself:
+OpenClaw runs the `llm_input`, `llm_output`, and `agent_end` hooks of a community plugin only when its entry grants conversation access. Choosing **Yes** in `openclaw mlflow configure` grants access. Choosing **No** saves the tracking URI and experiment ID without granting access or changing an explicit denial. The command leaves an existing grant in place without prompting.
+
+To grant access manually, set the following in `openclaw.json`, including when you configure the tracking URI and experiment ID through environment variables:
 
 ```
 {

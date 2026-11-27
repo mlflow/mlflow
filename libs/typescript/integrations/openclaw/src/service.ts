@@ -726,6 +726,8 @@ export function createMLflowService(
       const evt = event as Record<string, unknown>;
       const sessionKey = asNonEmptyString(ctx.requesterSessionKey);
       const childSessionKey = asNonEmptyString(evt.targetSessionKey);
+      // Reset and delete events can omit the requester. Leave those spans
+      // for closePendingSpans to close with the rest of the requester trace.
       if (!sessionKey || !childSessionKey) {
         return;
       }

@@ -32,6 +32,7 @@ type ClackPrompts = {
   outro: (msg: string) => void;
   cancel: (msg: string) => void;
   isCancel: (value: unknown) => boolean;
+  confirm: (options: { message: string; initialValue: boolean }) => Promise<boolean | symbol>;
   text: (options: {
     message: string;
     placeholder?: string;
@@ -53,6 +54,7 @@ function asString(value: unknown): string {
 
 function getPluginEntry(cfg: OpenClawConfig): {
   enabled?: boolean;
+  conversationAccess: boolean;
   config: Record<string, unknown>;
 } {
   const root = asObject(cfg);
@@ -62,21 +64,26 @@ function getPluginEntry(cfg: OpenClawConfig): {
   const config = asObject(entry.config);
   return {
     enabled: typeof entry.enabled === 'boolean' ? entry.enabled : undefined,
+    conversationAccess: asObject(entry.hooks).allowConversationAccess === true,
     config,
   };
 }
 
 // Mutates `draft` in place: the host persists the draft it handed out.
-function mergePluginEntry(draft: OpenClawConfig, config: Record<string, unknown>): void {
+function mergePluginEntry(
+  draft: OpenClawConfig,
+  config: Record<string, unknown>,
+  grantConversationAccess: boolean,
+): void {
   const plugins = asObject(draft.plugins);
   const entries = asObject(plugins.entries);
   const entry = asObject(entries[PLUGIN_ID]);
   entries[PLUGIN_ID] = {
     ...entry,
     enabled: true,
-    // OpenClaw blocks `llm_input`, `llm_output` and `agent_end` for
-    // non-bundled plugins without this grant, and no trace is exported.
-    hooks: { ...asObject(entry.hooks), allowConversationAccess: true },
+    ...(grantConversationAccess && {
+      hooks: { ...asObject(entry.hooks), allowConversationAccess: true },
+    }),
     config: { ...asObject(entry.config), ...config },
   };
   plugins.entries = entries;
@@ -144,19 +151,36 @@ async function runConfigure(deps: ConfigDeps): Promise<void> {
     return;
   }
 
-  await deps.updateConfig((draft) => {
-    mergePluginEntry(draft, {
-      trackingUri: trackingUri as string,
-      experimentId: experimentId as string,
+  let grantConversationAccess = false;
+  if (!entry.conversationAccess) {
+    const answer = await p.confirm({
+      message: 'Allow MLflow to access conversation content and export it in traces?',
+      initialValue: false,
     });
+    if (p.isCancel(answer)) {
+      p.cancel('Configuration cancelled');
+      return;
+    }
+    grantConversationAccess = answer === true;
+  }
+
+  let conversationAccess = false;
+  await deps.updateConfig((draft) => {
+    mergePluginEntry(
+      draft,
+      { trackingUri: trackingUri as string, experimentId: experimentId as string },
+      grantConversationAccess,
+    );
+    conversationAccess = getPluginEntry(draft).conversationAccess;
   });
 
   // A running gateway hot-reloads the plugin in the same process, but the
   // second tracing init there cannot replace the global OpenTelemetry
   // provider, so traces stop until the gateway restarts.
-  p.outro(
-    'MLflow configuration saved. Granted conversation access (hooks.allowConversationAccess), which tracing needs. Restart the gateway to apply.',
-  );
+  const accessMessage = conversationAccess
+    ? 'Conversation access is enabled.'
+    : 'Conversation access is not enabled. OpenClaw will block the hooks required for tracing.';
+  p.outro(`MLflow configuration saved. ${accessMessage} Restart the gateway to apply.`);
 }
 
 export function registerMlflowCli(params: RegisterCliParams): void {

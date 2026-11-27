@@ -129,6 +129,15 @@ describe('subagent hooks', () => {
     expect(sub.span.end).toHaveBeenCalledTimes(1);
   });
 
+  it('marks a timed-out subagent span as failed without an error message', () => {
+    spawn();
+    end({ reason: 'subagent-complete', outcome: 'timeout' });
+
+    const [sub] = subagentSpans();
+    expect(sub.span.setStatus).toHaveBeenCalledWith('ERROR', 'timeout');
+    expect(sub.span.end).toHaveBeenCalledTimes(1);
+  });
+
   it('tracks concurrent subagents of the same agent separately', () => {
     const other = 'agent:main:subagent:2a9c';
     spawn(CHILD);
