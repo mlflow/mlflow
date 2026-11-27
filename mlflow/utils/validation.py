@@ -1607,11 +1607,13 @@ def _get_webhook_delivery_hostname(url: str) -> str | None:
     # (e.g. IDNA 2008 encoding and percent-encoding), so the name it resolves can differ
     # from `urllib.parse.urlparse(url).hostname`. Validate the name requests will use.
     prepared = requests.PreparedRequest()
+    # Malformed URLs can surface as a plain ValueError from urllib3 rather than a
+    # RequestException; report both as invalid input instead of a server error.
     try:
         prepared.prepare_url(url, None)
-    except requests.exceptions.RequestException as e:
+        return urllib.parse.urlparse(prepared.url).hostname
+    except (requests.exceptions.RequestException, ValueError) as e:
         raise MlflowException.invalid_parameter_value(f"Invalid webhook URL {url!r}: {e!r}") from e
-    return urllib.parse.urlparse(prepared.url).hostname
 
 
 def _validate_webhook_events(events: list[WebhookEvent]) -> None:

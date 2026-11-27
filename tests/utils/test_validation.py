@@ -539,6 +539,17 @@ def test_validate_webhook_url_resolves_host_used_for_delivery(url, parsed_host, 
     mock_getaddrinfo.assert_called_once_with(delivery_host, None)
 
 
+def test_validate_webhook_url_reports_preparation_value_error_as_invalid_parameter():
+    with patch(
+        "mlflow.utils.validation.requests.PreparedRequest.prepare_url",
+        side_effect=ValueError("invalid literal for int() with base 10: 'x'"),
+    ) as mock_prepare_url:
+        with pytest.raises(MlflowException, match="Invalid webhook URL") as e:
+            _validate_webhook_url("https://example.com/hook")
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    mock_prepare_url.assert_called_once_with("https://example.com/hook", None)
+
+
 @pytest.mark.parametrize(
     ("url", "resolved_ip"),
     [
