@@ -112,22 +112,23 @@ export const ExperimentIssuesActionBar = ({
           <ExperimentIssuesScheduleControl experimentId={experimentId} />
         </>
       )}
-      {detectionEnabled &&
+      {
         // A run that exists can be cancelled, so the action becomes that rather than a disabled
         // button with no way out of a run that has stopped reporting progress. While one is still
         // being created there is nothing to cancel, so the detect button spins instead.
-        (isDetecting && onCancelDetection ? (
+        isDetecting && onCancelDetection ? (
           <CancelIssueDetectionButton
             componentId="mlflow.experiment-issues.cancel-detection"
             onCancel={onCancelDetection}
           />
-        ) : (
+        ) : detectionEnabled ? (
           <DetectIssuesButton
             componentId="mlflow.experiment-issues.detect"
             onClick={onRunDetection}
             loading={isDetecting}
           />
-        ))}
+        ) : null
+      }
     </div>
   );
 };

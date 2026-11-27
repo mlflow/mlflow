@@ -4,26 +4,16 @@ import { FormattedMessage } from 'react-intl';
 import { useLocation, useNavigate } from '../../../common/utils/RoutingUtils';
 import { ExperimentPageTabName } from '../../constants';
 import Routes from '../../routes';
-import { CancelIssueDetectionButton } from './CancelIssueDetectionButton';
 import { IssueDetectionIllustration } from './IssueDetectionIllustration';
 
 export interface ExperimentIssuesDetectionProgressProps {
   experimentId: string;
-  /** Ends the in-progress run; unset while there is none to end yet. */
-  onCancelDetection?: () => Promise<void>;
 }
 
 /**
- * The Issues tab while a detection runs, in place of the empty list.
- *
- * Detection is a server job, so it outlives this page: the panel says so, and offers the two
- * things a waiting user actually wants — somewhere to go meanwhile, and a way out of a run that
- * has stopped reporting progress.
+ * Progress in the empty detail pane. The list toolbar provides cancellation.
  */
-export const ExperimentIssuesDetectionProgress = ({
-  experimentId,
-  onCancelDetection,
-}: ExperimentIssuesDetectionProgressProps) => {
+export const ExperimentIssuesDetectionProgress = ({ experimentId }: ExperimentIssuesDetectionProgressProps) => {
   const { theme } = useDesignSystemTheme();
   const { search } = useLocation();
   const navigate = useNavigate();
@@ -80,11 +70,7 @@ export const ExperimentIssuesDetectionProgress = ({
           />
         </Typography.Text>
       </div>
-      <div css={{ display: 'flex', gap: theme.spacing.sm, marginTop: theme.spacing.md }}>
-        <CancelIssueDetectionButton
-          componentId="mlflow.experiment-issues.detection-progress.cancel"
-          onCancel={onCancelDetection}
-        />
+      <div css={{ marginTop: theme.spacing.md }}>
         <Button
           componentId="mlflow.experiment-issues.detection-progress.go-to-traces"
           onClick={() => navigate(tracesRoute)}

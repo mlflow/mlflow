@@ -12,7 +12,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 import {
   defaultIssueDetectionSettings,
@@ -32,9 +32,10 @@ const isBuiltInCategory = (category: string) => ALL_ISSUE_CATEGORIES.some((id) =
 
 export interface IssueDetectionSettingsControlProps {
   experimentId: string;
+  linkText?: ReactNode;
 }
 
-export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSettingsControlProps) => {
+export const IssueDetectionSettingsControl = ({ experimentId, linkText }: IssueDetectionSettingsControlProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const {
@@ -142,7 +143,8 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
         >
           <Button
             componentId={`${COMPONENT_ID}.retry-load`}
-            icon={<GearIcon />}
+            type={linkText ? 'link' : undefined}
+            icon={linkText ? undefined : <GearIcon />}
             aria-label={intl.formatMessage({
               defaultMessage: 'Retry loading issue detection settings',
               description:
@@ -151,17 +153,22 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
             onClick={() => {
               void refetchSettings();
             }}
-          />
+          >
+            {linkText}
+          </Button>
         </Tooltip>
       ) : (
         <Tooltip componentId={`${COMPONENT_ID}.tooltip`} content={settingsLabel}>
           <Button
             componentId={`${COMPONENT_ID}.open`}
-            icon={<GearIcon />}
-            aria-label={settingsLabel}
+            type={linkText ? 'link' : undefined}
+            icon={linkText ? undefined : <GearIcon />}
+            aria-label={linkText ? undefined : settingsLabel}
             disabled={isLoadingSettings}
             onClick={open}
-          />
+          >
+            {linkText}
+          </Button>
         </Tooltip>
       )}
       <Modal
