@@ -1,4 +1,4 @@
-# Use a branch in mlflow/mlflow to test PRs that update this workflow or files it depends on.
+# Use a branch in mlflow/mlflow for PRs that update this workflow or files it depends on.
 # gh workflow run verify.yml --ref <branch> -F pr_number=<number> -F dry_run=true
 # To publish the review, use the default branch for --ref and set -F dry_run=false.
 name: Verify
