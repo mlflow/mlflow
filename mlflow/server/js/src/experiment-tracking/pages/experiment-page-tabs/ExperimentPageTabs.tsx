@@ -218,15 +218,6 @@ const ExperimentPageTabsImpl = () => {
     </React.Suspense>
   );
 
-  const contentWrapperCss = {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    padding: theme.spacing.sm,
-    flex: 1,
-    minWidth: 0,
-    minHeight: 0,
-  };
-
   // Saved-views controls live in the header (the page-level action cluster) rather than the runs
   // toolbar, since a view is a container over the toolbar's column/filter/sort selectors. The Views
   // dropdown reads saved-view tags and the active-view URL param only, and the Save modal
@@ -255,8 +246,10 @@ const ExperimentPageTabsImpl = () => {
     />
   );
   // Review queue focus mode hides the page header; with the shell that is the breadcrumb row.
-  const mainContent = showRevamp ? (
+  // Keep routed tab state when experiment metadata switches the page layout.
+  const mainContent = (
     <ExperimentPageMainContent
+      revamped={showRevamp}
       breadcrumbs={
         headerHidden ? undefined : <ExperimentPageBreadcrumbs experiment={experiment as unknown as ExperimentEntity} />
       }
@@ -274,8 +267,6 @@ const ExperimentPageTabsImpl = () => {
     >
       {outletComponent}
     </ExperimentPageMainContent>
-  ) : (
-    <div css={contentWrapperCss}>{outletComponent}</div>
   );
 
   const pageContents = (
