@@ -14,6 +14,7 @@ for labeling sessions can use them too.
 
 import functools
 import json
+import logging
 import sys
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Literal, ParamSpec, TypeVar, overload
 from urllib.parse import quote
@@ -34,6 +35,7 @@ from mlflow.genai.databricks.review_queues.entities import (
     ReviewQueueType,
     ReviewStatus,
 )
+from mlflow.genai.datasets import get_dataset
 from mlflow.genai.labeling import delete_labeling_session
 from mlflow.genai.labeling import stores as labeling_stores
 from mlflow.genai.labeling.labeling import LabelingSession
@@ -42,10 +44,15 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracing.fluent import get_trace
 from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.utils.annotations import experimental
-from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH,
+    MLFLOW_USER,
+)
 
 if TYPE_CHECKING:
     import pandas as pd
+
+_logger = logging.getLogger(__name__)
 
 
 def _experiment(experiment_id: str) -> str:
@@ -1000,11 +1007,7 @@ def _check_trace_experiments(experiment_id: str, traces: list[Trace]) -> None:
                 in_uc.append(trace)
     if not in_uc:
         return
-    experiment = _client.call_api(
-        "GET", "/api/2.0/mlflow/experiments/get", params={"experiment_id": experiment_id}
-    ).get("experiment", {})
-    tags = {tag.get("key"): tag.get("value") for tag in experiment.get("tags", [])}
-    experiment_location = tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH)
+    experiment_location = _experiment_trace_location(experiment_id)
     for trace in in_uc:
         location, _ = parse_trace_id_v4(trace.info.trace_id)
         if location != experiment_location:
@@ -1017,6 +1020,15 @@ def _check_trace_experiments(experiment_id: str, traces: list[Trace]) -> None:
                 f"Trace {trace.info.trace_id!r} is stored in {location!r}, but a review queue "
                 f"can only hold traces from its own experiment, {experiment_id!r}, {stores}."
             )
+
+
+def _experiment_trace_location(experiment_id: str) -> str | None:
+    """Where the experiment stores its traces in Unity Catalog, if it does."""
+    experiment = _client.call_api(
+        "GET", "/api/2.0/mlflow/experiments/get", params={"experiment_id": experiment_id}
+    ).get("experiment", {})
+    tags = {tag.get("key"): tag.get("value") for tag in experiment.get("tags", [])}
+    return tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH)
 
 
 def _dataset_id_from_name(name: str) -> str:
@@ -1408,6 +1420,116 @@ def resolve_effective_review_questions(
         params={"item_kind": ItemKind(item_kind).value if item_kind is not None else None},
     )
     return [ReviewQuestion.from_dict(q) for q in resp.get("review_questions", [])]
+
+
+# ---- Syncing to a dataset ----
+
+
+def _queue_trace_ids(experiment_id: str, queue_id: str) -> tuple[list[str], int]:
+    """The full IDs of the queue's traces, and how many dataset records it holds."""
+    trace_ids: list[str] = []
+    record_count = 0
+    page_token = None
+    while True:
+        page = list_review_queue_items(experiment_id, queue_id, page_token=page_token)
+        for item in page:
+            if item.kind == ItemKind.DATASET_RECORD:
+                record_count += 1
+            elif item.trace_id:
+                trace_ids.append(item.trace_id)
+        if not (page_token := page.token):
+            break
+    # Items hold bare trace IDs; a trace stored in Unity Catalog is fetched by its full ID.
+    if any(not t.startswith("tr-") for t in trace_ids):
+        if location := _experiment_trace_location(experiment_id):
+            trace_ids = [t if t.startswith("tr-") else f"trace:/{location}/{t}" for t in trace_ids]
+    return trace_ids, record_count
+
+
+def _dataset_record(trace: Trace) -> dict[str, Any]:
+    # The record `LabelingSession.sync` builds from a session's trace: its request as the
+    # inputs, the trace's expectations, and the trace's creator as the source.
+    record: dict[str, Any] = {"inputs": json.loads(trace.data.request or "{}"), "trace": trace}
+    user = trace.info.trace_metadata.get("reviewApp.userName") or trace.info.tags.get(MLFLOW_USER)
+    if user:
+        record["source_id"] = user
+        record["source_type"] = "HUMAN"
+    expectations = {a.name: a.expectation.value for a in trace.info.assessments if a.expectation}
+    if expectations:
+        record["expectations"] = expectations
+    return record
+
+
+@overload
+def sync_review_queue_to_dataset(experiment_id: str, queue_id: str, dataset_name: str) -> None: ...
+
+
+@overload
+def sync_review_queue_to_dataset(
+    labeling_session: LabelingSession, /, *, dataset_name: str
+) -> None: ...
+
+
+@experimental(version="3.19.0")
+def sync_review_queue_to_dataset(
+    experiment_id: str | LabelingSession,
+    queue_id: str | None = None,
+    dataset_name: str | None = None,
+) -> None:
+    """
+    Copy a queue's traces, with the expectations reviewers recorded on them, into an
+    evaluation dataset.
+
+    This does for a queue what :py:meth:`mlflow.genai.LabelingSession.sync` does for a
+    labeling session. Every trace in the queue becomes a record, whatever its review status:
+    its request as the inputs, the expectations on the trace, if any, and the trace's creator
+    as the source. The dataset merges records with the same inputs. Dataset records in the
+    queue are skipped, since reviewers' answers on them are already saved in their dataset; the
+    review queue UI's "Add to evaluation dataset" skips them too.
+
+    To sync a :py:class:`mlflow.genai.LabelingSession`, pass the session in place of
+    ``experiment_id`` and ``queue_id``, and pass ``dataset_name`` by keyword. It's synced with
+    :py:meth:`mlflow.genai.LabelingSession.sync`, as it is today.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.databricks.review_queues import sync_review_queue_to_dataset
+
+        sync_review_queue_to_dataset("123", "rq-1", "catalog.schema.eval_set")
+
+        session = mlflow.genai.get_labeling_session(run_id="<run-id>")
+        sync_review_queue_to_dataset(session, dataset_name="catalog.schema.eval_set")
+
+    Args:
+        experiment_id: The experiment that owns the queue, or a labeling session.
+        queue_id: The queue to sync. Omit it for a labeling session.
+        dataset_name: The name of the evaluation dataset, i.e. its Unity Catalog table.
+    """
+    if isinstance(experiment_id, LabelingSession):
+        _reject_queue_id_for_session("sync_review_queue_to_dataset", queue_id, "dataset_name")
+        experiment_id.sync(_require(dataset_name, "dataset_name"))
+        return
+    queue_id = _require(queue_id, "queue_id")
+    dataset_name = _require(dataset_name, "dataset_name")
+    trace_ids, record_count = _queue_trace_ids(experiment_id, queue_id)
+    if record_count:
+        _logger.info(
+            "Skipped %d dataset records in review queue %r: reviewers' answers on them are "
+            "already saved in their dataset.",
+            record_count,
+            queue_id,
+        )
+    records = []
+    for trace_id in trace_ids:
+        if (trace := get_trace(trace_id, silent=True)) is None:
+            _logger.warning("Trace %r in review queue %r wasn't found.", trace_id, queue_id)
+            continue
+        records.append(_dataset_record(trace))
+    if not records:
+        _logger.info("Review queue %r has no traces to sync to %r.", queue_id, dataset_name)
+        return
+    get_dataset(name=dataset_name).merge_records(records)
 
 
 # ---- Labeling session migration ----
