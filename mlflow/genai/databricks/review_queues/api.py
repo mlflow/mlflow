@@ -970,7 +970,7 @@ def add_review_queue_items(
 
     Items are sent in batches of 100, the most the server accepts at once. If a later batch
     fails, the earlier ones stay attached and the error says how many were; attaching the
-    same items again is safe. A queue holds at most 150 items by default.
+    same items again is safe. The server caps how many items a queue holds.
 
     .. code-block:: python
 
