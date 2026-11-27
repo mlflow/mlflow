@@ -346,7 +346,11 @@ from mlflow.utils.server_info import (
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
     SERVER_INFO_WORKSPACES_ENABLED,
 )
-from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE, MAX_CUSTOM_VIEWS_PER_EXPERIMENT
+from mlflow.utils.validation import (
+    MAX_BATCH_LOG_REQUEST_SIZE,
+    MAX_CUSTOM_VIEWS_PER_EXPERIMENT,
+    MAX_DATASET_RECORDS_PER_UPSERT,
+)
 from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -3658,6 +3662,47 @@ def test_upsert_dataset_records(mock_tracking_store):
     response_data = json.loads(resp.get_data())
     assert response_data["inserted_count"] == 2
     assert response_data["updated_count"] == 0
+
+
+def test_upsert_dataset_records_accepts_max_records(mock_tracking_store):
+    mock_tracking_store.upsert_dataset_records.return_value = {"inserted": 0, "updated": 0}
+    records = [{"inputs": {"q": str(i)}} for i in range(MAX_DATASET_RECORDS_PER_UPSERT)]
+
+    with app.test_request_context(method="POST", json={"records": json.dumps(records)}):
+        resp = _upsert_dataset_records_handler("d-123")
+
+    assert resp.status_code == 200
+    mock_tracking_store.upsert_dataset_records.assert_called_once_with(
+        dataset_id="d-123", records=records
+    )
+
+
+@pytest.mark.parametrize(
+    ("records_json", "match"),
+    [
+        (
+            json.dumps([
+                {"inputs": {"q": str(i)}} for i in range(MAX_DATASET_RECORDS_PER_UPSERT + 1)
+            ]),
+            f"at most {MAX_DATASET_RECORDS_PER_UPSERT} records",
+        ),
+        (json.dumps({"inputs": {"q": "test"}}), "must be a JSON list"),
+        (json.dumps("not a list"), "must be a JSON list"),
+        ("[1, null]", "must be a JSON list"),
+        ("[{", "must be valid JSON"),
+        pytest.param("[" + "1" * 5000 + "]", "must be valid JSON", id="integer-too-long"),
+        pytest.param("[" * 100_000 + "]" * 100_000, "must be valid JSON", id="too-deeply-nested"),
+    ],
+)
+def test_upsert_dataset_records_rejects_invalid_records(mock_tracking_store, records_json, match):
+    with app.test_request_context(method="POST", json={"records": records_json}):
+        resp = _upsert_dataset_records_handler("d-123")
+
+    assert resp.status_code == 400
+    response_data = json.loads(resp.get_data())
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert match in response_data["message"]
+    mock_tracking_store.upsert_dataset_records.assert_not_called()
 
 
 def test_get_dataset_experiment_ids(mock_tracking_store):

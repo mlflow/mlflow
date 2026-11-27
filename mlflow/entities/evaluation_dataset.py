@@ -232,6 +232,12 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         Returns:
             Self for method chaining
 
+        .. note::
+            When the tracking backend is a remote server, large merges are sent in batches of
+            up to 1,000 records, and each batch is committed independently. If a batch fails,
+            records from earlier batches remain in the dataset. Retrying the merge is safe
+            because records are deduplicated by their inputs.
+
         Example:
             .. code-block:: python
 
@@ -291,8 +297,10 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             for record in record_dicts:
                 record["tags"] = {MLFLOW_USER: user_tag, **(record.get("tags") or {})}
 
-        tracking_store.upsert_dataset_records(dataset_id=self.dataset_id, records=record_dicts)
+        # Drop the cached records before the upsert: earlier batches of a remote upsert may be
+        # committed even if it fails partway, and the records are reloaded on next access.
         self._records = None
+        tracking_store.upsert_dataset_records(dataset_id=self.dataset_id, records=record_dicts)
 
         # The upsert updates the digest, schema, and profile in the backend; refresh them so
         # this object's identity matches its records when logged as a run input.

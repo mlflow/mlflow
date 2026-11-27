@@ -483,6 +483,7 @@ from mlflow.utils.uri import (
 )
 from mlflow.utils.validation import (
     MAX_CUSTOM_VIEWS_PER_EXPERIMENT,
+    MAX_DATASET_RECORDS_PER_UPSERT,
     _validate_batch_log_api_req,
     _validate_experiment_artifact_location,
     _validate_experiment_artifact_location_length,
@@ -8803,7 +8804,27 @@ def _upsert_dataset_records_handler(dataset_id):
         },
     )
 
-    records = json.loads(request_message.records)
+    try:
+        records = json.loads(request_message.records)
+    # JSONDecodeError subclasses ValueError, which also covers integers over Python's digit
+    # limit; RecursionError covers deeply nested input.
+    except (ValueError, RecursionError) as e:
+        raise MlflowException(
+            f"The 'records' parameter must be valid JSON: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e
+    if not isinstance(records, list) or not all(isinstance(r, dict) for r in records):
+        raise MlflowException(
+            "The 'records' parameter must be a JSON list of record objects.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if len(records) > MAX_DATASET_RECORDS_PER_UPSERT:
+        raise MlflowException(
+            f"A single upsert request may contain at most {MAX_DATASET_RECORDS_PER_UPSERT} "
+            f"records, but {len(records)} were provided. Upgrade the MLflow client, which "
+            "splits large upserts automatically, or split the records into smaller batches.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     result = _get_tracking_store().upsert_dataset_records(
         dataset_id=dataset_id,

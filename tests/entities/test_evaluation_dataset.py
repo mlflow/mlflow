@@ -824,3 +824,26 @@ def test_merge_records_does_not_modify_input_records():
         {"team": "eval", MLFLOW_USER: "alice"},
         {MLFLOW_USER: "alice"},
     ]
+
+
+@pytest.mark.parametrize("error", [MlflowException("chunk failed"), KeyboardInterrupt()])
+def test_merge_records_drops_cached_records_when_upsert_fails(error):
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+    dataset._records = []
+
+    mock_store = Mock()
+    mock_store.get_dataset.return_value = Mock(schema=None)
+    mock_store.upsert_dataset_records.side_effect = error
+
+    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        with pytest.raises(type(error)):
+            dataset.merge_records([{"inputs": {"q": "a"}}])
+
+    assert dataset._records is None
+    mock_store.get_dataset.assert_called_once()

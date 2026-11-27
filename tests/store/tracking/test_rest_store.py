@@ -66,6 +66,7 @@ from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
+    RestException,
 )
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
@@ -156,7 +157,7 @@ from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
-from mlflow.store.tracking.rest_store import RestStore
+from mlflow.store.tracking.rest_store import _UPSERT_DATASET_RECORDS_CHUNK_SIZE, RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracking.request_header.default_request_header_provider import (
@@ -171,6 +172,7 @@ from mlflow.utils.rest_utils import (
     MlflowHostCreds,
     get_logged_model_endpoint,
 )
+from mlflow.utils.validation import MAX_DATASET_RECORDS_PER_UPSERT
 from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -2217,6 +2219,109 @@ def test_upsert_evaluation_dataset_records():
             expected_json,
             endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
         )
+
+
+def test_upsert_dataset_records_sends_chunks():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    records = [{"inputs": {"q": str(i)}} for i in range(2500)]
+
+    def respond(api, json_body, endpoint):
+        chunk = json.loads(json.loads(json_body)["records"])
+        response = UpsertDatasetRecords.Response()
+        response.inserted_count = len(chunk) - 1
+        response.updated_count = 1
+        return response
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=respond) as mock_call:
+        result = store.upsert_dataset_records(dataset_id="d-123", records=records)
+
+    assert result == {"inserted": 2497, "updated": 3}
+    sent = [json.loads(json.loads(c.args[1])["records"]) for c in mock_call.call_args_list]
+    assert [len(chunk) for chunk in sent] == [1000, 1000, 500]
+    assert [r for chunk in sent for r in chunk] == records
+
+
+@pytest.mark.parametrize(
+    ("num_records", "expected_chunk_sizes"),
+    [
+        (0, [0]),
+        (1000, [1000]),
+        (1001, [1000, 1]),
+    ],
+)
+def test_upsert_dataset_records_chunk_boundaries(num_records, expected_chunk_sizes):
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    records = [{"inputs": {"q": str(i)}} for i in range(num_records)]
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=UpsertDatasetRecords.Response()
+    ) as mock_call:
+        store.upsert_dataset_records(dataset_id="d-123", records=records)
+
+    sent = [json.loads(json.loads(c.args[1])["records"]) for c in mock_call.call_args_list]
+    assert [len(chunk) for chunk in sent] == expected_chunk_sizes
+    assert [r for chunk in sent for r in chunk] == records
+
+
+def test_upsert_dataset_records_chunk_size_within_server_limit():
+    assert _UPSERT_DATASET_RECORDS_CHUNK_SIZE <= MAX_DATASET_RECORDS_PER_UPSERT
+
+
+def test_upsert_dataset_records_reports_committed_records_on_chunk_failure():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    records = [{"inputs": {"q": str(i)}} for i in range(1500)]
+    error = RestException({
+        "error_code": "RESOURCE_DOES_NOT_EXIST",
+        "message": "database is locked",
+        "sqlstate": "40001",
+        "error_class": "CUSTOM_ERROR_CLASS",
+    })
+
+    with mock.patch.object(
+        store,
+        "_call_endpoint",
+        side_effect=[UpsertDatasetRecords.Response(), error],
+    ) as mock_call:
+        with pytest.raises(
+            RestException, match=r"after 1000 of 1500 records were committed"
+        ) as exc_info:
+            store.upsert_dataset_records(dataset_id="d-123", records=records)
+
+    assert mock_call.call_count == 2
+    assert exc_info.value is error
+    assert "database is locked" in exc_info.value.message
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    assert exc_info.value.sqlstate == "40001"
+    assert exc_info.value.error_class == "CUSTOM_ERROR_CLASS"
+
+
+def test_upsert_dataset_records_serializes_all_chunks_before_sending():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    records = [{"inputs": {"q": str(i)}} for i in range(1000)] + [{"inputs": {"q": {1}}}]
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        with pytest.raises(TypeError, match="not JSON serializable"):
+            store.upsert_dataset_records(dataset_id="d-123", records=records)
+
+    mock_call.assert_not_called()
+
+
+def test_upsert_dataset_records_first_chunk_failure_propagates_unchanged():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    records = [{"inputs": {"q": str(i)}} for i in range(1500)]
+    error = MlflowException("boom")
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=error) as mock_call:
+        with pytest.raises(MlflowException, match="boom") as exc_info:
+            store.upsert_dataset_records(dataset_id="d-123", records=records)
+
+    assert exc_info.value is error
+    mock_call.assert_called_once()
 
 
 def test_delete_evaluation_dataset_records():
