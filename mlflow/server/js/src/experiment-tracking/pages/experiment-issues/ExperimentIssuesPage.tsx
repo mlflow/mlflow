@@ -96,6 +96,7 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   }, [search.data]);
   const hasRestrictiveFilters = Boolean(
     controls.filters.name ||
+    controls.filters.detectionRunId ||
     controls.filters.statuses.length ||
     controls.filters.severities.length ||
     controls.filters.categories.length,

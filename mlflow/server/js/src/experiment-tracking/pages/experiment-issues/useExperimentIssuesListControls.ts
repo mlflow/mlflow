@@ -17,6 +17,7 @@ const ISSUE_CATEGORY_PARAM = 'issueCategory';
 const ISSUE_SORT_PARAM = 'issueSort';
 const ISSUE_STATUS_PARAM = 'issueStatus';
 const ISSUE_SEARCH_PARAM = 'issueSearch';
+export const ISSUE_DETECTION_RUN_PARAM = 'issueDetectionRun';
 
 export interface ExperimentIssuesListState {
   sortKey: IssueSortKey;
@@ -27,6 +28,8 @@ export interface ExperimentIssuesListState {
   setCategories: (values: string[]) => void;
   statuses: IssueStatus[];
   setStatuses: (values: IssueStatus[]) => void;
+  detectionRunId?: string;
+  clearDetectionRun: () => void;
   hasActiveFilters: boolean;
   clearFilters: () => void;
 }
@@ -45,6 +48,10 @@ export const useExperimentIssuesListState = (): ExperimentIssuesListState => {
   const categoryParams = params.getAll(ISSUE_CATEGORY_PARAM);
   const sortParam = params.get(ISSUE_SORT_PARAM);
   const statusParams = params.getAll(ISSUE_STATUS_PARAM);
+  const runParam = params.get(ISSUE_DETECTION_RUN_PARAM);
+  // Match MLflow run IDs before placing URL input in the issue filter grammar.
+  const detectionRunId =
+    runParam && runParam.trim() === runParam && /^[a-zA-Z0-9][\w-]{0,255}$/.test(runParam) ? runParam : undefined;
 
   // Filtering the canonical enums both validates, deduplicates, and gives shared links a stable order.
   const severities = useMemo(
@@ -142,11 +149,22 @@ export const useExperimentIssuesListState = (): ExperimentIssuesListState => {
     [setSearchParams],
   );
 
+  const clearDetectionRun = useCallback(() => {
+    setSearchParams(
+      (params) => {
+        params.delete(ISSUE_DETECTION_RUN_PARAM);
+        return params;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
+
   const clearFilters = useCallback(() => {
     setSearchParams(
       (params) => {
         params.delete(ISSUE_SEVERITY_PARAM);
         params.delete(ISSUE_CATEGORY_PARAM);
+        params.delete(ISSUE_DETECTION_RUN_PARAM);
         params.delete(ISSUE_STATUS_PARAM);
         params.append(ISSUE_STATUS_PARAM, 'all');
         return params;
@@ -164,7 +182,9 @@ export const useExperimentIssuesListState = (): ExperimentIssuesListState => {
     setCategories,
     statuses,
     setStatuses,
-    hasActiveFilters: severities.length > 0 || categories.length > 0 || statuses.length > 0,
+    detectionRunId,
+    clearDetectionRun,
+    hasActiveFilters: severities.length > 0 || categories.length > 0 || statuses.length > 0 || Boolean(detectionRunId),
     clearFilters,
   };
 };
@@ -191,6 +211,7 @@ export const useIssueListControls = () => {
   });
   const filters: IssueFilters = {
     name: params.get(ISSUE_SEARCH_PARAM) ?? '',
+    detectionRunId: state.detectionRunId,
     statuses: state.statuses,
     severities: state.severities,
     categories: state.categories.flatMap((category) =>

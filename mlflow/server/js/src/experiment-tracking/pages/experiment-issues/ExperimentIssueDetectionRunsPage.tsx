@@ -23,7 +23,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import { PageNotFoundView } from '../../../common/components/PageNotFoundView';
 import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUtils';
-import { useParams } from '../../../common/utils/RoutingUtils';
+import { Link, useLocation, useParams } from '../../../common/utils/RoutingUtils';
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { RunStatusIcon } from '../../components/RunStatusIcon';
 import { formatScheduleInstant, formatScheduleWindowBound, weekdayLabels } from './issueDetectionSchedule';
@@ -37,6 +37,10 @@ import { ExperimentIssuesScheduleControl } from './ExperimentIssuesScheduleContr
 import { useSetExperimentBreadcrumbTitle } from '../experiment-page-tabs/ExperimentPageRevampContext';
 import { useIssueDetectionSchedule } from './useIssueDetectionSchedule';
 import { useDetectionRuns } from './useDetectionRuns';
+import { ExperimentPageTabName, SELECTED_ISSUE_ID_PARAM, SELECTED_ISSUE_SPAN_ID_PARAM } from '../../constants';
+import { SELECTED_EVALUATION_ID_PARAM } from '../../../shared/web-shared/genai-traces-table';
+import Routes from '../../routes';
+import { ISSUE_DETECTION_RUN_PARAM } from './useExperimentIssuesListControls';
 
 const COMPONENT_ID = 'mlflow.experiment-issues.detection-runs';
 
@@ -246,6 +250,18 @@ const EmptyHistory = ({ nextRun }: { nextRun?: string }) => {
 const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const location = useLocation();
+  const issuesRoute = (runId: string) => {
+    const params = new URLSearchParams(location.search);
+    params.delete(SELECTED_ISSUE_ID_PARAM);
+    params.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
+    params.delete(SELECTED_EVALUATION_ID_PARAM);
+    params.set(ISSUE_DETECTION_RUN_PARAM, runId);
+    return {
+      pathname: Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Issues),
+      search: params.toString(),
+    };
+  };
   const schedule = useIssueDetectionSchedule({ experimentId });
   // Names this route's breadcrumb leaf, the way every other sub-page does -- eval run details
   // publishes its run name here. The page title below is the same string, as it is there.
@@ -561,7 +577,19 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
                   {!isDetectionRunSettled(row.status) || newIssueCounts?.[row.runId] === undefined ? (
                     <Dash />
                   ) : (
-                    newIssueCounts[row.runId]
+                    <Link
+                      componentId={`${COMPONENT_ID}.view-issues`}
+                      to={issuesRoute(row.runId)}
+                      aria-label={intl.formatMessage(
+                        {
+                          defaultMessage: 'View issues detected by run {runId}',
+                          description: 'Issue detection run history > Open issues filed by this finished run',
+                        },
+                        { runId: row.runId },
+                      )}
+                    >
+                      {newIssueCounts[row.runId]}
+                    </Link>
                   )}
                 </TableCell>
                 <TableCell style={cellStyle('model')} css={{ alignItems: 'center' }}>

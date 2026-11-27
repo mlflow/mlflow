@@ -2079,6 +2079,10 @@
     "defaultMessage": "Runs per request (including children)",
     "description": "Label for the experiment Runs page size selector"
   },
+  "4i0A75": {
+    "defaultMessage": "Run",
+    "description": "Experiment issues tab > Originating detection run filter dimension"
+  },
   "4iVjvu": {
     "defaultMessage": "Create a user to get started.",
     "description": "Empty state description for users table"
@@ -6986,6 +6990,10 @@
   "K8ynGW": {
     "defaultMessage": "Search datasets",
     "description": "Placeholder for the search input on the V2 evaluation datasets list page"
+  },
+  "K9fjTF": {
+    "defaultMessage": "View issues detected by run {runId}",
+    "description": "Issue detection run history > Open issues filed by this finished run"
   },
   "K9jiT5": {
     "defaultMessage": "Actions for selected traces",

@@ -459,7 +459,17 @@ export const ExperimentIssuesSortControl = ({
 export const ExperimentIssuesFilterChips = ({ controls }: { controls: ExperimentIssuesToolbarControls }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { severities, setSeverities, categories, setCategories, statuses, setStatuses, hasActiveFilters } = controls;
+  const {
+    severities,
+    setSeverities,
+    categories,
+    setCategories,
+    statuses,
+    setStatuses,
+    hasActiveFilters,
+    detectionRunId,
+    clearDetectionRun,
+  } = controls;
 
   // `color` is only passed for category chips, so a chip echoes the colour its tag carries in the
   // list. Severity and status have no colour language of their own here -- severity is a glyph, not
@@ -542,6 +552,16 @@ export const ExperimentIssuesFilterChips = ({ controls }: { controls: Experiment
           onClose: () => setStatuses(statuses.filter((value) => value !== status)),
         }),
       )}
+      {detectionRunId &&
+        chip({
+          componentId: `${COMPONENT_ID}.chip.detection-run`,
+          dimension: defineMessage({
+            defaultMessage: 'Run',
+            description: 'Experiment issues tab > Originating detection run filter dimension',
+          }),
+          value: detectionRunId,
+          onClose: clearDetectionRun,
+        })}
     </div>
   );
 };
