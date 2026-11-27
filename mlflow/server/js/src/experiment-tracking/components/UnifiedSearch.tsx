@@ -159,7 +159,6 @@ export const UnifiedSearch = ({
     );
   };
 
-  // `loading={false}` skips Du Bois' interaction hold; the spinner's CSS animation still runs.
   return (
     <div
       ref={searchBarRef}
@@ -177,6 +176,7 @@ export const UnifiedSearch = ({
         '&:focus-within': { borderColor: theme.colors.actionDefaultBorderFocus },
       }}
     >
+      {/* `loading={false}` skips Du Bois' interaction hold; the spinner's CSS animation still runs. */}
       <Button
         componentId="mlflow.unified-search.submit"
         type="link"
