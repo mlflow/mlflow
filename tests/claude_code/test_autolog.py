@@ -135,3 +135,63 @@ async def test_receive_response_skips_when_autologging_disabled():
         [msg async for msg in mock_self.receive_response()]
 
     mock_process.assert_not_called()
+
+
+def _result_message(input_tokens, output_tokens):
+    return ResultMessage(
+        subtype="success",
+        duration_ms=1000,
+        duration_api_ms=800,
+        is_error=False,
+        num_turns=1,
+        session_id="s",
+        usage={"input_tokens": input_tokens, "output_tokens": output_tokens},
+    )
+
+
+@pytest.mark.asyncio
+async def test_receive_response_traces_each_turn_separately():
+    mock_self = MagicMock()
+
+    async def fake_query(prompt, *args, **kwargs):
+        pass
+
+    mock_self.query = fake_query
+
+    turns = {
+        "What is 2 + 2?": [
+            AssistantMessage(content=[TextBlock(text="4")], model="claude-sonnet-4-20250514"),
+            _result_message(100, 5),
+        ],
+        "And 3 + 3?": [
+            AssistantMessage(content=[TextBlock(text="6")], model="claude-sonnet-4-20250514"),
+            _result_message(150, 7),
+        ],
+    }
+    pending = []
+
+    async def fake_receive_response():
+        for msg in turns[pending.pop(0)]:
+            yield msg
+
+    mock_self.receive_response = fake_receive_response
+    patched_claude_sdk_init(MagicMock(), mock_self)
+
+    with (
+        patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
+        patch("mlflow.claude_code.tracing.process_sdk_messages") as mock_process,
+    ):
+        for prompt in turns:
+            pending.append(prompt)
+            await mock_self.query(prompt)
+            [msg async for msg in mock_self.receive_response()]
+
+    assert mock_process.call_count == 2
+    first_turn, second_turn = (c.args[0] for c in mock_process.call_args_list)
+    assert len(first_turn) == 3
+    assert first_turn[0].content == "What is 2 + 2?"
+    assert first_turn[2].usage == {"input_tokens": 100, "output_tokens": 5}
+    assert len(second_turn) == 3
+    assert second_turn[0].content == "And 3 + 3?"
+    assert second_turn[1].content[0].text == "6"
+    assert second_turn[2].usage == {"input_tokens": 150, "output_tokens": 7}
