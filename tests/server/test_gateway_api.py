@@ -278,8 +278,8 @@ _STORED_VERTEX_CREDENTIAL_CASES = [
         service_account_key(auth_uri="https://evil.example/auth"),
         service_account_key(type="external_account"),
         "/etc/service-account.json",
-        "1" * 5000,
-        "[" * 100_000,
+        pytest.param("1" * 5000, id="integer-too-long"),
+        pytest.param("[" * 100_000, id="too-deeply-nested"),
     ],
 )
 def test_build_endpoint_config_rejects_untrusted_stored_vertex_credentials(provider, key, value):
