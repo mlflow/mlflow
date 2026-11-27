@@ -41,20 +41,25 @@ properties:
       - COMMENT
   body:
     description: |
-      In one short paragraph, name the entry points you exercised and state the observed
-      outcomes, any material findings, and any verification gaps. Distinguish runtime
-      observations from findings inferred from the code. When a finding has no relevant
-      diff line or is already covered by an existing thread, mention it here and omit a
+      Above the Evidence section, summarize in at most three short sentences and 80 words. Don't
+      join clauses with semicolons or colons to fit more in. Open with the verdict and the entry
+      points it covers, not with what you ran (avoid "I ran ..."). Then report only what needs
+      attention: material findings, regressions, and verification gaps. Cover behavior that
+      matched expectations in one clause instead of listing each case. Distinguish runtime
+      observations from findings inferred from the code. Leave out your method, test pass
+      counts, and edge cases you judge immaterial. Disclosures required by `event` still belong
+      here. When a finding has no relevant diff line, is already covered by an existing thread,
+      or is a non-blocking note on an approval, mention it here in one clause and omit a
       duplicate inline comment.
 
-      Put commands, inputs, short output excerpts, and captioned media in one collapsed
-      Evidence section when they add to the summary and inline comments. Keep the blank
-      lines inside the block so GitHub renders the Markdown.
+      Put commands, inputs, short output excerpts, and captioned media in one collapsed Evidence
+      section when they add to the summary and inline comments. Include only output that shows a
+      behavior change or supports a finding or gap. Omit test pass counts, and reduce output
+      identical on both builds to one line. Keep the blank lines inside the block so GitHub
+      renders the Markdown.
 
       ```markdown
       <details><summary>Evidence</summary>
-
-      `curl -fsS http://localhost:5000/health` returned `OK`.
 
       Base: <behavior observed on the base build>
       ![Base behavior](/absolute/path/to/out/media/base.png)
