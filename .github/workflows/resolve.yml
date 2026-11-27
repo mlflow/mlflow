@@ -1,4 +1,6 @@
-# Preview with: gh workflow run resolve.yml --ref <branch> -F pr_number=<number> -F review_id=<id>
+# Use a branch in mlflow/mlflow to test PRs that update this workflow or files it depends on.
+# gh workflow run resolve.yml --ref <branch> -F pr_number=<number> -F review_id=<id>
+# Dispatches from a PR branch require dry_run=true (the default).
 # Opus/high is the default for review runs unless the RESOLVE_MODEL or RESOLVE_EFFORT repository
 # variables override them; previews can pick another, e.g. `-f model=databricks-claude-sonnet-5-5`.
 name: Resolve feedback

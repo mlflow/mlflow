@@ -1,4 +1,5 @@
-# Preview a branch: gh workflow run verify.yml --ref <branch> -F pr_number=<number>
+# Use a branch in mlflow/mlflow to test PRs that update this workflow or files it depends on.
+# gh workflow run verify.yml --ref <branch> -F pr_number=<number>
 # Add -F dry_run=false to publish the review on the specified PR.
 name: Verify
 
