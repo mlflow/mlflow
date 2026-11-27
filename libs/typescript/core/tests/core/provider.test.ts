@@ -22,9 +22,6 @@ import { withSpan } from '../../src/core/api';
 
 const testHost = 'https://dbc-12345.cloud.databricks.com';
 
-// `init()` is documented as call-once-per-process: NodeSDK's background
-// shutdown can race with a subsequent start and clobber the global tracer
-// provider. This file therefore only exercises a single `init()` call.
 // UC processor + exporter behavior is covered in detail by the unit tests
 // in `tests/exporters/uc_table*.test.ts`; this file just verifies that
 // `init()` wires up the UC processor when MLFLOW_TRACE_LOCATION is set.

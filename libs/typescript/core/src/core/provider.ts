@@ -1,7 +1,34 @@
 import { existsSync } from 'node:fs';
-import { trace, Tracer } from '@opentelemetry/api';
-import { NodeSDK } from '@opentelemetry/sdk-node';
+import {
+  context,
+  diag,
+  propagation,
+  trace,
+  ProxyTracerProvider,
+  TextMapPropagator,
+  Tracer,
+  TracerProvider,
+} from '@opentelemetry/api';
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
+import {
+  CompositePropagator,
+  getStringListFromEnv,
+  W3CBaggagePropagator,
+  W3CTraceContextPropagator,
+} from '@opentelemetry/core';
+import { B3InjectEncoding, B3Propagator } from '@opentelemetry/propagator-b3';
+import {
+  defaultResource,
+  detectResources,
+  envDetector,
+  hostDetector,
+  osDetector,
+  processDetector,
+  ResourceDetector,
+  serviceInstanceIdDetector,
+} from '@opentelemetry/resources';
 import { SpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { MlflowClient } from '../clients';
 import { MlflowSpanExporter, MlflowSpanProcessor } from '../exporters/mlflow';
 import {
@@ -14,9 +41,12 @@ import { getConfig, getAuthProvider, type UnityCatalogLocationOptions } from './
 import type { UnityCatalogLocation } from './entities/trace_location';
 import { asyncExportEnabled } from './utils/env';
 
-let sdk: NodeSDK | null = null;
+let provider: NodeTracerProvider | null = null;
+let globalRegistration: TracerProvider | null = null;
+let globalPropagator: OwnedPropagator | null = null;
 // Keep a reference to the active span processor for flushing.
 let processor: SpanProcessor | null = null;
+const noopProvider = new ProxyTracerProvider();
 
 /**
  * Initialize the OpenTelemetry SDK and span processor.
@@ -35,10 +65,24 @@ let processor: SpanProcessor | null = null;
  * until that lands, customers configure UC explicitly via `traceLocation`.
  */
 export function initializeSDK(): void {
-  if (sdk) {
-    sdk.shutdown().catch((error) => {
+  if (globalRegistration && trace.getTracerProvider() === globalRegistration) {
+    trace.disable();
+  }
+  globalRegistration = null;
+  if (globalPropagator?.isGlobal()) {
+    propagation.disable();
+  }
+  globalPropagator = null;
+  if (provider) {
+    provider.shutdown().catch((error) => {
       console.error('Error shutting down existing SDK:', error);
     });
+  }
+
+  provider = null;
+  processor = null;
+  if (process.env.OTEL_SDK_DISABLED?.trim().toLowerCase() === 'true') {
+    return;
   }
 
   try {
@@ -83,9 +127,26 @@ export function initializeSDK(): void {
       }
     }
 
-    sdk = new NodeSDK({ spanProcessors: [processor] });
-    sdk.start();
+    provider = new NodeTracerProvider({
+      resource: defaultResource().merge(detectResources({ detectors: getResourceDetectors() })),
+      spanProcessors: [processor],
+    });
+    ensureContextManager();
+    if (config.registerGlobalTracerProvider !== false) {
+      provider.register({ contextManager: null, propagator: null });
+      const global = trace.getTracerProvider();
+      if (global instanceof ProxyTracerProvider && global.getDelegate() === provider) {
+        globalRegistration = global;
+        registerPropagator();
+      } else {
+        console.warn(
+          '[mlflow] Global tracer registration failed. MLflow will use its own provider.',
+        );
+      }
+    }
   } catch (error) {
+    provider = null;
+    processor = null;
     console.error('Failed to initialize MLflow tracing:', error);
   }
 }
@@ -109,8 +170,121 @@ function resolveUcLocation(options: UnityCatalogLocationOptions): UnityCatalogLo
   };
 }
 
+// Same names and default as NodeSDK, which MLflow used before.
+const RESOURCE_DETECTORS = new Map<string, ResourceDetector>([
+  ['env', envDetector],
+  ['host', hostDetector],
+  ['os', osDetector],
+  ['serviceinstance', serviceInstanceIdDetector],
+  ['process', processDetector],
+]);
+
+function getResourceDetectors(): ResourceDetector[] {
+  const names = getStringListFromEnv('OTEL_NODE_RESOURCE_DETECTORS');
+  if (!names?.length) {
+    return [envDetector, processDetector, hostDetector];
+  }
+  if (names.includes('all')) {
+    return [...RESOURCE_DETECTORS.values()];
+  }
+  if (names.includes('none')) {
+    return [];
+  }
+  return names.flatMap((name) => {
+    const detector = RESOURCE_DETECTORS.get(name);
+    if (!detector) {
+      diag.warn(`Invalid resource detector "${name}" in OTEL_NODE_RESOURCE_DETECTORS`);
+      return [];
+    }
+    return [detector];
+  });
+}
+
+const PROPAGATORS = new Map<string, () => TextMapPropagator>([
+  ['tracecontext', () => new W3CTraceContextPropagator()],
+  ['baggage', () => new W3CBaggagePropagator()],
+  ['b3', () => new B3Propagator()],
+  ['b3multi', () => new B3Propagator({ injectEncoding: B3InjectEncoding.MULTI_HEADER })],
+]);
+
+/**
+ * Register the global propagator from `OTEL_PROPAGATORS` like NodeSDK did,
+ * defaulting to W3C trace context and baggage. Keep a host propagator if one
+ * is already registered.
+ */
+function registerPropagator(): void {
+  const names = [
+    ...new Set(getStringListFromEnv('OTEL_PROPAGATORS') ?? ['tracecontext', 'baggage']),
+  ];
+  const propagators = names.flatMap((name) => {
+    const create = PROPAGATORS.get(name);
+    if (!create) {
+      if (name !== 'none') {
+        diag.warn(`Propagator "${name}" in OTEL_PROPAGATORS is unavailable`);
+      }
+      return [];
+    }
+    return [create()];
+  });
+  if (propagators.length === 0) {
+    return;
+  }
+  const propagator = new OwnedPropagator(
+    propagators.length === 1 ? propagators[0] : new CompositePropagator({ propagators }),
+  );
+  if (propagation.setGlobalPropagator(propagator)) {
+    globalPropagator = propagator;
+  }
+}
+
+/**
+ * Returns the same fields array on every call, so a later `init()` can tell
+ * whether the global propagator is still this one and not one the host
+ * registered since.
+ */
+class OwnedPropagator implements TextMapPropagator {
+  private readonly ownFields: string[];
+
+  constructor(private readonly delegate: TextMapPropagator) {
+    this.ownFields = delegate.fields();
+  }
+
+  inject(...args: Parameters<TextMapPropagator['inject']>): void {
+    this.delegate.inject(...args);
+  }
+
+  extract(
+    ...args: Parameters<TextMapPropagator['extract']>
+  ): ReturnType<TextMapPropagator['extract']> {
+    return this.delegate.extract(...args);
+  }
+
+  fields(): string[] {
+    return this.ownFields;
+  }
+
+  isGlobal(): boolean {
+    return propagation.fields() === this.ownFields;
+  }
+}
+
+/**
+ * Keep the host context manager if one is already registered.
+ */
+function ensureContextManager(): void {
+  const contextManager = new AsyncLocalStorageContextManager();
+  contextManager.enable();
+  if (!context.setGlobalContextManager(contextManager)) {
+    contextManager.disable();
+  }
+}
+
 export function getTracer(module_name: string): Tracer {
-  return trace.getTracer(module_name);
+  return (provider ?? noopProvider).getTracer(module_name);
+}
+
+export function isMlflowGlobalTracerProvider(): boolean {
+  return globalRegistration != null && trace.getTracerProvider() === globalRegistration;
 }
 
 /**

@@ -1,13 +1,21 @@
-import { trace as otelTrace, context, Span as ApiSpan, INVALID_TRACEID } from '@opentelemetry/api';
+import {
+  trace as otelTrace,
+  context,
+  Span as ApiSpan,
+  INVALID_TRACEID,
+  createContextKey,
+} from '@opentelemetry/api';
 import { Span as OTelSpan } from '@opentelemetry/sdk-trace-node';
 import { DEFAULT_SPAN_NAME, SpanLogLevel, SpanType, TraceMetadataKey } from './constants';
 import { createMlflowSpan, LiveSpan, NoOpSpan } from './entities/span';
 import { SpanLink } from './entities/span_link';
-import { getTracer } from './provider';
+import { getTracer, isMlflowGlobalTracerProvider } from './provider';
 import { InMemoryTraceManager } from './trace_manager';
 import { convertNanoSecondsToHrTime, mapArgsToObject } from './utils';
 import { SpanStatusCode } from './entities/span_status';
 import { isTracingEnabledInContext } from './context';
+
+const activeMlflowSpanKey = createContextKey('mlflow.active-span');
 
 /*
  * Options for starting a span
@@ -108,10 +116,10 @@ export function startSpan(options: SpanOptions): LiveSpan {
   try {
     const tracer = getTracer('default');
 
-    // If parent is provided, use it as the parent spanAdd commentMore actions
+    // An explicit MLflow parent takes precedence over the active span.
     const parentContext = options.parent
       ? otelTrace.setSpan(context.active(), options.parent._span)
-      : context.active();
+      : getActiveParentContext();
 
     // Convert startTimeNs to OTel format
     const startTime = options.startTimeNs
@@ -130,6 +138,17 @@ export function startSpan(options: SpanOptions): LiveSpan {
     console.warn('Failed to start span', error);
     return new NoOpSpan();
   }
+}
+
+function getActiveParentContext() {
+  const active = context.active();
+  const otelSpan = otelTrace.getSpan(active);
+  if (isMlflowGlobalTracerProvider() || otelSpan?.spanContext().isRemote) {
+    return active;
+  }
+
+  const parent = getCurrentActiveSpan();
+  return parent ? otelTrace.setSpan(active, parent._span) : otelTrace.deleteSpan(active);
 }
 
 /**
@@ -168,58 +187,67 @@ export function withSpan<T>(
     : undefined;
 
   // Use startActiveSpan to automatically manage context and parent-child relationships
-  return tracer.startActiveSpan(spanName, { startTime }, (otelSpan: ApiSpan) => {
-    let mlflowSpan: LiveSpan | NoOpSpan;
+  return tracer.startActiveSpan(
+    spanName,
+    { startTime },
+    getActiveParentContext(),
+    (otelSpan: ApiSpan) => {
+      let mlflowSpan: LiveSpan | NoOpSpan;
 
-    try {
-      // SpanProcessor should have already registered the mlflow span
-      mlflowSpan = getMlflowSpan(otelSpan as OTelSpan, spanOptions);
-    } catch (error) {
-      console.debug('Failed to create and register MLflow span', error);
-      mlflowSpan = new NoOpSpan();
-    }
-
-    // Expression function to handle errors consistently
-    const handleError = (error: Error): never => {
       try {
-        mlflowSpan.setStatus(SpanStatusCode.ERROR, error.message);
-        mlflowSpan.recordException(error);
-        mlflowSpan.end();
+        // SpanProcessor should have already registered the mlflow span
+        mlflowSpan = getMlflowSpan(otelSpan as OTelSpan, spanOptions);
       } catch (error) {
-        console.debug('Failed to set status or record exception on MLflow span', error);
+        console.debug('Failed to create and register MLflow span', error);
+        mlflowSpan = new NoOpSpan();
       }
-      throw error;
-    };
 
-    try {
-      // Execute the callback with the span
-      const result = callback(mlflowSpan);
-
-      // Handle both sync and async results
-      if (result instanceof Promise) {
-        return result
-          .then((value) => {
-            // Set outputs if they are not already set
-            if (mlflowSpan.outputs === undefined) {
-              mlflowSpan.setOutputs(value);
-            }
-            mlflowSpan.end();
-            return value;
-          })
-          .catch(handleError);
-      } else {
-        // Synchronous execution
-        if (mlflowSpan.outputs === undefined) {
-          mlflowSpan.setOutputs(result);
+      // Expression function to handle errors consistently
+      const handleError = (error: Error): never => {
+        try {
+          mlflowSpan.setStatus(SpanStatusCode.ERROR, error.message);
+          mlflowSpan.recordException(error);
+          mlflowSpan.end();
+        } catch (error) {
+          console.debug('Failed to set status or record exception on MLflow span', error);
         }
-        mlflowSpan.end();
-        return result;
+        throw error;
+      };
+
+      try {
+        // Execute the callback with the span
+        const callbackContext =
+          mlflowSpan instanceof NoOpSpan
+            ? context.active()
+            : context.active().setValue(activeMlflowSpanKey, mlflowSpan);
+        const result = context.with(callbackContext, callback, undefined, mlflowSpan);
+
+        // Handle both sync and async results
+        if (result instanceof Promise) {
+          return result
+            .then((value) => {
+              // Set outputs if they are not already set
+              if (mlflowSpan.outputs === undefined) {
+                mlflowSpan.setOutputs(value);
+              }
+              mlflowSpan.end();
+              return value;
+            })
+            .catch(handleError);
+        } else {
+          // Synchronous execution
+          if (mlflowSpan.outputs === undefined) {
+            mlflowSpan.setOutputs(result);
+          }
+          mlflowSpan.end();
+          return result;
+        }
+      } catch (error) {
+        // Handle synchronous errors
+        return handleError(error as Error);
       }
-    } catch (error) {
-      // Handle synchronous errors
-      return handleError(error as Error);
-    }
-  });
+    },
+  );
 }
 
 function getMlflowSpan(otelSpan: OTelSpan, options: SpanOptions): LiveSpan | NoOpSpan {
@@ -486,9 +514,10 @@ export function getLastActiveTraceId(): string | undefined {
 export function getCurrentActiveSpan(): LiveSpan | null {
   const otelSpan = otelTrace.getActiveSpan();
 
-  // If no active span or it's a NonRecordingSpan, return undefined
+  const scoped = context.active().getValue(activeMlflowSpanKey);
+  const fallback = scoped instanceof LiveSpan ? scoped : null;
   if (!otelSpan || otelSpan.spanContext().traceId === INVALID_TRACEID) {
-    return null;
+    return fallback;
   }
 
   const traceManager = InMemoryTraceManager.getInstance();
@@ -496,11 +525,11 @@ export function getCurrentActiveSpan(): LiveSpan | null {
   const mlflowTraceId = traceManager.getMlflowTraceIdFromOtelId(otelTraceId);
 
   if (!mlflowTraceId) {
-    return null;
+    return fallback;
   }
 
   const spanId = otelSpan.spanContext().spanId;
-  return traceManager.getSpan(mlflowTraceId, spanId) || null;
+  return traceManager.getSpan(mlflowTraceId, spanId) || fallback;
 }
 
 /**
