@@ -148,7 +148,8 @@ export interface MLflowTracingConfig {
    * Set to `false` to keep MLflow's tracer provider private. Only spans
    * created through the MLflow API are recorded then. Use this when MLflow
    * runs inside a host process whose other libraries emit OpenTelemetry spans
-   * that should not become MLflow traces.
+   * that should not become MLflow traces. MLflow still installs a global
+   * context manager if the host has not installed one.
    */
   registerGlobalTracerProvider?: boolean;
 }
@@ -174,11 +175,8 @@ let globalAuthProvider: AuthProvider | null = null;
  * Configure the MLflow tracing SDK with tracking location settings.
  * This must be called before using other tracing functions.
  *
- * Call once per process. Calling `init()` again will tear down the existing
- * OpenTelemetry SDK and start a fresh one, but the underlying NodeSDK
- * shutdown is asynchronous and may race with subsequent tracer registration;
- * configuration is intended to be set up once at startup, not reconfigured
- * mid-process.
+ * Calling `init()` again replaces the tracer provider. Flush pending traces
+ * before reconfiguring if you need to wait for their export.
  *
  * ## Authentication
  *

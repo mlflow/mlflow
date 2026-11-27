@@ -74,3 +74,17 @@ Official documentation for MLflow Typescript SDK can be found [here](https://mlf
 ## License
 
 This project is licensed under the [Apache License 2.0](https://github.com/mlflow/mlflow/blob/master/LICENSE.txt).
+
+## Run alongside an existing OpenTelemetry provider
+
+Pass `registerGlobalTracerProvider: false` to `init()` to record only MLflow
+spans without replacing the host's global tracer provider. MLflow installs a
+global context manager only if the host has not already registered one.
+
+MLflow spans keep their nearest active MLflow parent even if a host span
+intervenes. An incoming remote trace context is preserved. Without either parent,
+a host span does not prevent MLflow from starting a new trace.
+
+Both modes honor `OTEL_SDK_DISABLED`, `OTEL_SERVICE_NAME`, and
+`OTEL_RESOURCE_ATTRIBUTES`. Isolated mode does not auto-detect host or process
+attributes.

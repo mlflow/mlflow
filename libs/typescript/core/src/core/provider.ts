@@ -1,6 +1,13 @@
 import { existsSync } from 'node:fs';
 import { context, trace, ProxyTracerProvider, Tracer, TracerProvider } from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
+import {
+  defaultResource,
+  detectResources,
+  envDetector,
+  hostDetector,
+  processDetector,
+} from '@opentelemetry/resources';
 import { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { MlflowClient } from '../clients';
@@ -19,6 +26,7 @@ let provider: NodeTracerProvider | null = null;
 let globalRegistration: TracerProvider | null = null;
 // Keep a reference to the active span processor for flushing.
 let processor: SpanProcessor | null = null;
+const noopProvider = new ProxyTracerProvider();
 
 /**
  * Initialize the OpenTelemetry SDK and span processor.
@@ -45,6 +53,12 @@ export function initializeSDK(): void {
     provider.shutdown().catch((error) => {
       console.error('Error shutting down existing SDK:', error);
     });
+  }
+
+  provider = null;
+  processor = null;
+  if (process.env.OTEL_SDK_DISABLED?.trim().toLowerCase() === 'true') {
+    return;
   }
 
   try {
@@ -89,7 +103,14 @@ export function initializeSDK(): void {
       }
     }
 
-    provider = new NodeTracerProvider({ spanProcessors: [processor] });
+    const detectors =
+      config.registerGlobalTracerProvider === false
+        ? [envDetector]
+        : [envDetector, processDetector, hostDetector];
+    provider = new NodeTracerProvider({
+      resource: defaultResource().merge(detectResources({ detectors })),
+      spanProcessors: [processor],
+    });
     ensureContextManager();
     if (config.registerGlobalTracerProvider !== false) {
       provider.register({ contextManager: null });
@@ -103,6 +124,8 @@ export function initializeSDK(): void {
       }
     }
   } catch (error) {
+    provider = null;
+    processor = null;
     console.error('Failed to initialize MLflow tracing:', error);
   }
 }
@@ -138,8 +161,11 @@ function ensureContextManager(): void {
 }
 
 export function getTracer(module_name: string): Tracer {
-  if (!provider) throw new Error('MLflow tracing has not been initialized.');
-  return provider.getTracer(module_name);
+  return (provider ?? noopProvider).getTracer(module_name);
+}
+
+export function isMlflowGlobalTracerProvider(): boolean {
+  return globalRegistration != null && trace.getTracerProvider() === globalRegistration;
 }
 
 /**

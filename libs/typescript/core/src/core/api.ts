@@ -1,14 +1,21 @@
-import { trace as otelTrace, context, Span as ApiSpan, INVALID_TRACEID } from '@opentelemetry/api';
+import {
+  trace as otelTrace,
+  context,
+  Span as ApiSpan,
+  INVALID_TRACEID,
+  createContextKey,
+} from '@opentelemetry/api';
 import { Span as OTelSpan } from '@opentelemetry/sdk-trace-node';
 import { DEFAULT_SPAN_NAME, SpanLogLevel, SpanType, TraceMetadataKey } from './constants';
 import { createMlflowSpan, LiveSpan, NoOpSpan } from './entities/span';
 import { SpanLink } from './entities/span_link';
-import { getConfig } from './config';
-import { getTracer } from './provider';
+import { getTracer, isMlflowGlobalTracerProvider } from './provider';
 import { InMemoryTraceManager } from './trace_manager';
 import { convertNanoSecondsToHrTime, mapArgsToObject } from './utils';
 import { SpanStatusCode } from './entities/span_status';
 import { isTracingEnabledInContext } from './context';
+
+const activeMlflowSpanKey = createContextKey('mlflow.active-span');
 
 /*
  * Options for starting a span
@@ -135,9 +142,13 @@ export function startSpan(options: SpanOptions): LiveSpan {
 
 function getActiveParentContext() {
   const active = context.active();
-  return getConfig().registerGlobalTracerProvider === false && !getCurrentActiveSpan()
-    ? otelTrace.deleteSpan(active)
-    : active;
+  const otelSpan = otelTrace.getSpan(active);
+  if (isMlflowGlobalTracerProvider() || otelSpan?.spanContext().isRemote) {
+    return active;
+  }
+
+  const parent = getCurrentActiveSpan();
+  return parent ? otelTrace.setSpan(active, parent._span) : otelTrace.deleteSpan(active);
 }
 
 /**
@@ -205,7 +216,11 @@ export function withSpan<T>(
 
       try {
         // Execute the callback with the span
-        const result = callback(mlflowSpan);
+        const callbackContext =
+          mlflowSpan instanceof NoOpSpan
+            ? context.active()
+            : context.active().setValue(activeMlflowSpanKey, mlflowSpan);
+        const result = context.with(callbackContext, callback, undefined, mlflowSpan);
 
         // Handle both sync and async results
         if (result instanceof Promise) {
@@ -499,9 +514,10 @@ export function getLastActiveTraceId(): string | undefined {
 export function getCurrentActiveSpan(): LiveSpan | null {
   const otelSpan = otelTrace.getActiveSpan();
 
-  // If no active span or it's a NonRecordingSpan, return undefined
+  const scoped = context.active().getValue(activeMlflowSpanKey);
+  const fallback = scoped instanceof LiveSpan ? scoped : null;
   if (!otelSpan || otelSpan.spanContext().traceId === INVALID_TRACEID) {
-    return null;
+    return fallback;
   }
 
   const traceManager = InMemoryTraceManager.getInstance();
@@ -509,11 +525,11 @@ export function getCurrentActiveSpan(): LiveSpan | null {
   const mlflowTraceId = traceManager.getMlflowTraceIdFromOtelId(otelTraceId);
 
   if (!mlflowTraceId) {
-    return null;
+    return fallback;
   }
 
   const spanId = otelSpan.spanContext().spanId;
-  return traceManager.getSpan(mlflowTraceId, spanId) || null;
+  return traceManager.getSpan(mlflowTraceId, spanId) || fallback;
 }
 
 /**
