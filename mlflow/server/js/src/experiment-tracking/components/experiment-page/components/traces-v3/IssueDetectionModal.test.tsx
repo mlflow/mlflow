@@ -1,5 +1,6 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
+import { PermissionError } from '@databricks/web-shared/errors';
 import { renderWithDesignSystem, screen, waitFor } from '../../../../../common/utils/TestUtils.react18';
 import { IssueDetectionModal } from './IssueDetectionModal';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
@@ -238,6 +239,26 @@ describe('IssueDetectionModal', () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
     expect(screen.getByText('Job execution is disabled on this server')).toBeInTheDocument();
+    expect(screen.queryByTestId('api-key-view')).not.toBeInTheDocument();
+  });
+
+  test('permission errors preserve the server reason and explain how to request access', () => {
+    const error = new PermissionError({ status: 403 });
+    error.message = 'No write access to this experiment.';
+    jest.mocked(useInvokeIssueDetection).mockReturnValue({
+      mutate: mockInvokeIssueDetection,
+      isLoading: false,
+      error,
+      reset: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+
+    expect(
+      screen.getByText('No write access to this experiment. Contact your experiment admin for access.'),
+    ).toBeVisible();
+    expect(defaultProps.onClose).not.toHaveBeenCalled();
+    expect(mockInvokeIssueDetection).not.toHaveBeenCalled();
     expect(screen.queryByTestId('api-key-view')).not.toBeInTheDocument();
   });
 
