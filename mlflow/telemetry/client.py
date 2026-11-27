@@ -187,6 +187,14 @@ class TelemetryClient:
         """
         mlflow_version = self.info["mlflow_version"]
         if config_url := _get_config_url(mlflow_version):
+            # The remote config only directs and gates the OSS ingestion endpoint. Records
+            # forwarded to a Databricks workspace use none of it, and its host can be
+            # unreachable there (e.g. a workspace that restricts outbound network access).
+            scheme, _ = _get_tracking_uri_info()
+            if _IS_IN_DATABRICKS or scheme in _DATABRICKS_SCHEMES:
+                self.config = TelemetryConfig(ingestion_url=None, disable_events=set())
+                return
+
             try:
                 response = requests.get(config_url, timeout=1)
                 if response.status_code != 200:
@@ -285,6 +293,11 @@ class TelemetryClient:
             # workload. The Databricks-forwarding branch above is the only path
             # allowed in DBR, model serving, etc.
             if _IS_IN_DATABRICKS:
+                return
+
+            # The config was built in for a Databricks tracking URI that has since been
+            # switched away from, so the OSS ingestion URL was never fetched.
+            if self.config.ingestion_url is None:
                 return
 
             records = [

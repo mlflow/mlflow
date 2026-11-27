@@ -984,6 +984,80 @@ def test_oss_ingestion_skipped_when_running_inside_databricks(mock_requests):
         assert len(mock_requests) == 0
 
 
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="Requires full tracking SDK")
+@pytest.mark.no_mock_requests_get
+@pytest.mark.parametrize("tracking_uri_scheme", ["databricks", "databricks-uc", "uc"])
+def test_databricks_forwarding_does_not_fetch_remote_config(tracking_uri_scheme):
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+
+    with (
+        _use_tracking_uri(f"{tracking_uri_scheme}://profile_name"),
+        # The config host is unreachable from workspaces that restrict outbound network access.
+        mock.patch("mlflow.telemetry.client.requests.get", side_effect=ConnectionError) as mock_get,
+        mock.patch(
+            "mlflow.telemetry.client.http_request",
+            return_value=mock.Mock(status_code=200),
+        ) as mock_http,
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds") as mock_creds,
+        mock.patch("mlflow.telemetry.client._IS_MLFLOW_DEV_VERSION", False),
+        TelemetryClient() as telemetry_client,
+    ):
+        telemetry_client.add_record(record)
+        telemetry_client.flush()
+
+        mock_get.assert_not_called()
+        mock_creds.assert_called_once()
+        mock_http.assert_called_once()
+        assert mock_http.call_args.kwargs["endpoint"] == "/api/2.0/mlflow/client-telemetry/ingest"
+
+
+@pytest.mark.no_mock_requests_get
+def test_remote_config_not_fetched_inside_databricks():
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+
+    with (
+        mock.patch("mlflow.telemetry.client._IS_IN_DATABRICKS", True),
+        mock.patch("mlflow.telemetry.client.requests.get", side_effect=ConnectionError) as mock_get,
+        mock.patch("mlflow.telemetry.client.requests.post") as mock_post,
+        TelemetryClient() as telemetry_client,
+    ):
+        telemetry_client.add_record(record)
+        telemetry_client.flush()
+
+        mock_get.assert_not_called()
+        mock_post.assert_not_called()
+        assert not telemetry_client._is_stopped
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="Requires full tracking SDK")
+def test_oss_records_dropped_when_tracking_uri_moves_off_databricks():
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+
+    with TelemetryClient() as client:
+        with _use_tracking_uri("databricks://profile_name"):
+            client.activate()
+            client._config_thread.join(timeout=3)
+        assert client.config.ingestion_url is None
+
+        with mock.patch("mlflow.telemetry.client.requests.post") as mock_post:
+            client._process_records([record])
+
+        mock_post.assert_not_called()
+        assert not client._is_stopped
+
+
 def test_databricks_forwarding_disabled_for_dev_versions():
     record = Record(
         event_name="test_event",
