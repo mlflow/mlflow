@@ -721,8 +721,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     columnOrder: columnOrder.columnOrder,
     initialColumnSizing: columnSizing.columnSizing,
     onColumnSizingSettled: columnSizing.setColumnSizing,
-    isLoading: page.isFetching,
-    isFetching: page.isFetching,
+    isLoading: controller.isSearchPending,
+    isFetching: controller.isSearchPending,
     skeletonRowCount: url.pageSize,
     onTraceSelected: handleTraceSelected,
     selectedTraceId: url.traceId,
@@ -754,6 +754,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     onSearchChange: searchInput.setInput,
     onSearchClear: searchInput.clear,
     onSearchSubmit: searchInput.submit,
+    isSearchPending: controller.isSearchPending,
     searchInputRef,
     ...(unifiedSearchEnabled
       ? {
@@ -764,6 +765,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             traces: page.traces,
             inputRef: searchInputRef,
             resetKey: experimentId,
+            isSearchPending: controller.isSearchPending,
           }),
         }
       : {}),

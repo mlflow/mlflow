@@ -20,6 +20,7 @@ interface RenderSearchControlParams {
   inputRef: RefObject<InputRef>;
   /** Resets the in-memory recent searches when it changes (e.g. another experiment or run). */
   resetKey: string;
+  isSearchPending?: boolean;
 }
 
 const isSameClause = (left: FilterClause, right: FilterClause) =>
@@ -87,7 +88,13 @@ export const useTracesV4UnifiedSearch = ({
     [searchInput],
   );
 
-  const renderSearchControl = ({ renderFilterEditor, traces, inputRef, resetKey }: RenderSearchControlParams) =>
+  const renderSearchControl = ({
+    renderFilterEditor,
+    traces,
+    inputRef,
+    resetKey,
+    isSearchPending,
+  }: RenderSearchControlParams) =>
     renderFilterEditor((openEditor) => (
       <TracesV4Search
         key={resetKey}
@@ -103,6 +110,7 @@ export const useTracesV4UnifiedSearch = ({
         onApplyFilter={addSearchFilter}
         onMinimumWidthChange={setSearchMinimumWidth}
         inputRef={inputRef}
+        isSearchPending={isSearchPending}
       />
     ));
 

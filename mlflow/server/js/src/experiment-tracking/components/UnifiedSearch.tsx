@@ -11,6 +11,7 @@ import {
   type InputRef,
   SearchIcon,
   SparkleIcon,
+  Spinner,
   Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -37,6 +38,8 @@ interface UnifiedSearchProps {
   open: boolean;
   setOpen: (open: boolean) => void;
   isAIMode: boolean;
+  /** Shows a spinner while the caller's search is in flight. */
+  isSearchPending?: boolean;
   placeholder: string;
   ariaLabel: string;
   submitDisabled: boolean;
@@ -63,6 +66,7 @@ export const UnifiedSearch = ({
   open,
   setOpen,
   isAIMode,
+  isSearchPending,
   placeholder,
   ariaLabel,
   submitDisabled,
@@ -176,7 +180,8 @@ export const UnifiedSearch = ({
         componentId="mlflow.unified-search.submit"
         type="link"
         size="small"
-        icon={<SearchIcon />}
+        icon={isSearchPending ? <Spinner size="small" loading={false} /> : <SearchIcon />}
+        aria-busy={isSearchPending ? true : undefined}
         disabled={submitDisabled}
         onClick={onSubmit}
         aria-label={intl.formatMessage({ defaultMessage: 'Search', description: 'Submit search' })}

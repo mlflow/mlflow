@@ -389,11 +389,44 @@ describe('TracesV4PageContent', () => {
 
       // Skeleton replaces rows (not kept via keepPreviousData).
       await waitFor(() => expect(screen.getByRole('region', { name: 'Traces' })).toHaveAttribute('aria-busy', 'true'));
+      expect(screen.getByPlaceholderText('Search traces by id, input, or output')).toHaveAttribute('aria-busy', 'true');
       expect(queryTraceRow('tr-000')).not.toBeInTheDocument();
 
       resolveReload?.();
       expect(await findTraceRow('tr-000')).toBeInTheDocument();
     }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+
+    test('a grouped search marks the search busy and replaces the previous sessions with skeletons', async () => {
+      state.pages = {
+        '': {
+          traces: [makeSessionTrace('tr-000', 'session-a'), makeSessionTrace('tr-001', 'session-a')],
+          next_page_token: undefined,
+        },
+      };
+      renderPage({ initialUrl: `${URL}?groupBy=session` });
+      expect(await screen.findByRole('button', { name: 'Expand session session-a' })).toBeInTheDocument();
+
+      let resolveSearch: (() => void) | undefined;
+      server.use(
+        rest.post(SEARCH_ENDPOINT, async (req, res, ctx) => {
+          state.searchCalls.push((await req.json()) as SearchCall);
+          await new Promise<void>((resolve) => {
+            resolveSearch = resolve;
+          });
+          return res(ctx.json({ traces: [makeSessionTrace('tr-002', 'session-b')] }));
+        }),
+      );
+
+      const searchBox = screen.getByPlaceholderText('Search traces by id, input, or output');
+      fireEvent.change(searchBox, { target: { value: 'needle' } });
+      pressEnter(searchBox);
+
+      await waitFor(() => expect(searchBox).toHaveAttribute('aria-busy', 'true'));
+      expect(screen.queryByRole('button', { name: 'Expand session session-a' })).not.toBeInTheDocument();
+
+      resolveSearch?.();
+      expect(await screen.findByRole('button', { name: 'Expand session session-b' })).toBeInTheDocument();
+    }, 20000);
   });
 
   describe('opening a trace', () => {

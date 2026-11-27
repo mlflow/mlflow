@@ -71,6 +71,8 @@ export interface UseTracesV4ControllerResult {
   onFilterByTag: (key: string, value: string) => void;
   /** Effective grouped state — the URL flag gated by the session-grouping feature flag. */
   isGroupedBySession: boolean;
+  /** True while the current query is fetching or still showing a prior query's rows. */
+  isSearchPending: boolean;
   flags: {
     hasActiveSearch: boolean;
     hasNoTracesInRange: boolean;
@@ -150,6 +152,7 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     enabled: true,
     onPageIndexChange: rawSetPageIndex,
   });
+  const isSearchPending = page.isFetching || page.isPreviousData;
   useEffect(() => recordTraces(page.traces), [page.traces, recordTraces]);
 
   // Reload button → `monitoringConfig.refresh()` bumps `lastRefreshTime`. For a *relative* range that
@@ -301,6 +304,7 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     goToPage,
     onFilterByTag: url.addTagFilter,
     isGroupedBySession,
+    isSearchPending,
     flags: { hasActiveSearch, hasNoTracesInRange, hasNoSearchResults, isEmptyPageBeyondFirst },
   };
 };
