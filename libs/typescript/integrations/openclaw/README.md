@@ -36,17 +36,13 @@ Requires OpenClaw 2026.4.26 or later. Check your version with `openclaw --versio
 
 ### 1. Install the Plugin
 
-Current OpenClaw looks up bare package names on ClawHub only, so install from npm:
+Install from npm:
 
 ```bash
-openclaw plugins install npm:@mlflow/mlflow-openclaw --force --accept-capabilities
+openclaw plugins install npm:@mlflow/mlflow-openclaw
 ```
 
-If OpenClaw rejects `--accept-capabilities` as an unknown option, it is an older release. Install by name there:
-
-```bash
-openclaw plugins install @mlflow/mlflow-openclaw
-```
+OpenClaw 2026.8.1 and later ask you to confirm the npm source and the plugin's capabilities. To install without a terminal on those releases, add `--force --accept-capabilities`.
 
 ### 2. Start the MLflow Server
 
