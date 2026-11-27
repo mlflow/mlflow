@@ -10,6 +10,7 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.pydantic_ai.utils import (
     extract_safe_attributes,
+    mcp_tool_call_span_type,
     model_request_inputs,
     parse_usage,
     serialize_output,
@@ -216,7 +217,8 @@ async def patched_mcp_list_tools(original, self, *args, **kwargs):
     if not _tracing_enabled():
         return await original(self, *args, **kwargs)
 
-    with mlflow.start_span(name="MCPToolset.list_tools", span_type=SpanType.TOOL) as span:
+    # Listing the server's tools is not a tool call, and tool-call scorers count TOOL spans
+    with mlflow.start_span(name="MCPToolset.list_tools", span_type=SpanType.CHAIN) as span:
         span.set_inputs({})
         result = await original(self, *args, **kwargs)
         span.set_outputs(serialize_output(result))
@@ -233,7 +235,8 @@ async def patched_mcp_direct_call_tool(
     use_task=False,
     **kwargs,
 ):
-    with mlflow.start_span(name="MCPToolset.direct_call_tool", span_type=SpanType.TOOL) as span:
+    span_type = mcp_tool_call_span_type()
+    with mlflow.start_span(name="MCPToolset.direct_call_tool", span_type=span_type) as span:
         span.set_inputs({"name": name, "args": args})
         result = await original(
             self,

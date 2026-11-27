@@ -1,4 +1,5 @@
 import importlib.metadata
+from contextlib import ExitStack
 from unittest.mock import MagicMock
 
 import pytest
@@ -448,7 +449,7 @@ async def test_mcp_list_tools_uses_public_transport_payload():
     assert len(traces) == 1
     span = traces[0].data.spans[0]
     assert span.name == "MCPToolset.list_tools"
-    assert span.span_type == SpanType.TOOL
+    assert span.span_type == SpanType.CHAIN
     assert span.inputs == {}
     assert span.outputs == [{"name": "remote_tool"}]
 
@@ -506,11 +507,42 @@ async def test_mcp_tool_has_logical_and_nested_transport_spans():
     assert len(traces) == 1
     spans = traces[0].data.spans
     assert [span.name for span in spans] == ["remote_tool", "MCPToolset.direct_call_tool"]
+    assert [span.span_type for span in spans] == [SpanType.TOOL, SpanType.CHAIN]
     assert spans[0].inputs == {"value": 2}
     assert spans[0].outputs == {"doubled": 4}
     assert spans[1].inputs == {"name": "remote_tool", "args": {"value": 2}}
     assert spans[1].outputs == {"doubled": 4}
     assert spans[1].parent_id == spans[0].span_id
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("parent_span_types", "expected_span_type"),
+    [
+        pytest.param([], SpanType.TOOL, id="direct-call"),
+        pytest.param([SpanType.TOOL], SpanType.CHAIN, id="inside-tool-span"),
+        pytest.param([SpanType.TOOL, SpanType.AGENT], SpanType.TOOL, id="agent-used-as-tool"),
+    ],
+)
+async def test_mcp_direct_call_tool_span_type_depends_on_parent_span(
+    parent_span_types, expected_span_type
+):
+    mlflow.pydantic_ai.autolog()
+    toolset = object.__new__(MCPToolset)
+
+    async def direct_call_tool(self, name, args, *, metadata=None, use_task=False):
+        return {"doubled": args["value"] * 2}
+
+    with ExitStack() as stack:
+        for span_type in parent_span_types:
+            stack.enter_context(mlflow.start_span(name=span_type, span_type=span_type))
+        result = await patched_mcp_direct_call_tool(
+            direct_call_tool, toolset, "remote_tool", {"value": 2}
+        )
+
+    assert result == {"doubled": 4}
+    span = next(s for s in get_traces()[0].data.spans if s.name == "MCPToolset.direct_call_tool")
+    assert span.span_type == expected_span_type
 
 
 @pytest.mark.asyncio
