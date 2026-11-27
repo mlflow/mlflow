@@ -7,7 +7,6 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
-from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS
 from mlflow.gateway.exceptions import AIGatewayException
@@ -1239,12 +1238,13 @@ def _make_provider_with_credentials(vertex_credentials):
     return VertexAIProvider(endpoint_config)
 
 
+# Operator-owned configurations (the YAML gateway, client-side judges) may give a path. Stored
+# gateway secrets are validated in mlflow.server.gateway_api before they reach the provider.
 @pytest.mark.parametrize("from_file", [False, True])
-def test_credentials_with_service_account_key(from_file, tmp_path, monkeypatch):
+def test_credentials_with_service_account_key(from_file, tmp_path):
     creds_json = _service_account_key()
     vertex_credentials = creds_json
     if from_file:
-        monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
         vertex_credentials = tmp_path / "key.json"
         vertex_credentials.write_text(creds_json)
     provider = _make_provider_with_credentials(str(vertex_credentials))
@@ -1261,43 +1261,6 @@ def test_credentials_with_service_account_key(from_file, tmp_path, monkeypatch):
     from_info.assert_called_once_with(
         json.loads(creds_json), scopes=["https://www.googleapis.com/auth/cloud-platform"]
     )
-
-
-def test_credentials_file_path_requires_opt_in(tmp_path):
-    path = tmp_path / "key.json"
-    path.write_text(_service_account_key())
-    provider = _make_provider_with_credentials(str(path))
-
-    with (
-        mock.patch(
-            "google.oauth2.service_account.Credentials.from_service_account_info"
-        ) as from_info,
-        pytest.raises(MlflowException, match="must contain the service account key JSON"),
-    ):
-        provider.headers
-    from_info.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    "creds_json",
-    [
-        _service_account_key(token_uri="http://127.0.0.1:8080/token"),
-        _service_account_key(token_uri="https://169.254.169.254/token"),
-        _service_account_key(auth_uri="https://evil.example/auth"),
-        _service_account_key(type="external_account"),
-    ],
-)
-def test_credentials_reject_untrusted_service_account_key(creds_json):
-    provider = _make_provider_with_credentials(creds_json)
-
-    with (
-        mock.patch(
-            "google.oauth2.service_account.Credentials.from_service_account_info"
-        ) as from_info,
-        pytest.raises(MlflowException, match="vertex_credentials"),
-    ):
-        provider.headers
-    from_info.assert_not_called()
 
 
 def _cache_control_messages():

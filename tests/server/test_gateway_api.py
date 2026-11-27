@@ -192,7 +192,7 @@ def test_build_endpoint_config_vertex_ai_reads_anthropic_betas_from_auth_config(
         model_definition_id="md-test",
         provider="vertex_ai",
         model_name="claude-sonnet-4-5@20251101",
-        secret_value={"vertex_credentials": "{}"},
+        secret_value={"vertex_credentials": '{"type": "service_account"}'},
         auth_config={
             "vertex_project": "my-project",
             "vertex_location": "us-east5",
@@ -223,6 +223,76 @@ def test_build_endpoint_config_vertex_ai_credentials_follow_auth_mode(auth_mode,
     config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
     assert isinstance(config.model.config, VertexAIConfig)
     assert config.model.config.vertex_credentials == expected
+
+
+def _service_account_key(**overrides):
+    return json.dumps({
+        "type": "service_account",
+        "client_email": "sa@my-project.iam.gserviceaccount.com",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        **overrides,
+    })
+
+
+def _vertex_model_config(provider, key, value):
+    return GatewayModelConfig(
+        model_definition_id="md-test",
+        provider=provider,
+        model_name="gemini-2.5-flash",
+        secret_value={key: value},
+        auth_config={"vertex_project": "my-project"},
+    )
+
+
+def _stored_vertex_credentials(config, key):
+    if isinstance(config.model.config, VertexAIConfig):
+        return config.model.config.vertex_credentials
+    return config.model.config.litellm_auth_config[key]
+
+
+_STORED_VERTEX_CREDENTIAL_CASES = [
+    ("vertex_ai", "vertex_credentials"),
+    ("vertex_ai_beta", "vertex_credentials"),
+    ("vertex_ai_beta", "vertex_ai_credentials"),
+]
+
+
+@pytest.mark.parametrize(("provider", "key"), _STORED_VERTEX_CREDENTIAL_CASES)
+@pytest.mark.parametrize(
+    "value",
+    [
+        _service_account_key(token_uri="http://127.0.0.1:8080/token"),
+        _service_account_key(auth_uri="https://evil.example/auth"),
+        _service_account_key(type="external_account"),
+        "/etc/service-account.json",
+    ],
+)
+def test_build_endpoint_config_rejects_untrusted_stored_vertex_credentials(provider, key, value):
+    model_config = _vertex_model_config(provider, key, value)
+    with pytest.raises(HTTPException, match=f"'{key}'") as exc:
+        _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert exc.value.status_code == 502
+    assert exc.value.detail.startswith("The endpoint's secret is invalid")
+    assert "evil" not in exc.value.detail
+    assert "/etc/" not in exc.value.detail
+
+
+@pytest.mark.parametrize(("provider", "key"), _STORED_VERTEX_CREDENTIAL_CASES)
+def test_build_endpoint_config_reads_stored_vertex_credentials_file_only_with_opt_in(
+    provider, key, tmp_path, monkeypatch
+):
+    path = tmp_path / "key.json"
+    path.write_text(_service_account_key())
+    model_config = _vertex_model_config(provider, key, str(path))
+    with pytest.raises(HTTPException, match="must contain the service account key JSON") as exc:
+        _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert exc.value.status_code == 502
+
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
+    model_config = _vertex_model_config(provider, key, str(path))
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    # Providers receive the validated document, not the path.
+    assert _stored_vertex_credentials(config, key) == _service_account_key()
 
 
 @pytest.mark.parametrize(

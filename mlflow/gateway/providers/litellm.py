@@ -11,12 +11,7 @@ from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, Provi
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
-from mlflow.utils.validation import (
-    GATEWAY_DESTINATION_KEYS,
-    GATEWAY_REGION_KEYS,
-    GATEWAY_VERTEX_CREDENTIAL_KEYS,
-    _load_gateway_vertex_credentials,
-)
+from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS, GATEWAY_REGION_KEYS
 
 # Credential selectors can take precedence over configured keys or select credentials from
 # the server's filesystem. They belong to endpoint configuration, never inference payloads.
@@ -180,17 +175,6 @@ class LiteLLMProvider(BaseProvider):
                 "provider credentials are fixed by the endpoint configuration.",
             )
         kwargs = self._build_litellm_kwargs(payload)
-        # LiteLLM would read a file path or follow the key's token URI itself, so it only
-        # receives the validated document.
-        for key in sorted(GATEWAY_VERTEX_CREDENTIAL_KEYS & set(kwargs)):
-            if kwargs[key]:
-                try:
-                    info = _load_gateway_vertex_credentials(kwargs[key], repr(key))
-                except MlflowException as e:
-                    raise HTTPException(
-                        status_code=502, detail=f"The endpoint's secret is invalid: {e.message}"
-                    ) from None
-                kwargs[key] = json.dumps(info)
         if not upstream_protection_enabled():
             return kwargs
         if base_url := kwargs.pop("base_url", None):

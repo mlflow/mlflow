@@ -1483,6 +1483,49 @@ def test_validate_judge_inference_params_accepts_benign_payloads(serialized_scor
 
 
 @pytest.mark.parametrize(
+    ("make_scorer", "field"),
+    [
+        (
+            lambda v: _trulens_scorer({"vertex_credentials": v}),
+            "third_party_scorer_data.kwargs 'vertex_credentials'",
+        ),
+        (
+            lambda v: _trulens_scorer({"completion_kwargs": {"vertex_ai_credentials": v}}),
+            "third_party_scorer_data.kwargs 'vertex_ai_credentials'",
+        ),
+        (
+            lambda v: _trulens_scorer({"completion_kwargs": [["vertex_credentials", v]]}),
+            "third_party_scorer_data.kwargs 'vertex_credentials'",
+        ),
+        (
+            lambda v: _instructions_judge({"vertex_credentials": v}),
+            "instructions_judge_pydantic_data.inference_params 'vertex_credentials'",
+        ),
+        (
+            lambda v: _builtin_judge({"vertex_ai_credentials": v}),
+            "builtin_scorer_pydantic_data.inference_params 'vertex_ai_credentials'",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "value",
+    [
+        _service_account_key(token_uri="http://127.0.0.1:8080/token"),
+        _service_account_key(type="external_account"),
+        "/etc/service-account.json",
+    ],
+)
+def test_validate_scorer_destination_options_checks_vertex_credentials(make_scorer, field, value):
+    with pytest.raises(MlflowException, match=field) as exc:
+        _validate_scorer_destination_options(make_scorer(value))
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "127.0.0.1" not in exc.value.message
+    assert "/etc/" not in exc.value.message
+    _validate_scorer_destination_options(make_scorer(_service_account_key()))
+    _validate_scorer_destination_options(make_scorer(""))
+
+
+@pytest.mark.parametrize(
     ("serialized_scorer", "field"),
     [
         (

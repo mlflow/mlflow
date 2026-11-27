@@ -1456,36 +1456,6 @@ def test_credential_guard_preserves_stored_configuration(auth_config, protected)
     assert payload == {"messages": [], "temperature": 0.5, "top_k": 2}
 
 
-@pytest.mark.parametrize("protected", [False, True])
-@pytest.mark.parametrize("key", ["vertex_credentials", "vertex_ai_credentials"])
-@pytest.mark.parametrize(
-    "value",
-    [
-        _service_account_key(token_uri="http://127.0.0.1:8080/token"),
-        _service_account_key(auth_uri="https://evil.example/auth"),
-        _service_account_key(type="external_account"),
-        "/etc/service-account.json",
-    ],
-)
-def test_vertex_credentials_guard_rejects_untrusted_stored_key(key, value, protected):
-    with pytest.raises(HTTPException, match=f"'{key}'") as exc:
-        _prepare_litellm_kwargs({"messages": []}, {key: value}, protected)
-    assert exc.value.status_code == 502
-    assert "evil" not in exc.value.detail
-    assert "/etc/" not in exc.value.detail
-
-
-def test_vertex_credentials_guard_reads_file_only_with_opt_in(tmp_path, monkeypatch):
-    path = tmp_path / "key.json"
-    path.write_text(_service_account_key())
-    with pytest.raises(HTTPException, match="must contain the service account key JSON"):
-        _prepare_litellm_kwargs({}, {"vertex_credentials": str(path)}, protected=True)
-
-    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
-    kwargs = _prepare_litellm_kwargs({}, {"vertex_credentials": str(path)}, protected=True)
-    assert kwargs == {"vertex_credentials": _service_account_key()}
-
-
 def test_credential_request_guard_with_private_upstream_opt_out(monkeypatch):
     monkeypatch.setenv("MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", "true")
     with pytest.raises(HTTPException, match="The request must not set 'aws_profile_name'") as exc:

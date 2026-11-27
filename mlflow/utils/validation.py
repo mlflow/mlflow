@@ -1384,26 +1384,26 @@ def _find_destination_keys(value: Any) -> set[str]:
     return set()
 
 
-def _iter_region_key_values(value: Any) -> Iterator[tuple[str, Any]]:
-    """Yield ``(key, value)`` for every region key nested anywhere in ``value``.
+def _iter_key_values(value: Any, keys: frozenset[str]) -> Iterator[tuple[str, Any]]:
+    """Yield ``(key, value)`` for every one of ``keys`` nested anywhere in ``value``.
 
     Like ``_find_destination_keys``, this also reads the two-item pairs ``dict()`` accepts.
     """
     if isinstance(value, dict):
         for key, nested in value.items():
-            if key in GATEWAY_REGION_KEYS:
+            if key in keys:
                 yield key, nested
-            yield from _iter_region_key_values(nested)
+            yield from _iter_key_values(nested, keys)
     elif isinstance(value, list):
         for nested in value:
             if (
                 isinstance(nested, list)
                 and len(nested) == 2
                 and isinstance(nested[0], str)
-                and nested[0] in GATEWAY_REGION_KEYS
+                and nested[0] in keys
             ):
                 yield nested[0], nested[1]
-            yield from _iter_region_key_values(nested)
+            yield from _iter_key_values(nested, keys)
 
 
 def _iter_third_party_scorer_data(value: Any) -> Iterator[dict[str, Any]]:
@@ -1435,7 +1435,8 @@ def _validate_third_party_scorer_data(
     host the server connects to. The server is the trust boundary for these payloads, so the
     gateway destination keys are rejected here at any nesting depth (``completion_kwargs``,
     ``model_kwargs``, ...) and inside any wrapping scorer. Providers build request hosts from
-    the region keys, so those must be bare region names at any nesting depth too.
+    the region keys, so those must be bare region names at any nesting depth too, and Vertex AI
+    service account keys must pass ``_load_gateway_vertex_credentials``.
     ``show_value=False`` leaves a rejected region value out of the error message.
     """
     for data in _iter_third_party_scorer_data(serialized_scorer):
@@ -1453,13 +1454,16 @@ def _validate_third_party_scorer_data(
                 "the judge endpoint on the server instead, for example through a gateway "
                 "endpoint ('gateway:/<name>') or the provider's environment variables."
             )
-        for key, value in _iter_region_key_values(kwargs):
+        for key, value in _iter_key_values(kwargs, GATEWAY_REGION_KEYS):
             try:
                 _validate_region_name(
                     value, f"third_party_scorer_data.kwargs {key!r}", show_value=show_value
                 )
             except ValueError as e:
                 raise MlflowException.invalid_parameter_value(str(e)) from None
+        for key, value in _iter_key_values(kwargs, GATEWAY_VERTEX_CREDENTIAL_KEYS):
+            if value:
+                _load_gateway_vertex_credentials(value, f"third_party_scorer_data.kwargs {key!r}")
 
 
 # Serialized judges whose data carries ``inference_params``: ``InstructionsJudge`` (``make_judge``)
@@ -1494,7 +1498,9 @@ def _validate_judge_inference_params(
     judge endpoint is configured on the server, so the gateway destination keys rejected for
     third-party scorer kwargs are rejected here too, at any nesting depth and inside any
     wrapping scorer. Providers build request hosts from the region keys, so those must be bare
-    region names. ``show_value=False`` leaves a rejected region value out of the error message.
+    region names, and Vertex AI service account keys must pass
+    ``_load_gateway_vertex_credentials``. ``show_value=False`` leaves a rejected region value
+    out of the error message.
     """
     for field, data in _iter_judge_pydantic_data(serialized_scorer):
         params = data.get("inference_params")
@@ -1512,6 +1518,7 @@ def _validate_judge_inference_params(
                 "endpoint ('gateway:/<name>') or the provider's environment variables."
             )
         _validate_gateway_region_keys(params, f"{field}.inference_params", show_value=show_value)
+        _validate_gateway_vertex_credentials(params or {}, f"{field}.inference_params")
 
 
 def _validate_scorer_destination_options(

@@ -97,7 +97,11 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.types.chat import ChatCompletionRequest
 from mlflow.utils.provider_filter import is_provider_allowed, normalize_provider_name
-from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS
+from mlflow.utils.validation import (
+    GATEWAY_DESTINATION_KEYS,
+    GATEWAY_VERTEX_CREDENTIAL_KEYS,
+    _load_gateway_vertex_credentials,
+)
 from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
@@ -362,6 +366,27 @@ def _build_openai_compatible_config(model_config: "GatewayModelConfig"):
     )
 
 
+def _validate_stored_vertex_credentials(config: dict[str, Any]) -> dict[str, Any]:
+    """Return ``config`` with its Vertex AI service account keys validated and inlined.
+
+    Secrets stored before write-time validation existed are checked here too. Providers would
+    otherwise read a file path or send the key's token request to its ``token_uri`` themselves,
+    so they only receive the validated JSON. YAML gateway and client-side configurations are
+    operator-owned and don't pass through here.
+    """
+    validated = dict(config)
+    for key in sorted(GATEWAY_VERTEX_CREDENTIAL_KEYS & set(config)):
+        if config[key]:
+            try:
+                info = _load_gateway_vertex_credentials(config[key], repr(key))
+            except MlflowException as e:
+                raise HTTPException(
+                    status_code=502, detail=f"The endpoint's secret is invalid: {e.message}"
+                ) from None
+            validated[key] = json.dumps(info)
+    return validated
+
+
 def _build_endpoint_config(
     endpoint_name: str,
     model_config: GatewayModelConfig,
@@ -545,7 +570,9 @@ def _build_endpoint_config(
         vertex_credentials = (
             None
             if auth_config.get(_AuthConfigKey.AUTH_MODE) == "default_chain"
-            else model_config.secret_value.get("vertex_credentials")
+            else _validate_stored_vertex_credentials({
+                "vertex_credentials": model_config.secret_value.get("vertex_credentials")
+            })["vertex_credentials"]
         )
         provider_config = VertexAIConfig(
             vertex_project=auth_config.get("vertex_project"),
@@ -571,7 +598,7 @@ def _build_endpoint_config(
             }
         litellm_config = {
             "litellm_provider": original_provider,
-            "litellm_auth_config": auth_config | secret_value,
+            "litellm_auth_config": _validate_stored_vertex_credentials(auth_config | secret_value),
         }
         provider_config = LiteLLMConfig(**litellm_config)
         model_config.provider = Provider.LITELLM
