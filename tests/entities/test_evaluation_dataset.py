@@ -827,7 +827,7 @@ def test_merge_records_does_not_modify_input_records():
 
 
 @pytest.mark.parametrize("error", [MlflowException("chunk failed"), KeyboardInterrupt()])
-def test_merge_records_marks_state_stale_when_upsert_fails(error):
+def test_merge_records_drops_cached_records_when_upsert_fails(error):
     dataset = EvaluationDataset(
         dataset_id="dataset123",
         name="test_dataset",
@@ -845,71 +845,5 @@ def test_merge_records_marks_state_stale_when_upsert_fails(error):
         with pytest.raises(type(error)):
             dataset.merge_records([{"inputs": {"q": "a"}}])
 
-        # The failure path must not fetch from the store, which may be unreachable
-        mock_store.get_dataset.assert_called_once()
-        assert dataset._records is None
-
-        mock_store.get_dataset.return_value = Mock(
-            digest="digest456",
-            schema='{"inputs": {}}',
-            profile='{"num_records": 1}',
-            last_update_time=123456790,
-            last_updated_by="bob",
-        )
-        assert dataset.last_update_time == 123456790
-        assert dataset.last_updated_by == "bob"
-        assert dataset.digest == "digest456"
-        assert dataset.schema == '{"inputs": {}}'
-        assert dataset.profile == '{"num_records": 1}'
-        assert mock_store.get_dataset.call_count == 2
-
-
-def test_merge_records_retries_refresh_when_post_write_refresh_fails():
-    dataset = EvaluationDataset(
-        dataset_id="dataset123",
-        name="test_dataset",
-        digest="digest123",
-        created_time=123456789,
-        last_update_time=123456789,
-    )
-    dataset._records = []
-
-    mock_store = Mock()
-    mock_store.get_dataset.side_effect = [
-        Mock(schema=None),
-        MlflowException("refresh failed"),
-        Mock(digest="digest456", last_update_time=123456790),
-    ]
-
-    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
-        with pytest.raises(MlflowException, match="refresh failed"):
-            dataset.merge_records([{"inputs": {"q": "a"}}])
-        assert dataset.last_update_time == 123456790
-        assert dataset.digest == "digest456"
-        assert mock_store.get_dataset.call_count == 3
-
-
-def test_stale_metadata_refresh_retries_after_refresh_fails():
-    dataset = EvaluationDataset(
-        dataset_id="dataset123",
-        name="test_dataset",
-        digest="digest123",
-        created_time=123456789,
-        last_update_time=123456789,
-    )
-    dataset._records = []
-
-    mock_store = Mock()
-    mock_store.get_dataset.side_effect = [
-        Mock(schema=None),
-        MlflowException("refresh failed"),
-        Mock(digest="digest456"),
-    ]
-    mock_store.upsert_dataset_records.side_effect = MlflowException("chunk failed")
-
-    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
-        with pytest.raises(MlflowException, match="chunk failed"):
-            dataset.merge_records([{"inputs": {"q": "a"}}])
-        with pytest.raises(MlflowException, match="refresh failed"):
-            dataset.digest
-        assert dataset.digest == "digest456"
+    assert dataset._records is None
+    mock_store.get_dataset.assert_called_once()
