@@ -2211,6 +2211,115 @@ def test_create_model_version_camelcase_alias_requires_read_on_source(
     assert response.status_code == 200
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_model_version_artifact_requires_source_within_recorded_root(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    username, password = create_user(client.tracking_uri)
+    with User(username, password, monkeypatch):
+        exp_id = client.create_experiment("mv-artifact-source-exp")
+        rm = client.create_registered_model("mv-artifact-source-model")
+    grant_role_permission(client.tracking_uri, username, "experiment", exp_id, "READ")
+
+    model_file = tmp_path / "MLmodel"
+    model_file.write_text("flavors: {}")
+    with User(username, password, monkeypatch):
+        run_id = client.create_run(exp_id).info.run_id
+        client.log_artifact(run_id, str(model_file), "model")
+        anchored = client.create_model_version(rm.name, f"runs:/{run_id}/model", run_id=run_id)
+        external = client.create_model_version(rm.name, "s3://external-bucket/model")
+
+    def get_artifact(version, **params):
+        return requests.get(
+            f"{client.tracking_uri}/model-versions/get-artifact",
+            params={"name": rm.name, "version": version, "path": "MLmodel", **params},
+            auth=(username, password),
+        )
+
+    response = get_artifact(anchored.version)
+    assert response.status_code == 200
+    assert response.text == "flavors: {}"
+    assert get_artifact(external.version).status_code == 403
+    assert get_artifact(external.version, presigned="true").status_code == 403
+
+
+_RUN_ROOT = "s3://bucket/1/run-1/artifacts"
+_MODEL_ROOT = "s3://bucket/1/models/m-1/artifacts"
+
+
+def _check_model_version_artifact_source_root(monkeypatch, source, run_id, download_uri, run_root):
+    registry_store = mock.Mock()
+    registry_store.get_model_version.return_value = SimpleNamespace(
+        source=source, run_id=run_id, model_id=None
+    )
+    registry_store.get_model_version_download_uri.return_value = download_uri
+    tracking_store = mock.Mock()
+    tracking_store.get_run.return_value = SimpleNamespace(
+        info=SimpleNamespace(artifact_uri=run_root)
+    )
+    tracking_store.get_logged_model.return_value = SimpleNamespace(artifact_location=_MODEL_ROOT)
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+    result = auth_module._is_model_version_artifact_within_source_root("model", "1")
+
+    registry_store.get_model_version.assert_called_once_with("model", "1")
+    registry_store.get_model_version_download_uri.assert_called_once_with("model", "1")
+    return result
+
+
+@pytest.mark.parametrize(
+    ("source", "run_id", "storage_location", "expected"),
+    [
+        ("runs:/run-1/model", "run-1", None, True),
+        ("runs:/run-2/model", "run-1", None, False),
+        ("runs:/run-1/model", None, None, False),
+        ("runs:/run-1/../../run-2/model", "run-1", None, False),
+        (f"{_RUN_ROOT}/model", "run-1", None, True),
+        (f"{_RUN_ROOT}/../../run-2/artifacts", "run-1", None, False),
+        ("s3://bucket/1/run-2/artifacts/model", "run-1", None, False),
+        ("s3://other-bucket/model", None, None, False),
+        ("gs://other-bucket/model", "run-1", None, False),
+        ("models:/m-1", "run-1", _MODEL_ROOT, True),
+        ("models:/m-1", None, "s3://other-bucket/model", False),
+        ("models:/other-model/1", "run-1", f"{_RUN_ROOT}/model", True),
+        ("models:/other-model/1", None, "s3://other-bucket/model", False),
+    ],
+)
+def test_model_version_artifact_source_root_check(
+    monkeypatch, source, run_id, storage_location, expected
+):
+    result = _check_model_version_artifact_source_root(
+        monkeypatch, source, run_id, storage_location or source, _RUN_ROOT
+    )
+    assert result is expected
+
+
+@pytest.mark.parametrize(
+    ("relative_source", "as_uri", "expected"),
+    [
+        ("1/run-1/artifacts/model", False, True),
+        ("1/run-1/artifacts/model", True, True),
+        ("1/run-2/artifacts/model", False, False),
+        ("1/run-1/artifacts/../../run-2/artifacts", False, False),
+    ],
+)
+def test_model_version_artifact_source_root_check_local_paths(
+    monkeypatch, tmp_path, relative_source, as_uri, expected
+):
+    source_path = tmp_path / relative_source
+    source = source_path.as_uri() if as_uri else f"{tmp_path}/{relative_source}"
+    run_root = (tmp_path / "1" / "run-1" / "artifacts").as_uri()
+    result = _check_model_version_artifact_source_root(
+        monkeypatch, source, "run-1", source, run_root
+    )
+    assert result is expected
+
+
 @pytest.fixture
 def metric_model_authz(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
     # user2 (the actor) owns the run but has no permission on either model's experiment:

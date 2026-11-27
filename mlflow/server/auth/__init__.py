@@ -19,6 +19,7 @@ import inspect
 import json
 import logging
 import os
+import pathlib
 import re
 import secrets
 import threading
@@ -448,6 +449,8 @@ from mlflow.server.handlers import (
     _get_scoped_experiment_ids,
     _get_tracking_store,
     _get_validated_flask_request_json,
+    _is_uri_within_root,
+    _iteratively_unquote,
     _raw_request_has_field,
     _remember_authorized_detection_model,
     catch_mlflow_exception,
@@ -497,6 +500,7 @@ from mlflow.server.workspace_helpers import (
     _get_workspace_store,
     resolve_workspace_for_request_if_enabled,
 )
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities import PagedList
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
@@ -507,6 +511,7 @@ from mlflow.store.tracking.skill_registry.artifact_paths import (
 )
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.utils import workspace_context
+from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
@@ -516,7 +521,13 @@ from mlflow.utils.search_utils import (
     SearchMCPServerUtils,
     SearchModelUtils,
 )
-from mlflow.utils.uri import _decode, get_uri_scheme, is_models_uri, validate_path_is_safe
+from mlflow.utils.uri import (
+    _decode,
+    get_uri_scheme,
+    is_local_uri,
+    is_models_uri,
+    validate_path_is_safe,
+)
 from mlflow.utils.validation import (
     _MAX_BULK_REGISTER_SKILLS,
     _parse_experiment_id,
@@ -4459,7 +4470,66 @@ def validate_can_read_model_version_artifact():
                 fallback_if_no_grant=(container,),
             )
         ],
-    )
+    ) and _is_model_version_artifact_within_source_root(name, request.args.get("version"))
+
+
+def _is_uri_within_artifact_root(uri: str, root: str | None) -> bool:
+    if not root:
+        return False
+    try:
+        uri_is_local = is_local_uri(uri)
+        root_is_local = is_local_uri(root)
+    except MlflowException:
+        return False
+    if uri_is_local or root_is_local:
+        if not (uri_is_local and root_is_local):
+            return False
+        path = pathlib.Path(local_file_uri_to_path(uri)).resolve()
+        root_path = pathlib.Path(local_file_uri_to_path(root)).resolve()
+        return root_path in [path, *path.parents]
+    path_parts = _iteratively_unquote(urllib.parse.urlsplit(uri).path).split("/")
+    return ".." not in path_parts and _is_uri_within_root(uri, root)
+
+
+def _is_model_version_artifact_within_source_root(name: str, version: str | None) -> bool:
+    """
+    The artifact route reads the version's download URI with the server's own credentials, so it
+    serves only URIs inside the artifact root of the run or logged model recorded on the version.
+    A source outside those roots, such as an external object store path, is refused.
+    """
+    if not version:
+        return False
+    registry_store = _get_model_registry_store()
+    tracking_store = _get_tracking_store()
+    try:
+        model_version = registry_store.get_model_version(name, version)
+        download_uri = registry_store.get_model_version_download_uri(name, version)
+    except MlflowException:
+        return False
+
+    run_id = model_version.run_id
+    if RunsArtifactRepository.is_runs_uri(download_uri):
+        if urllib.parse.urlparse(download_uri).netloc:
+            return False
+        source_run_id, source_path = RunsArtifactRepository.parse_runs_uri(download_uri)
+        source_path_parts = _iteratively_unquote(source_path or "").split("/")
+        return bool(run_id) and source_run_id == run_id and ".." not in source_path_parts
+
+    if run_id:
+        try:
+            run_root = tracking_store.get_run(run_id).info.artifact_uri
+        except MlflowException:
+            run_root = None
+        if _is_uri_within_artifact_root(download_uri, run_root):
+            return True
+    if model_id := model_version.model_id or _model_id_from_source_uri(model_version.source):
+        try:
+            model_root = tracking_store.get_logged_model(model_id).artifact_location
+        except MlflowException:
+            model_root = None
+        if _is_uri_within_artifact_root(download_uri, model_root):
+            return True
+    return False
 
 
 def validate_can_read_trace_artifact():
