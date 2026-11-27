@@ -6,9 +6,11 @@ import ipaddress
 import json
 import logging
 import numbers
+import os
 import posixpath
 import re
 import socket
+import stat
 import threading
 import urllib.parse
 from fnmatch import fnmatch
@@ -25,6 +27,7 @@ from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
     MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS,
     MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES,
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE,
     MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS,
     MLFLOW_ICON_URL_ALLOWED_DOMAINS,
     MLFLOW_ICON_URL_ALLOWED_SCHEMES,
@@ -1237,6 +1240,138 @@ def _validate_gateway_region_keys(
             raise MlflowException.invalid_parameter_value(str(e)) from None
 
 
+# Keys holding a Google Cloud service account key: the native Vertex AI provider reads
+# ``vertex_credentials`` and LiteLLM also accepts ``vertex_ai_credentials``.
+GATEWAY_VERTEX_CREDENTIAL_KEYS = frozenset({"vertex_credentials", "vertex_ai_credentials"})
+
+
+def _is_google_auth_url(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        parsed = urllib.parse.urlparse(value)
+        hostname = parsed.hostname
+        # Reading the port raises ValueError when it is malformed.
+        parsed.port
+    except ValueError:
+        return False
+    return (
+        parsed.scheme == "https"
+        and parsed.username is None
+        and hostname is not None
+        and re.fullmatch(r"[a-z0-9.-]+", hostname) is not None
+        and (hostname == "accounts.google.com" or hostname.endswith(".googleapis.com"))
+    )
+
+
+# The token endpoints a service account key can name: the current one, its mTLS host, its
+# Private Service Connect hosts (``oauth2-<endpoint>.p.googleapis.com``) and the one older keys
+# carry. The whole URL is matched, not just the host, because google-auth follows redirects and
+# other paths on these hosts can redirect elsewhere, such as the OAuth authorization endpoint
+# on accounts.google.com.
+_GOOGLE_TOKEN_URL_REGEX = re.compile(
+    r"https://(oauth2(\.mtls|-[a-z0-9-]+\.p)?\.googleapis\.com/token"
+    r"|accounts\.google\.com/o/oauth2/token)"
+)
+
+
+def _is_google_token_url(value: Any) -> bool:
+    return isinstance(value, str) and _GOOGLE_TOKEN_URL_REGEX.fullmatch(value) is not None
+
+
+def _validate_vertex_service_account_info(info: Any, field_name: str) -> None:
+    """Raise unless ``info`` is a service account key whose URLs all point to Google.
+
+    google-auth sends the signed token request to ``token_uri`` through ``requests``, outside
+    the gateway's SSRF-guarded transport and with redirects followed, so a stored key must not
+    choose where it goes: ``token_uri`` must be one of Google's token endpoints, which don't
+    redirect. It is required, since google-auth can't load a key without it. Every other
+    ``*_uri``/``*_url`` field must be on a Google host, and other credential types are refused
+    because they carry further URLs and local file sources.
+    """
+    if not isinstance(info, dict) or info.get("type") != "service_account":
+        raise MlflowException.invalid_parameter_value(
+            f'{field_name} must be a service account key: a JSON object with "type": '
+            '"service_account"'
+        )
+    if not _is_google_token_url(info.get("token_uri")):
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} field 'token_uri' must be a Google OAuth token endpoint, such as "
+            "https://oauth2.googleapis.com/token"
+        )
+    for key in sorted(k for k in info if k.endswith(("_uri", "_url"))):
+        if not _is_google_auth_url(info[key]):
+            raise MlflowException.invalid_parameter_value(
+                f"{field_name} field {key!r} must be an https URL on accounts.google.com or "
+                "*.googleapis.com"
+            )
+
+
+# Service account keys are a few KiB.
+_MAX_VERTEX_CREDENTIALS_FILE_BYTES = 64 * 1024
+
+
+def _read_vertex_credentials_file(path: str) -> str:
+    # O_NONBLOCK keeps opening a FIFO from waiting for a writer. Only regular files are read,
+    # and only up to a bound, so a FIFO or a device such as /dev/zero can't stall the server
+    # or exhaust its memory.
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError("Not a regular file")
+        with os.fdopen(fd, "rb", closefd=False) as f:
+            data = f.read(_MAX_VERTEX_CREDENTIALS_FILE_BYTES + 1)
+    finally:
+        os.close(fd)
+    if len(data) > _MAX_VERTEX_CREDENTIALS_FILE_BYTES:
+        raise ValueError("File too large")
+    return data.decode("utf-8")
+
+
+def _load_gateway_vertex_credentials(
+    value: Any, field_name: str, *, allow_file: bool = True
+) -> dict[str, Any]:
+    """Parse and validate a Vertex AI service account key.
+
+    The key is given inline. A file path is read only when
+    ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE`` is ``true``, as for API keys, since the server
+    would otherwise load files from its own filesystem on a caller's behalf. Pass
+    ``allow_file=False`` when the caller can't replace the value with the returned document: a
+    path left in place is read again later, without these checks. Values are never echoed,
+    since they hold private keys.
+    """
+    info = value
+    if isinstance(value, str):
+        try:
+            info = json.loads(value)
+        # A plain ValueError covers integers over the digit limit, which aren't a
+        # JSONDecodeError, and deeply nested input raises RecursionError.
+        except (ValueError, RecursionError):
+            if not (allow_file and MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE.get()):
+                raise MlflowException.invalid_parameter_value(
+                    f"{field_name} must contain the service account key JSON itself, not a "
+                    "file path"
+                ) from None
+            try:
+                info = json.loads(_read_vertex_credentials_file(value))
+            except (OSError, ValueError, RecursionError):
+                raise MlflowException.invalid_parameter_value(
+                    f"{field_name} must be a service account key JSON or a path to a JSON file"
+                ) from None
+    _validate_vertex_service_account_info(info, field_name)
+    return info
+
+
+def _validate_gateway_vertex_credentials(
+    config: dict[str, Any] | None, source: str, *, allow_file: bool = True
+) -> None:
+    for key in sorted(GATEWAY_VERTEX_CREDENTIAL_KEYS & set(config or {})):
+        if config[key]:
+            _load_gateway_vertex_credentials(
+                config[key], f"{source} {key!r}", allow_file=allow_file
+            )
+
+
 def _validate_gateway_secret_auth_config(
     auth_config: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
@@ -1253,6 +1388,14 @@ def _validate_gateway_secret_auth_config(
             f"auth_config must not contain {', '.join(map(repr, reserved))}: these LiteLLM "
             "options choose where the gateway sends requests. Set the upstream with "
             "'api_base', which is validated."
+        )
+    # auth_config is stored unencrypted and returned by the secret APIs, and a service account
+    # key holds a private key.
+    if credential_keys := sorted(GATEWAY_VERTEX_CREDENTIAL_KEYS & set(normalized)):
+        raise MlflowException.invalid_parameter_value(
+            f"auth_config must not contain {', '.join(map(repr, credential_keys))}: "
+            "auth_config is stored unencrypted and returned by the API. Put the service account "
+            "key in secret_value."
         )
     _validate_gateway_region_keys(normalized, "auth_config")
     if auth_url := normalized.get("auth_url"):
@@ -1281,6 +1424,7 @@ def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
     # The LiteLLM provider merges secret_value into its kwargs too. Values aren't echoed, since
     # they sit next to secrets.
     _validate_gateway_region_keys(secret_value, "secret_value", show_value=False)
+    _validate_gateway_vertex_credentials(secret_value, "secret_value")
 
 
 def _find_destination_keys(value: Any) -> set[str]:
@@ -1301,26 +1445,26 @@ def _find_destination_keys(value: Any) -> set[str]:
     return set()
 
 
-def _iter_region_key_values(value: Any) -> Iterator[tuple[str, Any]]:
-    """Yield ``(key, value)`` for every region key nested anywhere in ``value``.
+def _iter_key_values(value: Any, keys: frozenset[str]) -> Iterator[tuple[str, Any]]:
+    """Yield ``(key, value)`` for every one of ``keys`` nested anywhere in ``value``.
 
     Like ``_find_destination_keys``, this also reads the two-item pairs ``dict()`` accepts.
     """
     if isinstance(value, dict):
         for key, nested in value.items():
-            if key in GATEWAY_REGION_KEYS:
+            if key in keys:
                 yield key, nested
-            yield from _iter_region_key_values(nested)
+            yield from _iter_key_values(nested, keys)
     elif isinstance(value, list):
         for nested in value:
             if (
                 isinstance(nested, list)
                 and len(nested) == 2
                 and isinstance(nested[0], str)
-                and nested[0] in GATEWAY_REGION_KEYS
+                and nested[0] in keys
             ):
                 yield nested[0], nested[1]
-            yield from _iter_region_key_values(nested)
+            yield from _iter_key_values(nested, keys)
 
 
 def _iter_third_party_scorer_data(value: Any) -> Iterator[dict[str, Any]]:
@@ -1352,7 +1496,8 @@ def _validate_third_party_scorer_data(
     host the server connects to. The server is the trust boundary for these payloads, so the
     gateway destination keys are rejected here at any nesting depth (``completion_kwargs``,
     ``model_kwargs``, ...) and inside any wrapping scorer. Providers build request hosts from
-    the region keys, so those must be bare region names at any nesting depth too.
+    the region keys, so those must be bare region names at any nesting depth too, and Vertex AI
+    service account keys must pass ``_load_gateway_vertex_credentials``.
     ``show_value=False`` leaves a rejected region value out of the error message.
     """
     for data in _iter_third_party_scorer_data(serialized_scorer):
@@ -1370,13 +1515,19 @@ def _validate_third_party_scorer_data(
                 "the judge endpoint on the server instead, for example through a gateway "
                 "endpoint ('gateway:/<name>') or the provider's environment variables."
             )
-        for key, value in _iter_region_key_values(kwargs):
+        for key, value in _iter_key_values(kwargs, GATEWAY_REGION_KEYS):
             try:
                 _validate_region_name(
                     value, f"third_party_scorer_data.kwargs {key!r}", show_value=show_value
                 )
             except ValueError as e:
                 raise MlflowException.invalid_parameter_value(str(e)) from None
+        # The kwargs reach the scorer's LLM client as stored, so a path is never accepted here.
+        for key, value in _iter_key_values(kwargs, GATEWAY_VERTEX_CREDENTIAL_KEYS):
+            if value:
+                _load_gateway_vertex_credentials(
+                    value, f"third_party_scorer_data.kwargs {key!r}", allow_file=False
+                )
 
 
 # Serialized judges whose data carries ``inference_params``: ``InstructionsJudge`` (``make_judge``)
@@ -1411,7 +1562,9 @@ def _validate_judge_inference_params(
     judge endpoint is configured on the server, so the gateway destination keys rejected for
     third-party scorer kwargs are rejected here too, at any nesting depth and inside any
     wrapping scorer. Providers build request hosts from the region keys, so those must be bare
-    region names. ``show_value=False`` leaves a rejected region value out of the error message.
+    region names, and Vertex AI service account keys must pass
+    ``_load_gateway_vertex_credentials``. ``show_value=False`` leaves a rejected region value
+    out of the error message.
     """
     for field, data in _iter_judge_pydantic_data(serialized_scorer):
         params = data.get("inference_params")
@@ -1429,6 +1582,8 @@ def _validate_judge_inference_params(
                 "endpoint ('gateway:/<name>') or the provider's environment variables."
             )
         _validate_gateway_region_keys(params, f"{field}.inference_params", show_value=show_value)
+        # Like third-party scorer kwargs, these are used as stored, so a path is never accepted.
+        _validate_gateway_vertex_credentials(params, f"{field}.inference_params", allow_file=False)
 
 
 def _validate_scorer_destination_options(

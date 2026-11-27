@@ -97,7 +97,11 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.types.chat import ChatCompletionRequest
 from mlflow.utils.provider_filter import is_provider_allowed, normalize_provider_name
-from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS
+from mlflow.utils.validation import (
+    GATEWAY_DESTINATION_KEYS,
+    GATEWAY_VERTEX_CREDENTIAL_KEYS,
+    _load_gateway_vertex_credentials,
+)
 from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
@@ -362,6 +366,37 @@ def _build_openai_compatible_config(model_config: "GatewayModelConfig"):
     )
 
 
+def _resolve_stored_vertex_credential(value: Any, key: str) -> str:
+    """Validate one stored Vertex AI service account key and return it as inline JSON.
+
+    Secrets stored before write-time validation existed are checked here too. Providers would
+    otherwise read a file path or send the key's token request to its ``token_uri`` themselves,
+    so they only receive the validated JSON. YAML gateway and client-side configurations are
+    operator-owned and don't pass through here.
+    """
+    try:
+        info = _load_gateway_vertex_credentials(value, repr(key))
+    except MlflowException as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"The endpoint's secret is invalid: {e.message}. Store a service account key "
+            "JSON in the secret's secret_value, or set its auth mode to 'default_chain' to use "
+            "the server's Application Default Credentials.",
+        ) from None
+    return json.dumps(info)
+
+
+def _resolve_stored_vertex_credentials(config: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of ``config`` with each Vertex AI service account key resolved by
+    ``_resolve_stored_vertex_credential``.
+    """
+    resolved = dict(config)
+    for key in sorted(GATEWAY_VERTEX_CREDENTIAL_KEYS & set(config)):
+        if config[key]:
+            resolved[key] = _resolve_stored_vertex_credential(config[key], key)
+    return resolved
+
+
 def _build_endpoint_config(
     endpoint_name: str,
     model_config: GatewayModelConfig,
@@ -383,6 +418,7 @@ def _build_endpoint_config(
 
     Raises:
         MlflowException: If provider configuration is invalid.
+        HTTPException: With status 502 if a stored Vertex AI service account key is invalid.
     """
     provider_name = model_config.provider
     if not is_provider_allowed(provider_name):
@@ -547,6 +583,10 @@ def _build_endpoint_config(
             if auth_config.get(_AuthConfigKey.AUTH_MODE) == "default_chain"
             else model_config.secret_value.get("vertex_credentials")
         )
+        if vertex_credentials:
+            vertex_credentials = _resolve_stored_vertex_credential(
+                vertex_credentials, "vertex_credentials"
+            )
         provider_config = VertexAIConfig(
             vertex_project=auth_config.get("vertex_project"),
             vertex_location=auth_config.get("vertex_location"),
@@ -562,16 +602,21 @@ def _build_endpoint_config(
         # api_base is validated on auth_config at write time, so the encrypted, unvalidated
         # secret map must never be allowed to override it.
         # default_chain modes (e.g. SageMaker) resolve credentials from the server environment,
-        # so ignore any secrets left over from a previous auth mode.
+        # so ignore any secrets left over from a previous auth mode. Older secrets can also keep
+        # a Vertex AI service account key in auth_config, which LiteLLM would prefer over the
+        # server's Application Default Credentials.
         if auth_config.get(_AuthConfigKey.AUTH_MODE) == "default_chain":
             secret_value = {}
+            auth_config = {
+                k: v for k, v in auth_config.items() if k not in GATEWAY_VERTEX_CREDENTIAL_KEYS
+            }
         else:
             secret_value = {
                 k: v for k, v in model_config.secret_value.items() if k != _AuthConfigKey.API_BASE
             }
         litellm_config = {
             "litellm_provider": original_provider,
-            "litellm_auth_config": auth_config | secret_value,
+            "litellm_auth_config": _resolve_stored_vertex_credentials(auth_config | secret_value),
         }
         provider_config = LiteLLMConfig(**litellm_config)
         model_config.provider = Provider.LITELLM

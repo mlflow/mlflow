@@ -1,8 +1,10 @@
 import copy
 import json
+import os
 import re
 import socket
 import time
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -46,6 +48,8 @@ from mlflow.utils.validation import (
     _validate_webhook_url,
     path_not_unique,
 )
+
+from tests.helper_functions import service_account_key
 
 GOOD_METRIC_OR_PARAM_NAMES = [
     "a",
@@ -1089,6 +1093,120 @@ def test_validate_gateway_secret_value_rejects_litellm_destination_aliases(key):
         _validate_gateway_secret_value({"api_key": "x", key: "http://169.254.169.254/"})
 
 
+@pytest.mark.parametrize("key", ["vertex_credentials", "vertex_ai_credentials"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        service_account_key(),
+        service_account_key(token_uri="https://accounts.google.com/o/oauth2/token"),
+        service_account_key(token_uri="https://oauth2.mtls.googleapis.com/token"),
+        service_account_key(token_uri="https://oauth2-my-endpoint.p.googleapis.com/token"),
+    ],
+)
+def test_validate_gateway_vertex_credentials_accepts_service_account_key(key, value):
+    _validate_gateway_secret_value({key: value})
+
+
+@pytest.mark.parametrize("key", ["vertex_credentials", "vertex_ai_credentials"])
+@pytest.mark.parametrize("value", ["", service_account_key(), "/etc/service-account.json"])
+def test_validate_gateway_secret_auth_config_rejects_vertex_credentials(key, value):
+    # auth_config is stored unencrypted and returned by the API.
+    with pytest.raises(
+        MlflowException, match=f"auth_config must not contain '{key}'.*secret_value"
+    ) as exc:
+        _validate_gateway_secret_auth_config({"vertex_project": "my-project", key: value})
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "PRIVATE KEY" not in exc.value.message
+    assert "/etc/" not in exc.value.message
+
+
+@pytest.mark.parametrize("key", ["vertex_credentials", "vertex_ai_credentials"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        service_account_key(token_uri="http://127.0.0.1:8080/token"),
+        service_account_key(token_uri="http://oauth2.googleapis.com/token"),
+        service_account_key(token_uri="https://oauth2.googleapis.com.evil.example/token"),
+        service_account_key(token_uri="https://user@oauth2.googleapis.com/token"),
+        # Google URLs other than a token endpoint can redirect to a URL of the caller's choosing.
+        service_account_key(
+            token_uri="https://accounts.google.com/o/oauth2/v2/auth?client_id=id"
+            "&redirect_uri=https://evil.example/cb&response_type=code&prompt=none"
+        ),
+        service_account_key(token_uri="https://storage.googleapis.com/bucket/token"),
+        service_account_key(token_uri="https://oauth2.googleapis.com/token?next=evil.example"),
+        service_account_key(token_uri="https://oauth2.googleapis.com:8443/token"),
+        service_account_key(token_uri="https://oauth2.googleapis.com/token\n"),
+        service_account_key(token_uri=None),
+        service_account_key(auth_uri="https://evil.example/auth"),
+        service_account_key(client_x509_cert_url="https://169.254.169.254/"),
+        service_account_key(type="external_account"),
+        json.dumps(["service_account"]),
+        "/etc/service-account.json",
+        "1" * 5000,
+        "[" * 100_000,
+    ],
+)
+def test_validate_gateway_vertex_credentials_rejects_untrusted_document(key, value):
+    with pytest.raises(MlflowException, match=f"secret_value '{key}'") as exc:
+        _validate_gateway_secret_value({key: value})
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "evil" not in exc.value.message
+    assert "/etc/" not in exc.value.message
+
+
+def test_validate_gateway_vertex_credentials_requires_token_uri():
+    info = json.loads(service_account_key())
+    del info["token_uri"]
+    with pytest.raises(MlflowException, match="'token_uri' must be a Google OAuth token endpoint"):
+        _validate_gateway_secret_value({"vertex_credentials": json.dumps(info)})
+
+
+def test_validate_gateway_vertex_credentials_reads_file_only_with_opt_in(tmp_path, monkeypatch):
+    monkeypatch.delenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", raising=False)
+    path = tmp_path / "key.json"
+    path.write_text(service_account_key(token_uri="http://127.0.0.1:8080/token"))
+    with pytest.raises(MlflowException, match="must contain the service account key JSON"):
+        _validate_gateway_secret_value({"vertex_credentials": str(path)})
+
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
+    with pytest.raises(MlflowException, match="'token_uri' must be a Google OAuth token endpoint"):
+        _validate_gateway_secret_value({"vertex_credentials": str(path)})
+    path.write_text(service_account_key())
+    _validate_gateway_secret_value({"vertex_credentials": str(path)})
+
+
+@pytest.mark.parametrize("kind", ["missing", "not_json"])
+def test_validate_gateway_vertex_credentials_rejects_unreadable_file(kind, tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
+    path = tmp_path / "key.json"
+    if kind == "not_json":
+        path.write_text("not json")
+    with pytest.raises(MlflowException, match="must be a service account key JSON or a path"):
+        _validate_gateway_secret_value({"vertex_credentials": str(path)})
+
+
+@pytest.mark.skipif(is_windows(), reason="FIFOs and /dev/zero are POSIX-only")
+@pytest.mark.parametrize("kind", ["fifo", "device", "oversized", "directory"])
+def test_validate_gateway_vertex_credentials_rejects_non_regular_or_large_files(
+    kind, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
+    path = tmp_path / "key.json"
+    match kind:
+        case "fifo":
+            os.mkfifo(path)
+        case "device":
+            path = Path("/dev/zero")
+        case "oversized":
+            path.write_text(service_account_key(padding="x" * 64 * 1024))
+        case "directory":
+            path.mkdir()
+    with pytest.raises(MlflowException, match="must be a service account key JSON or a path"):
+        _validate_gateway_secret_value({"vertex_credentials": str(path)})
+
+
 def _trulens_scorer(kwargs):
     return {
         "name": "poc",
@@ -1420,6 +1538,69 @@ def test_validate_judge_inference_params_rejects_non_region_names(make_scorer, f
 )
 def test_validate_judge_inference_params_accepts_benign_payloads(serialized_scorer):
     _validate_judge_inference_params(serialized_scorer)
+
+
+@pytest.mark.parametrize(
+    ("make_scorer", "field"),
+    [
+        (
+            lambda v: _trulens_scorer({"vertex_credentials": v}),
+            "third_party_scorer_data.kwargs 'vertex_credentials'",
+        ),
+        (
+            lambda v: _trulens_scorer({"completion_kwargs": {"vertex_ai_credentials": v}}),
+            "third_party_scorer_data.kwargs 'vertex_ai_credentials'",
+        ),
+        (
+            lambda v: _trulens_scorer({"completion_kwargs": [["vertex_credentials", v]]}),
+            "third_party_scorer_data.kwargs 'vertex_credentials'",
+        ),
+        (
+            lambda v: _instructions_judge({"vertex_credentials": v}),
+            "instructions_judge_pydantic_data.inference_params 'vertex_credentials'",
+        ),
+        (
+            lambda v: _builtin_judge({"vertex_ai_credentials": v}),
+            "builtin_scorer_pydantic_data.inference_params 'vertex_ai_credentials'",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "value",
+    [
+        service_account_key(token_uri="http://127.0.0.1:8080/token"),
+        service_account_key(type="external_account"),
+        "/etc/service-account.json",
+    ],
+)
+def test_validate_scorer_destination_options_checks_vertex_credentials(make_scorer, field, value):
+    with pytest.raises(MlflowException, match=field) as exc:
+        _validate_scorer_destination_options(make_scorer(value))
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "127.0.0.1" not in exc.value.message
+    assert "/etc/" not in exc.value.message
+    _validate_scorer_destination_options(make_scorer(service_account_key()))
+    _validate_scorer_destination_options(make_scorer(""))
+
+
+@pytest.mark.parametrize(
+    "make_scorer",
+    [
+        lambda v: _trulens_scorer({"completion_kwargs": {"vertex_credentials": v}}),
+        lambda v: _instructions_judge({"vertex_credentials": v}),
+        lambda v: _builtin_judge({"vertex_ai_credentials": v}),
+    ],
+)
+def test_validate_scorer_destination_options_rejects_vertex_credentials_file_with_opt_in(
+    make_scorer, tmp_path, monkeypatch
+):
+    # Scorer options keep the path, so the file would be read again when the scorer runs.
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
+    path = tmp_path / "key.json"
+    path.write_text(service_account_key())
+    _validate_gateway_secret_value({"vertex_credentials": str(path)})
+    with pytest.raises(MlflowException, match="must contain the service account key JSON"):
+        _validate_scorer_destination_options(make_scorer(str(path)))
 
 
 @pytest.mark.parametrize(

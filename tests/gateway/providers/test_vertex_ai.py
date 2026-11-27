@@ -15,6 +15,7 @@ from mlflow.gateway.providers.vertex_ai import VertexAIProvider, _get_vertex_ai_
 from mlflow.gateway.schemas import chat, completions
 
 from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
+from tests.helper_functions import service_account_key
 
 
 def _mock_credentials():
@@ -1217,6 +1218,41 @@ def test_credentials_with_adc():
         headers = provider.headers
         mock_default.assert_called_once()
         assert headers == {"Authorization": "Bearer mock-access-token"}
+
+
+def _make_provider_with_credentials(vertex_credentials):
+    config = VertexAIConfig(vertex_project="my-project", vertex_credentials=vertex_credentials)
+    endpoint_config = EndpointConfig(
+        name="vertex-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={"provider": "vertex_ai", "name": "gemini-2.0-flash", "config": config.model_dump()},
+    )
+    return VertexAIProvider(endpoint_config)
+
+
+# Operator-owned configurations (the YAML gateway, client-side judges) may give a path. Stored
+# gateway secrets are validated in mlflow.server.gateway_api before they reach the provider.
+@pytest.mark.parametrize("from_file", [False, True])
+def test_credentials_with_service_account_key(from_file, tmp_path):
+    creds_json = service_account_key()
+    vertex_credentials = creds_json
+    if from_file:
+        vertex_credentials = tmp_path / "key.json"
+        vertex_credentials.write_text(creds_json)
+    provider = _make_provider_with_credentials(str(vertex_credentials))
+
+    with (
+        mock.patch(
+            "google.oauth2.service_account.Credentials.from_service_account_info",
+            return_value=_mock_credentials(),
+        ) as from_info,
+        mock.patch("google.auth.transport.requests.Request") as request,
+    ):
+        assert provider.headers == {"Authorization": "Bearer mock-access-token"}
+    request.assert_called_once()
+    from_info.assert_called_once_with(
+        json.loads(creds_json), scopes=["https://www.googleapis.com/auth/cloud-platform"]
+    )
 
 
 def _cache_control_messages():

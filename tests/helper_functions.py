@@ -851,3 +851,18 @@ def get_logged_model_by_name(name: str) -> LoggedModel | None:
         filter_string=f"name='{name}'", output_format="list", max_results=1
     )
     return logged_models[0] if len(logged_models) >= 1 else None
+
+
+def service_account_key(**overrides):
+    """Return a Google Cloud service account key JSON with Google-hosted URLs."""
+    return json.dumps({
+        "type": "service_account",
+        "project_id": "my-project",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----\n",
+        "client_email": "sa@my-project.iam.gserviceaccount.com",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/sa",
+        **overrides,
+    })
