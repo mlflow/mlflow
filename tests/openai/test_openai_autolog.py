@@ -39,6 +39,10 @@ from tests.openai.mock_openai import (
     EMPTY_STREAM,
     ERROR_MID_STREAM,
     LIST_CONTENT,
+    MISSING_INDEX_STREAM,
+    MULTI_CHOICE_STREAM,
+    NULL_DELTA_STREAM,
+    REFUSAL_STREAM,
     TOOL_CALL_STREAM,
 )
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
@@ -885,6 +889,78 @@ async def test_chat_completions_streaming_with_tool_calls(client, include_usage)
             "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_streaming_with_multiple_choices(client):
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": MULTI_CHOICE_STREAM}],
+        model="gpt-4o-mini",
+        n=2,
+        stream=True,
+    )
+
+    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
+    assert [[c.index for c in chunk.choices] for chunk in chunks] == [[0], [1], [0], [1], [0, 1]]
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.status == "OK"
+    choices = trace.data.spans[0].outputs["choices"]
+    assert [(c["index"], c["finish_reason"]) for c in choices] == [(0, "stop"), (1, "tool_calls")]
+    assert choices[0]["message"]["content"] == "Hello world"
+    assert choices[0]["message"]["tool_calls"] is None
+    assert choices[1]["message"]["content"] is None
+    assert choices[1]["message"]["tool_calls"] == [
+        {
+            "id": "call_1",
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_streaming_with_refusal(client):
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": REFUSAL_STREAM}],
+        model="gpt-4o-mini",
+        stream=True,
+    )
+
+    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
+    assert len(chunks) == 4
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.status == "OK"
+    message = trace.data.spans[0].outputs["choices"][0]["message"]
+    assert message["refusal"] == "I'm sorry, I can't help with that."
+    # A non-streamed refusal has `content: null`
+    assert message["content"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("prompt", "none_field"), [(MISSING_INDEX_STREAM, "index"), (NULL_DELTA_STREAM, "delta")]
+)
+async def test_chat_completions_streaming_without_choice_index_or_delta(client, prompt, none_field):
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": prompt}],
+        model="gpt-4o-mini",
+        stream=True,
+    )
+
+    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
+    # The SDK does not validate chunks, so the missing `index` or the null `delta` is None
+    assert getattr(chunks[-1].choices[0], none_field) is None
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    choices = traces[0].data.spans[0].outputs["choices"]
+    assert [(c["index"], c["message"]["content"]) for c in choices] == [(0, "Hello world")]
 
 
 @pytest.mark.asyncio

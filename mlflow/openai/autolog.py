@@ -1,6 +1,7 @@
 import functools
 import json
 import logging
+from collections import defaultdict
 from typing import Any, AsyncIterator, Iterator
 
 import mlflow
@@ -550,10 +551,7 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     from openai.types.chat.chat_completion_message import ChatCompletionMessage
 
     # Build the base message
-    def _extract_content(chunk: Any) -> str:
-        if not chunk.choices:
-            return ""
-        content = chunk.choices[0].delta.content
+    def _extract_content(content: Any) -> str:
         if content is None:
             return ""
         # Handle Databricks streaming format where content can be a list of content items
@@ -568,43 +566,60 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
             return "".join(text_parts)
         return content
 
-    tool_calls: list[dict[str, Any]] = []
-    finish_reason = "stop"
-    for chunk in chunks:
-        if not chunk.choices:
-            continue
-        chunk_choice = chunk.choices[0]
-        if chunk_choice.finish_reason:
-            finish_reason = chunk_choice.finish_reason
-        for tool_call_delta in getattr(chunk_choice.delta, "tool_calls", None) or []:
-            while tool_call_delta.index >= len(tool_calls):
-                tool_calls.append({
-                    "id": "",
-                    "type": "function",
-                    "function": {"name": "", "arguments": ""},
-                })
-            tool_call = tool_calls[tool_call_delta.index]
-            if tool_call_delta.id:
-                tool_call["id"] = tool_call_delta.id
-            if function := tool_call_delta.function:
-                tool_call["function"]["name"] += function.name or ""
-                tool_call["function"]["arguments"] += function.arguments or ""
-
-    content = "".join(map(_extract_content, chunks))
-    message = ChatCompletionMessage(
-        role="assistant",
-        content=None if tool_calls and not content else content,
-        tool_calls=tool_calls or None,
+    # With `n > 1`, the chunks of all choices are interleaved in one stream and each chunk choice
+    # carries the `index` of its choice, so the deltas are accumulated per index
+    states: defaultdict[int, dict[str, Any]] = defaultdict(
+        lambda: {"content": [], "refusal": [], "tool_calls": [], "finish_reason": "stop"}
     )
+    for chunk in chunks:
+        for chunk_choice in chunk.choices or []:
+            # The SDK does not validate chunks, so a missing `index` or `delta` is None here.
+            # Without `index` there is no way to tell choices apart, so use choice 0.
+            state = states[chunk_choice.index or 0]
+            if chunk_choice.finish_reason:
+                state["finish_reason"] = chunk_choice.finish_reason
+            if (delta := chunk_choice.delta) is None:
+                continue
+            state["content"].append(_extract_content(delta.content))
+            if refusal := getattr(delta, "refusal", None):
+                state["refusal"].append(refusal)
+            tool_calls = state["tool_calls"]
+            for tool_call_delta in getattr(delta, "tool_calls", None) or []:
+                while tool_call_delta.index >= len(tool_calls):
+                    tool_calls.append({
+                        "id": "",
+                        "type": "function",
+                        "function": {"name": "", "arguments": ""},
+                    })
+                tool_call = tool_calls[tool_call_delta.index]
+                if tool_call_delta.id:
+                    tool_call["id"] = tool_call_delta.id
+                if function := tool_call_delta.function:
+                    tool_call["function"]["name"] += function.name or ""
+                    tool_call["function"]["arguments"] += function.arguments or ""
+
+    choices = []
+    # A stream whose chunks carry no choice gets one empty choice
+    for index in sorted(states) or [0]:
+        state = states[index]
+        content = "".join(state["content"])
+        refusal = "".join(state["refusal"]) or None
+        tool_calls = state["tool_calls"]
+        message = ChatCompletionMessage(
+            role="assistant",
+            # As in a non-streamed response, `content` is null with tool calls or a refusal
+            content=None if (tool_calls or refusal) and not content else content,
+            refusal=refusal,
+            tool_calls=tool_calls or None,
+        )
+        choices.append(Choice(index=index, message=message, finish_reason=state["finish_reason"]))
 
     last_chunk = chunks[-1]
-
-    choice = Choice(index=0, message=message, finish_reason=finish_reason)
 
     # Build the completion dict
     return ChatCompletion(
         id=last_chunk.id,
-        choices=[choice],
+        choices=choices,
         created=last_chunk.created,
         model=last_chunk.model,
         object="chat.completion",
