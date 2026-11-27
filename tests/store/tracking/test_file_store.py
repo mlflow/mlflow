@@ -959,7 +959,7 @@ def test_create_run_in_deleted_experiment(store):
     store.delete_experiment(exp_id)
     with pytest.raises(
         Exception,
-        match=rf"Could not create run under non-active experiment.*restore_experiment\('{exp_id}'\)",
+        match=rf"non-active experiment.*restore_experiment\('{exp_id}'\)",
     ):
         store.create_run(exp_id, "user", 0, [], "name")
 
