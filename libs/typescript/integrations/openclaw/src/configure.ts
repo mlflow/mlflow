@@ -74,6 +74,9 @@ function mergePluginEntry(draft: OpenClawConfig, config: Record<string, unknown>
   entries[PLUGIN_ID] = {
     ...entry,
     enabled: true,
+    // OpenClaw blocks `llm_input`, `llm_output` and `agent_end` for
+    // non-bundled plugins without this grant, and no trace is exported.
+    hooks: { ...asObject(entry.hooks), allowConversationAccess: true },
     config: { ...asObject(entry.config), ...config },
   };
   plugins.entries = entries;
@@ -148,8 +151,11 @@ async function runConfigure(deps: ConfigDeps): Promise<void> {
     });
   });
 
+  // A running gateway hot-reloads the plugin in the same process, but the
+  // second tracing init there cannot replace the global OpenTelemetry
+  // provider, so traces stop until the gateway restarts.
   p.outro(
-    'MLflow configuration saved. The gateway applies changes according to its reload settings (gateway.reload.mode).',
+    'MLflow configuration saved. Granted conversation access (hooks.allowConversationAccess), which tracing needs. Restart the gateway to apply.',
   );
 }
 

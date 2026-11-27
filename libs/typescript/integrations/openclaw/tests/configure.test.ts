@@ -41,14 +41,14 @@ function setup(config: Config) {
 }
 
 describe('openclaw mlflow configure', () => {
-  it('awaits the host mutation and keeps other config', async () => {
+  it('grants conversation access and keeps other config', async () => {
     const config: Config = {
       gateway: { port: 18789 },
       plugins: {
         entries: {
           other: { enabled: true },
           'mlflow-openclaw': {
-            hooks: { allowConversationAccess: true },
+            hooks: { allowPromptInjection: false },
             config: { trackingUri: 'http://old:5000', experimentId: '1' },
           },
         },
@@ -61,7 +61,7 @@ describe('openclaw mlflow configure', () => {
 
     expect(updateConfig).toHaveBeenCalledTimes(1);
     expect(outro).toHaveBeenCalledWith(
-      'MLflow configuration saved. The gateway applies changes according to its reload settings (gateway.reload.mode).',
+      'MLflow configuration saved. Granted conversation access (hooks.allowConversationAccess), which tracing needs. Restart the gateway to apply.',
     );
     expect(config).toEqual({
       gateway: { port: 18789 },
@@ -70,7 +70,7 @@ describe('openclaw mlflow configure', () => {
           other: { enabled: true },
           'mlflow-openclaw': {
             enabled: true,
-            hooks: { allowConversationAccess: true },
+            hooks: { allowPromptInjection: false, allowConversationAccess: true },
             config: { trackingUri: 'http://localhost:5000', experimentId: '7' },
           },
         },
@@ -90,6 +90,7 @@ describe('openclaw mlflow configure', () => {
         entries: {
           'mlflow-openclaw': {
             enabled: true,
+            hooks: { allowConversationAccess: true },
             config: { trackingUri: 'http://localhost:5000', experimentId: '0' },
           },
         },
@@ -99,7 +100,7 @@ describe('openclaw mlflow configure', () => {
 });
 
 describe('openclaw mlflow status', () => {
-  it('prints the stored configuration', () => {
+  it('prints the stored configuration', async () => {
     const { actions } = setup({
       plugins: {
         entries: {
@@ -112,7 +113,7 @@ describe('openclaw mlflow status', () => {
     });
     const write = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
-    actions.get('status')!();
+    await actions.get('status')!();
 
     const output = write.mock.calls.map(([chunk]) => String(chunk)).join('');
     write.mockRestore();
