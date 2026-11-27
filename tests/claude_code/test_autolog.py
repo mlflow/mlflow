@@ -195,3 +195,55 @@ async def test_receive_response_traces_each_turn_separately():
     assert second_turn[0].content == "And 3 + 3?"
     assert second_turn[1].content[0].text == "6"
     assert second_turn[2].usage == {"input_tokens": 150, "output_tokens": 7}
+
+
+@pytest.mark.asyncio
+async def test_receive_response_closed_late_keeps_next_turn_prompt():
+    mock_self = MagicMock()
+
+    async def fake_query(prompt, *args, **kwargs):
+        pass
+
+    mock_self.query = fake_query
+
+    turns = {
+        "What is 2 + 2?": [
+            AssistantMessage(content=[TextBlock(text="4")], model="claude-sonnet-4-20250514"),
+            _result_message(100, 5),
+        ],
+        "And 3 + 3?": [
+            AssistantMessage(content=[TextBlock(text="6")], model="claude-sonnet-4-20250514"),
+            _result_message(150, 7),
+        ],
+    }
+    pending = []
+
+    async def fake_receive_response():
+        for msg in turns[pending.pop(0)]:
+            yield msg
+
+    mock_self.receive_response = fake_receive_response
+    patched_claude_sdk_init(MagicMock(), mock_self)
+
+    with (
+        patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
+        patch("mlflow.claude_code.tracing.process_sdk_messages") as mock_process,
+    ):
+        pending.append("What is 2 + 2?")
+        await mock_self.query("What is 2 + 2?")
+        first_stream = mock_self.receive_response()
+        async for msg in first_stream:
+            if isinstance(msg, ResultMessage):
+                break
+
+        # Send the next query before the first stream is closed
+        pending.append("And 3 + 3?")
+        await mock_self.query("And 3 + 3?")
+        await first_stream.aclose()
+        [msg async for msg in mock_self.receive_response()]
+
+    mock_process.assert_called_once()
+    second_turn = mock_process.call_args.args[0]
+    assert len(second_turn) == 3
+    assert second_turn[0].content == "And 3 + 3?"
+    assert second_turn[2].usage == {"input_tokens": 150, "output_tokens": 7}

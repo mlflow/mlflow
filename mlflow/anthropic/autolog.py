@@ -23,14 +23,17 @@ def patched_claude_sdk_init(original, self, options=None):
         from claude_agent_sdk.types import UserMessage
 
         result = original(self, options)
-        messages = []
+        # One prompt buffer per query() call that no response stream has claimed yet
+        pending_prompts = []
 
         # query() sends the user prompt but doesn't echo it through receive_response()
         original_query = self.query
 
         async def wrapped_query(prompt, *args, **kwargs):
+            turn_prompts = []
+            pending_prompts.append(turn_prompts)
             if isinstance(prompt, str):
-                messages.append(UserMessage(content=prompt))
+                turn_prompts.append(UserMessage(content=prompt))
             elif hasattr(prompt, "__aiter__"):
                 # prompt is an async generator yielding message dicts — wrap it
                 # to capture the user content while passing items through to the SDK
@@ -41,7 +44,7 @@ def patched_claude_sdk_init(original, self, options=None):
                         if isinstance(item, dict) and item.get("type") == "user":
                             content = item.get("message", {}).get("content", "")
                             if isinstance(content, str) and content.strip():
-                                messages.append(UserMessage(content=content))
+                                turn_prompts.append(UserMessage(content=content))
                         yield item
 
                 prompt = capturing_prompt()
@@ -52,15 +55,17 @@ def patched_claude_sdk_init(original, self, options=None):
         original_receive_response = self.receive_response
 
         async def wrapped_receive_response(*args, **kwargs):
-            try:
-                async for msg in original_receive_response(*args, **kwargs):
-                    messages.append(msg)
-                    yield msg
-            finally:
-                # Each query()/receive_response() pair is one turn. Reset the buffer so the
-                # next turn's trace doesn't include this turn's prompt, spans, or usage.
-                turn_messages = messages.copy()
-                messages.clear()
+            # Each query()/receive_response() pair is one turn. The stream claims the prompts
+            # sent so far and keeps its own buffer, so the next turn's trace doesn't include
+            # this turn's messages, and a stream closed late can't drop a later turn's prompt.
+            # Prompts from an async generator may still be captured into the claimed buffers.
+            claimed_prompts = pending_prompts.copy()
+            pending_prompts.clear()
+            responses = []
+            async for msg in original_receive_response(*args, **kwargs):
+                responses.append(msg)
+                yield msg
+            turn_messages = [msg for prompts in claimed_prompts for msg in prompts] + responses
             try:
                 from mlflow.utils.autologging_utils import autologging_is_disabled
 
