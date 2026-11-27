@@ -159,6 +159,7 @@ export const UnifiedSearch = ({
     );
   };
 
+  // `loading={false}` skips Du Bois' interaction hold; the spinner's CSS animation still runs.
   return (
     <div
       ref={searchBarRef}

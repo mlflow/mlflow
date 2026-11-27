@@ -85,6 +85,7 @@ export const TracesTableToolbar: React.FC<TracesTableToolbarProps> = ({
       defaultMessage: 'Search traces by id, input, or output',
       description: 'Placeholder for the search input on the traces table toolbar',
     });
+  // `loading={false}` skips Du Bois' interaction hold; the spinner's CSS animation still runs.
   const searchInput = (
     <Input
       ref={searchInputRef}
