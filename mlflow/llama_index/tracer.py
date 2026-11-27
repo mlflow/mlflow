@@ -568,22 +568,25 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
                         span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
     def _extract_token_usage(self, response: ChatResponse | CompletionResponse) -> dict[str, int]:
+        raw_usage = None
         if raw := response.raw:
             # The raw response can be a Pydantic model or a dictionary
             if isinstance(raw, pydantic.BaseModel):
                 raw = raw.model_dump()
 
-            if usage := raw.get("usage"):
-                return usage
+            match raw_usage := raw.get("usage"):
+                case {"prompt_tokens": _, "completion_tokens": _}:
+                    return raw_usage
 
-        # If the usage is not found in the raw response, look for token counts
+        # If the raw response has no usage with the keys `_parse_usage` reads (e.g.,
+        # BedrockConverse returns `inputTokens`/`outputTokens`), look for token counts
         # in additional_kwargs of the completion payload
         usage = {}
         if additional_kwargs := getattr(response, "additional_kwargs", None):
             for k in ["prompt_tokens", "completion_tokens", "total_tokens"]:
                 if (v := additional_kwargs.get(k)) is not None:
                     usage[k] = v
-        return usage
+        return usage or raw_usage or {}
 
     def _parse_usage(self, span: LiveSpan):
         try:
