@@ -80,6 +80,7 @@ jobs:
           PR_NUMBER: ${{ github.event.issue.number || inputs.pr_number }}
           REQUESTER: ${{ github.event.comment.user.login || github.triggering_actor }}
         run: |
+          echo "$GITHUB_SERVER_URL/$REPO/pull/$PR_NUMBER" >> "$GITHUB_STEP_SUMMARY"
           check_role() {
             local role
             role=$(gh api "repos/$REPO/collaborators/$1/permission" --jq .role_name) \
