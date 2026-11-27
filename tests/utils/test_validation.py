@@ -47,6 +47,8 @@ from mlflow.utils.validation import (
     path_not_unique,
 )
 
+from tests.helper_functions import service_account_key
+
 GOOD_METRIC_OR_PARAM_NAMES = [
     "a",
     "Ab-5_",
@@ -1089,23 +1091,9 @@ def test_validate_gateway_secret_value_rejects_litellm_destination_aliases(key):
         _validate_gateway_secret_value({"api_key": "x", key: "http://169.254.169.254/"})
 
 
-def _service_account_key(**overrides):
-    return json.dumps({
-        "type": "service_account",
-        "project_id": "my-project",
-        "private_key": "-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----\n",
-        "client_email": "sa@my-project.iam.gserviceaccount.com",
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/sa",
-        **overrides,
-    })
-
-
 @pytest.mark.parametrize("key", ["vertex_credentials", "vertex_ai_credentials"])
-@pytest.mark.parametrize("value", ["", _service_account_key()])
-def test_validate_gateway_vertex_credentials_accepts_service_account_key(key, value):
+@pytest.mark.parametrize("value", ["", service_account_key()])
+def test_validate_gateway_vertex_credentials_acceptsservice_account_key(key, value):
     assert _validate_gateway_secret_auth_config({key: value}) == {key: value}
     _validate_gateway_secret_value({key: value})
 
@@ -1114,16 +1102,18 @@ def test_validate_gateway_vertex_credentials_accepts_service_account_key(key, va
 @pytest.mark.parametrize(
     "value",
     [
-        _service_account_key(token_uri="http://127.0.0.1:8080/token"),
-        _service_account_key(token_uri="http://oauth2.googleapis.com/token"),
-        _service_account_key(token_uri="https://oauth2.googleapis.com.evil.example/token"),
-        _service_account_key(token_uri="https://user@oauth2.googleapis.com/token"),
-        _service_account_key(token_uri=None),
-        _service_account_key(auth_uri="https://evil.example/auth"),
-        _service_account_key(client_x509_cert_url="https://169.254.169.254/"),
-        _service_account_key(type="external_account"),
+        service_account_key(token_uri="http://127.0.0.1:8080/token"),
+        service_account_key(token_uri="http://oauth2.googleapis.com/token"),
+        service_account_key(token_uri="https://oauth2.googleapis.com.evil.example/token"),
+        service_account_key(token_uri="https://user@oauth2.googleapis.com/token"),
+        service_account_key(token_uri=None),
+        service_account_key(auth_uri="https://evil.example/auth"),
+        service_account_key(client_x509_cert_url="https://169.254.169.254/"),
+        service_account_key(type="external_account"),
         json.dumps(["service_account"]),
         "/etc/service-account.json",
+        "1" * 5000,
+        "[" * 100_000,
     ],
 )
 def test_validate_gateway_vertex_credentials_rejects_untrusted_document(key, value):
@@ -1138,14 +1128,14 @@ def test_validate_gateway_vertex_credentials_rejects_untrusted_document(key, val
 
 def test_validate_gateway_vertex_credentials_reads_file_only_with_opt_in(tmp_path, monkeypatch):
     path = tmp_path / "key.json"
-    path.write_text(_service_account_key(token_uri="http://127.0.0.1:8080/token"))
+    path.write_text(service_account_key(token_uri="http://127.0.0.1:8080/token"))
     with pytest.raises(MlflowException, match="must contain the service account key JSON"):
         _validate_gateway_secret_value({"vertex_credentials": str(path)})
 
     monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
     with pytest.raises(MlflowException, match="'token_uri' must be an https URL"):
         _validate_gateway_secret_value({"vertex_credentials": str(path)})
-    path.write_text(_service_account_key())
+    path.write_text(service_account_key())
     _validate_gateway_secret_value({"vertex_credentials": str(path)})
 
 
@@ -1510,8 +1500,8 @@ def test_validate_judge_inference_params_accepts_benign_payloads(serialized_scor
 @pytest.mark.parametrize(
     "value",
     [
-        _service_account_key(token_uri="http://127.0.0.1:8080/token"),
-        _service_account_key(type="external_account"),
+        service_account_key(token_uri="http://127.0.0.1:8080/token"),
+        service_account_key(type="external_account"),
         "/etc/service-account.json",
     ],
 )
@@ -1521,7 +1511,7 @@ def test_validate_scorer_destination_options_checks_vertex_credentials(make_scor
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert "127.0.0.1" not in exc.value.message
     assert "/etc/" not in exc.value.message
-    _validate_scorer_destination_options(make_scorer(_service_account_key()))
+    _validate_scorer_destination_options(make_scorer(service_account_key()))
     _validate_scorer_destination_options(make_scorer(""))
 
 

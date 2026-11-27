@@ -85,6 +85,8 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
 )
 
+from tests.helper_functions import service_account_key
+
 pytestmark = pytest.mark.notrackingurimock
 
 TEST_PASSPHRASE = "test-passphrase-for-gateway-api-tests"
@@ -225,15 +227,6 @@ def test_build_endpoint_config_vertex_ai_credentials_follow_auth_mode(auth_mode,
     assert config.model.config.vertex_credentials == expected
 
 
-def _service_account_key(**overrides):
-    return json.dumps({
-        "type": "service_account",
-        "client_email": "sa@my-project.iam.gserviceaccount.com",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        **overrides,
-    })
-
-
 def _vertex_model_config(provider, key, value):
     return GatewayModelConfig(
         model_definition_id="md-test",
@@ -261,10 +254,12 @@ _STORED_VERTEX_CREDENTIAL_CASES = [
 @pytest.mark.parametrize(
     "value",
     [
-        _service_account_key(token_uri="http://127.0.0.1:8080/token"),
-        _service_account_key(auth_uri="https://evil.example/auth"),
-        _service_account_key(type="external_account"),
+        service_account_key(token_uri="http://127.0.0.1:8080/token"),
+        service_account_key(auth_uri="https://evil.example/auth"),
+        service_account_key(type="external_account"),
         "/etc/service-account.json",
+        "1" * 5000,
+        "[" * 100_000,
     ],
 )
 def test_build_endpoint_config_rejects_untrusted_stored_vertex_credentials(provider, key, value):
@@ -282,7 +277,7 @@ def test_build_endpoint_config_reads_stored_vertex_credentials_file_only_with_op
     provider, key, tmp_path, monkeypatch
 ):
     path = tmp_path / "key.json"
-    path.write_text(_service_account_key())
+    path.write_text(service_account_key())
     model_config = _vertex_model_config(provider, key, str(path))
     with pytest.raises(HTTPException, match="must contain the service account key JSON") as exc:
         _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
@@ -292,7 +287,7 @@ def test_build_endpoint_config_reads_stored_vertex_credentials_file_only_with_op
     model_config = _vertex_model_config(provider, key, str(path))
     config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
     # Providers receive the validated document, not the path.
-    assert _stored_vertex_credentials(config, key) == _service_account_key()
+    assert _stored_vertex_credentials(config, key) == service_account_key()
 
 
 @pytest.mark.parametrize(

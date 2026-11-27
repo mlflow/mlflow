@@ -1296,7 +1296,9 @@ def _load_gateway_vertex_credentials(value: Any, field_name: str) -> dict[str, A
     if isinstance(value, str):
         try:
             info = json.loads(value)
-        except json.JSONDecodeError:
+        # A plain ValueError covers integers over the digit limit, which aren't a
+        # JSONDecodeError, and deeply nested input raises RecursionError.
+        except (ValueError, RecursionError):
             if not MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE.get():
                 raise MlflowException.invalid_parameter_value(
                     f"{field_name} must contain the service account key JSON itself, not a "
@@ -1304,7 +1306,7 @@ def _load_gateway_vertex_credentials(value: Any, field_name: str) -> dict[str, A
                 ) from None
             try:
                 info = json.loads(Path(value).read_text())
-            except (OSError, ValueError):
+            except (OSError, ValueError, RecursionError):
                 raise MlflowException.invalid_parameter_value(
                     f"{field_name} must be a service account key JSON or a path to a JSON file"
                 ) from None

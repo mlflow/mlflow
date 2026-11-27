@@ -1,5 +1,4 @@
 import asyncio
-import json
 from unittest import mock
 
 import pytest
@@ -16,6 +15,8 @@ from mlflow.utils.validation import (
     _validate_gateway_secret_auth_config,
     _validate_gateway_secret_value,
 )
+
+from tests.helper_functions import service_account_key
 
 TEST_MESSAGE = "This is a test"
 
@@ -1370,15 +1371,6 @@ async def test_chat_passes_stored_base_url_through_when_upstream_protection_is_o
     assert mock_completion.call_args[1]["base_url"] == "https://custom-api.example.com"
 
 
-def _service_account_key(**overrides):
-    return json.dumps({
-        "type": "service_account",
-        "client_email": "sa@my-project.iam.gserviceaccount.com",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        **overrides,
-    })
-
-
 def _prepare_litellm_kwargs(payload, auth_config, protected):
     # The kwargs policy only needs configuration, not the optional transport runtime.
     provider = LiteLLMProvider.__new__(LiteLLMProvider)
@@ -1444,8 +1436,8 @@ def test_credential_selector_guard_precedes_configuration_merge(payload, auth_co
         {"aws_role_name": "configured-role", "aws_session_name": "configured-session"},
         {"aws_web_identity_token": "configured-token", "aws_external_id": "configured-id"},
         {"aws_session_tags": [{"Key": "team", "Value": "configured-team"}]},
-        {"vertex_credentials": _service_account_key()},
-        {"vertex_ai_credentials": _service_account_key()},
+        {"vertex_credentials": service_account_key()},
+        {"vertex_ai_credentials": service_account_key()},
     ],
 )
 def test_credential_guard_preserves_stored_configuration(auth_config, protected):

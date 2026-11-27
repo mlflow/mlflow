@@ -15,6 +15,7 @@ from mlflow.gateway.providers.vertex_ai import VertexAIProvider, _get_vertex_ai_
 from mlflow.gateway.schemas import chat, completions
 
 from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
+from tests.helper_functions import service_account_key
 
 
 def _mock_credentials():
@@ -1219,15 +1220,6 @@ def test_credentials_with_adc():
         assert headers == {"Authorization": "Bearer mock-access-token"}
 
 
-def _service_account_key(**overrides):
-    return json.dumps({
-        "type": "service_account",
-        "client_email": "sa@my-project.iam.gserviceaccount.com",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        **overrides,
-    })
-
-
 def _make_provider_with_credentials(vertex_credentials):
     config = VertexAIConfig(vertex_project="my-project", vertex_credentials=vertex_credentials)
     endpoint_config = EndpointConfig(
@@ -1241,8 +1233,8 @@ def _make_provider_with_credentials(vertex_credentials):
 # Operator-owned configurations (the YAML gateway, client-side judges) may give a path. Stored
 # gateway secrets are validated in mlflow.server.gateway_api before they reach the provider.
 @pytest.mark.parametrize("from_file", [False, True])
-def test_credentials_with_service_account_key(from_file, tmp_path):
-    creds_json = _service_account_key()
+def test_credentials_withservice_account_key(from_file, tmp_path):
+    creds_json = service_account_key()
     vertex_credentials = creds_json
     if from_file:
         vertex_credentials = tmp_path / "key.json"
