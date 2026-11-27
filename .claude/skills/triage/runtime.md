@@ -42,6 +42,38 @@ on (the current working directory).
   command that talks to a local MLflow server, and use `curl --noproxy '*'`. Do not export them
   globally, because you reach the model gateway through `localhost:8080`.
 
+### Calling model providers
+
+The model gateway at `http://localhost:8080` serves the providers in the table below, for
+reproducing bugs in their integrations with live calls. A provider that is not listed is
+unavailable. Authenticate with `$ANTHROPIC_AUTH_TOKEN`. It is a placeholder that only this
+local gateway accepts, for every provider: the gateway swaps in the real credential, which
+never enters the sandbox. Set these variables only on the command that makes the call so they
+do not leak into tests:
+
+| Provider  | Variables                                                                                     | Example model                      |
+| --------- | --------------------------------------------------------------------------------------------- | ---------------------------------- |
+| OpenAI    | `OPENAI_BASE_URL=http://localhost:8080/openai/v1`, `OPENAI_API_KEY=$ANTHROPIC_AUTH_TOKEN`     | `databricks-gpt-6-luna`            |
+| Gemini    | `GOOGLE_GEMINI_BASE_URL=http://localhost:8080/gemini`, `GOOGLE_API_KEY=$ANTHROPIC_AUTH_TOKEN` | `databricks-gemini-3-1-flash-lite` |
+| Anthropic | `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN`, already set                                  | `databricks-claude-haiku-5-5`      |
+
+Model names take a `databricks-` prefix; the provider's own model names do not resolve. The
+gateway rejects requests for models and features it does not serve, so if a call fails with a
+gateway error unrelated to the reported bug, treat that provider as unavailable instead of
+retrying. Keep calls few and small: a handful of short requests is enough to reproduce a bug.
+
+Leave `localhost` out of `NO_PROXY` on that command, or the call cannot reach the gateway. If
+the command also talks to a local MLflow server, reach it at `http://localhost:5000` and exempt
+only that port with `NO_PROXY=localhost:5000`. An IP entry such as `127.0.0.1:5000` does not
+work: `requests` matches an IP address only against entries without a port.
+
+Some clients need more than the variables above to reach the gateway:
+
+- The legacy `google-generativeai` SDK ignores `GOOGLE_GEMINI_BASE_URL`. Point it at the gateway
+  in code: `genai.configure(transport="rest", client_options={"api_endpoint": "http://localhost:8080/gemini"})`.
+- Node's built-in `fetch`, which the JavaScript provider SDKs use, bypasses the sandbox proxy
+  unless the command sets `NODE_USE_ENV_PROXY=1`.
+
 ### Running the UI
 
 Only start the UI when you need it, for example to reproduce the bug or check a fix in the

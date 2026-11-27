@@ -704,6 +704,10 @@ jobs:
         env:
           GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
           GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
+          # Providers the agent may call to reproduce integration bugs. Keep in sync with
+          # "Calling model providers" in .claude/skills/triage/runtime.md.
+          GATEWAY_PROVIDERS: anthropic,openai,gemini
+          GATEWAY_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
         run: |
           placeholder_token=$(openssl rand -hex 32)
           echo "::add-mask::$placeholder_token"
