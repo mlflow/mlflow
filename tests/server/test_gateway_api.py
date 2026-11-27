@@ -61,6 +61,7 @@ from mlflow.gateway.ssrf import assert_public_upstream_url, upstream_ssrf_protec
 from mlflow.server.fastapi_app import add_gateway_timing_middleware
 from mlflow.server.gateway_api import (
     _build_endpoint_config,
+    _create_provider,
     _create_provider_from_endpoint_name,
     _decompress_zstd,
     _enable_upstream_ssrf_protection,
@@ -3085,6 +3086,47 @@ def test_create_fallback_provider_no_max_attempts(store: SqlAlchemyStore):
     assert isinstance(provider, FallbackProvider)
     assert len(provider._providers) == 3
     assert provider._max_attempts == 3
+
+
+@pytest.mark.parametrize(
+    "fallback_provider",
+    [
+        # Not in the provider registry at all
+        "vertex_ai_beta",
+        # Registered with a native provider class, but still configured through LiteLLM
+        "togetherai",
+    ],
+)
+def test_create_fallback_provider_litellm_backed_model(fallback_provider: str):
+    endpoint_config = GatewayEndpointConfig(
+        endpoint_id="e-test",
+        endpoint_name="test-fallback-litellm-endpoint",
+        models=[
+            GatewayModelConfig(
+                model_definition_id="md-primary",
+                provider="openai",
+                model_name="gpt-4o",
+                secret_value={"api_key": "sk-primary-key"},
+            ),
+            GatewayModelConfig(
+                model_definition_id="md-fallback",
+                provider=fallback_provider,
+                model_name="fallback-model",
+                secret_value={"api_key": "sk-fallback-key"},
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                fallback_order=0,
+            ),
+        ],
+        fallback_config=FallbackConfig(strategy=FallbackStrategy.SEQUENTIAL, max_attempts=1),
+    )
+
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(provider, FallbackProvider)
+    primary, fallback = provider._providers
+    assert isinstance(primary, OpenAIProvider)
+    assert isinstance(fallback, LiteLLMProvider)
+    assert fallback.config.model.config.litellm_provider == fallback_provider
 
 
 def test_create_provider_default_routing_single_model(store: SqlAlchemyStore):

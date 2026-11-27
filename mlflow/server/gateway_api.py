@@ -716,17 +716,17 @@ def _create_provider(
             key=lambda m: m.fallback_order if m.fallback_order is not None else float("inf")
         )
 
-        fallback_providers = [
-            get_provider(model_config.provider)(
-                _build_endpoint_config(
-                    endpoint_name=endpoint_config.endpoint_name,
-                    model_config=model_config,
-                    endpoint_type=endpoint_type,
-                ),
-                enable_tracing=enable_tracing,
+        fallback_providers = []
+        for model_config in fallback_models:
+            # _build_endpoint_config rewrites model_config.provider (e.g. to LiteLLM for
+            # providers without a native config), so it must run before the provider lookup
+            gateway_endpoint_config = _build_endpoint_config(
+                endpoint_config.endpoint_name, model_config, endpoint_type
             )
-            for model_config in fallback_models
-        ]
+            provider_class = get_provider(model_config.provider)
+            fallback_providers.append(
+                provider_class(gateway_endpoint_config, enable_tracing=enable_tracing)
+            )
 
         max_attempts = endpoint_config.fallback_config.max_attempts or len(fallback_models)
 
