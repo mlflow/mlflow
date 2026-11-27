@@ -48,6 +48,7 @@ import {
   ExperimentPageShellExperimentDescription,
 } from './ExperimentPageShellExperimentActions';
 import { ExperimentPageLayoutProvider } from './ExperimentPageLayout';
+import { useObserveIssueDetectionJobs } from '../experiment-issues/useObserveIssueDetectionJobs';
 
 // Lazy so experiment tabs other than evaluation runs don't load the evaluation flow's modules.
 const RunEvaluationButton = React.lazy(() =>
@@ -66,6 +67,7 @@ const ExperimentPageTabsImpl = () => {
   const activeTab = activeTabByRoute ?? coerceToEnum(ExperimentPageTabName, tabName, ExperimentPageTabName.Models);
 
   invariant(experimentId, 'Experiment ID must be defined');
+  useObserveIssueDetectionJobs(experimentId);
 
   const {
     data: experiment,

@@ -7,11 +7,21 @@ import {
   getSubmittedIssueDetectionJob,
   getSubmittedIssueDetectionJobs,
   IssueDetectionJobNotifications,
+  ISSUE_DETECTION_JOB_OBSERVED_EVENT,
+  ISSUE_DETECTION_JOB_COMPLETED_EVENT,
   recordSubmittedIssueDetectionJob,
   type SubmittedIssueDetectionJob,
 } from './IssueDetectionJobNotifications';
 import { JobStatus, useFetchJobStatus, type UseFetchJobStatusResult } from '../../../run-page/hooks/useFetchJobStatus';
 import { useNavigate, useSearchParams } from '../../../../../common/utils/RoutingUtils';
+import { useActiveWorkspace } from '../../../../../workspaces/utils/WorkspaceUtils';
+
+jest.mock('../../../../../workspaces/utils/WorkspaceUtils', () => ({
+  ...jest.requireActual<typeof import('../../../../../workspaces/utils/WorkspaceUtils')>(
+    '../../../../../workspaces/utils/WorkspaceUtils',
+  ),
+  useActiveWorkspace: jest.fn(),
+}));
 
 jest.mock('../../../run-page/hooks/useFetchJobStatus', () => ({
   ...jest.requireActual<typeof import('../../../run-page/hooks/useFetchJobStatus')>(
@@ -85,6 +95,7 @@ describe('IssueDetectionJobNotifications', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(useActiveWorkspace).mockReturnValue(null);
     mockJobStatuses = {};
     clearSubmittedIssueDetectionJob();
     mockNavigate = jest.fn();
@@ -98,6 +109,195 @@ describe('IssueDetectionJobNotifications', () => {
     const { container } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
 
     expect(container.querySelectorAll('button').length).toBe(0);
+  });
+
+  test.each([
+    [JobStatus.PENDING, 'View progress', '/experiments/exp-1/issues/runs'],
+    [JobStatus.SUCCEEDED, 'View issues', '/experiments/exp-1/issues'],
+    [JobStatus.FAILED, 'View details', '/experiments/exp-1/issues/runs'],
+  ])('protects a visible dialog draft before following %s notification %s', async (status, action, route) => {
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    const draft = document.createElement('input');
+    draft.value = 'Unsaved detection priorities';
+    dialog.append(draft);
+    document.body.append(dialog);
+    // jsdom has no layout; the real modal's visible/hidden rectangles are verified in the browser.
+    const rectangles = jest.spyOn(dialog, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+    try {
+      mockJobStatus(JobStatus.PENDING);
+      const { rerender } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
+      act(() => recordSubmittedIssueDetectionJob(submittedJob));
+      if (status !== JobStatus.PENDING) {
+        mockJobStatus(status as JobStatus, undefined, { issues: 2 });
+        rerender(<IssueDetectionJobNotifications />);
+      }
+      await userEvent.click(await screen.findByText(action));
+      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(draft.value).toBe('Unsaved detection priorities');
+      expect(await screen.findByText('Close the open dialog before continuing.')).toBeInTheDocument();
+      expect(screen.getByText(action)).toBeInTheDocument();
+      dialog.style.display = 'none';
+      rectangles.mockReturnValue([] as unknown as DOMRectList);
+      await userEvent.click(screen.getByText(action));
+      expect(mockNavigate).toHaveBeenCalledWith(route);
+    } finally {
+      dialog.remove();
+    }
+  });
+
+  test('an observed remote job toasts once when it ends, with its start time and server error', async () => {
+    mockJobStatus(JobStatus.RUNNING);
+    const { rerender } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
+    const job = { ...submittedJob, startTimeMs: Date.UTC(2026, 10, 24, 10, 30) };
+    const observe = () => window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_OBSERVED_EVENT, { detail: job }));
+    act(observe);
+    expect(screen.queryByText('Issue detection started')).not.toBeInTheDocument();
+    mockJobStatuses[job.jobId] = { ...createMockJobStatus(JobStatus.FAILED), errorMessage: 'Provider unavailable' };
+    rerender(<IssueDetectionJobNotifications />);
+    expect(await screen.findByText('Provider unavailable')).toBeInTheDocument();
+    expect(screen.getByText(/Started Nov 24.*10:30/)).toBeInTheDocument();
+    act(observe);
+    rerender(<IssueDetectionJobNotifications />);
+    expect(screen.getAllByText('Issue detection failed')).toHaveLength(1);
+  });
+
+  test.each([true, false])(
+    'keeps long-running observed jobs while expiring submitted jobs (observed: %s)',
+    (observed) => {
+      jest.useFakeTimers();
+      mockJobStatus(JobStatus.RUNNING);
+      const { rerender, unmount } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
+      try {
+        const job = { ...submittedJob, submittedAtMs: Date.now() };
+        act(() => {
+          if (observed) window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_OBSERVED_EVENT, { detail: job }));
+          else recordSubmittedIssueDetectionJob(job);
+        });
+        act(() => jest.advanceTimersByTime(ONE_HOUR_MS + 1));
+        mockJobStatus(JobStatus.FAILED);
+        rerender(<IssueDetectionJobNotifications />);
+        expect(screen.queryAllByText('Issue detection failed')).toHaveLength(observed ? 1 : 0);
+      } finally {
+        unmount();
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  test.each([
+    [JobStatus.FAILED, 'The run ended with an error.'],
+    [JobStatus.TIMEOUT, 'The run timed out.'],
+  ])('an observed job ending in %s uses its fallback without inventing a date', async (status, message) => {
+    mockJobStatus(JobStatus.RUNNING);
+    const { rerender } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
+    act(() =>
+      window.dispatchEvent(
+        new CustomEvent(ISSUE_DETECTION_JOB_OBSERVED_EVENT, {
+          detail: { ...submittedJob, startTimeMs: 0 },
+        }),
+      ),
+    );
+    mockJobStatus(status as JobStatus);
+    rerender(<IssueDetectionJobNotifications />);
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(screen.queryByText(/Started/)).not.toBeInTheDocument();
+  });
+
+  test.each([JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.TIMEOUT, JobStatus.CANCELED])(
+    'does not announce an observed job already in %s, including after remount',
+    async (status) => {
+      mockJobStatus(status);
+      const observe = () =>
+        window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_OBSERVED_EVENT, { detail: submittedJob }));
+      const first = renderWithDesignSystem(<IssueDetectionJobNotifications />);
+      await act(async () => {
+        observe();
+      });
+      expect(screen.queryByText(/Issue detection (completed|failed)/)).not.toBeInTheDocument();
+      first.unmount();
+      renderWithDesignSystem(<IssueDetectionJobNotifications />);
+      await act(async () => {
+        observe();
+      });
+      expect(screen.queryByText(/Issue detection (completed|failed)/)).not.toBeInTheDocument();
+    },
+  );
+
+  test.each([true, false])(
+    'preserves submitted metadata and actual start time in either event order (submitted first: %s)',
+    async (submittedFirst) => {
+      mockJobStatus(JobStatus.RUNNING);
+      const completed: SubmittedIssueDetectionJob[] = [];
+      const listener = (event: Event) => completed.push((event as CustomEvent).detail);
+      window.addEventListener(ISSUE_DETECTION_JOB_COMPLETED_EVENT, listener);
+      try {
+        const { rerender } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
+        const events = [
+          () => recordSubmittedIssueDetectionJob(submittedJob),
+          () =>
+            window.dispatchEvent(
+              new CustomEvent(ISSUE_DETECTION_JOB_OBSERVED_EVENT, {
+                detail: { ...submittedJob, traceCount: 0, submittedAtMs: Date.now() + 1000, startTimeMs: 12345 },
+              }),
+            ),
+        ];
+        if (!submittedFirst) events.reverse();
+        act(() => events.forEach((send) => send()));
+        mockJobStatus(JobStatus.SUCCEEDED, undefined, { issues: 1 });
+        rerender(<IssueDetectionJobNotifications />);
+        await screen.findByText('Issue detection completed');
+        expect(completed).toEqual([{ ...submittedJob, startTimeMs: 12345 }]);
+      } finally {
+        window.removeEventListener(ISSUE_DETECTION_JOB_COMPLETED_EVENT, listener);
+      }
+    },
+  );
+
+  test('keeps a multi-line provider log to one readable capped reason', async () => {
+    mockJobStatus(JobStatus.RUNNING);
+    const { rerender } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
+    act(() => window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_OBSERVED_EVENT, { detail: submittedJob })));
+    mockJobStatuses[submittedJob.jobId] = {
+      ...createMockJobStatus(JobStatus.FAILED),
+      errorMessage: `Header\n\t${'x'.repeat(700)}\nFooter`,
+    };
+    mockUseFetchJobStatus();
+    rerender(<IssueDetectionJobNotifications />);
+    const reason = await screen.findByText(/^Header /);
+    expect(reason.textContent).toHaveLength(500);
+    expect(reason.textContent).toMatch(/…$/);
+    expect(reason.textContent).not.toMatch(/[\n\t]|Footer/);
+    expect(screen.getByText('View details')).toBeInTheDocument();
+  });
+
+  test('pauses a job outside its workspace and keeps the owner workspace in its completion link', async () => {
+    jest
+      .mocked(useSearchParams)
+      .mockReturnValue([new URLSearchParams('workspace=other&startTimeLabel=ALL'), jest.fn()] as any);
+    jest
+      .mocked(useFetchJobStatus)
+      .mockImplementation(({ enabled }) => createMockJobStatus(enabled ? JobStatus.RUNNING : undefined));
+    const { rerender } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
+    act(() =>
+      window.dispatchEvent(
+        new CustomEvent(ISSUE_DETECTION_JOB_OBSERVED_EVENT, {
+          detail: { ...submittedJob, workspace: 'owner' },
+        }),
+      ),
+    );
+    expect(useFetchJobStatus).toHaveBeenLastCalledWith({ jobId: submittedJob.jobId, enabled: false });
+    expect(screen.queryByText('Issue detection completed')).not.toBeInTheDocument();
+    jest.mocked(useActiveWorkspace).mockReturnValue('owner');
+    rerender(<IssueDetectionJobNotifications />);
+    jest
+      .mocked(useFetchJobStatus)
+      .mockImplementation(({ enabled }) =>
+        createMockJobStatus(enabled ? JobStatus.SUCCEEDED : undefined, undefined, { issues: 2 }),
+      );
+    rerender(<IssueDetectionJobNotifications />);
+    await userEvent.click(await screen.findByText('View issues'));
+    expect(mockNavigate).toHaveBeenCalledWith('/experiments/exp-1/issues?startTimeLabel=ALL&workspace=owner');
   });
 
   test('shows started notification when a job is submitted from this session', async () => {
@@ -185,6 +385,7 @@ describe('IssueDetectionJobNotifications', () => {
     mockJobStatus(JobStatus.FAILED, undefined, 'boom');
     rerender(<IssueDetectionJobNotifications />);
     await screen.findByText('Issue detection failed');
+    expect(screen.queryByText(/Started/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByText('View details'));
 
     expect(mockNavigate).toHaveBeenCalledWith('/experiments/exp-1/issues/runs');

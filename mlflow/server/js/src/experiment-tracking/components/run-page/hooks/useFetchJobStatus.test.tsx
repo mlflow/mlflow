@@ -88,6 +88,7 @@ describe('useFetchJobStatus', () => {
       const mockResponse = {
         status: JobStatus.FAILED,
         result: 'Job failed due to error',
+        error_message: 'Provider unavailable',
       };
       jest.mocked(fetchAPI).mockResolvedValue(mockResponse);
 
@@ -96,6 +97,7 @@ describe('useFetchJobStatus', () => {
       await waitFor(() => {
         expect(result.current.status).toBe(JobStatus.FAILED);
         expect(result.current.result).toBe('Job failed due to error');
+        expect(result.current.errorMessage).toBe('Provider unavailable');
         expect(result.current.isLoading).toBe(false);
       });
     });

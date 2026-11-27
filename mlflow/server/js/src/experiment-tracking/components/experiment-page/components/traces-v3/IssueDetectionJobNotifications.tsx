@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NotFoundError } from '@databricks/web-shared/errors';
 import { Typography, useLegacyNotification } from '@databricks/design-system';
-import { defineMessages, FormattedMessage, type MessageDescriptor } from '@databricks/i18n';
+import { defineMessages, FormattedMessage, type MessageDescriptor, useIntl } from '@databricks/i18n';
 import { useNavigate, useSearchParams } from '../../../../../common/utils/RoutingUtils';
 import LocalStorageUtils from '../../../../../common/utils/LocalStorageUtils';
 import Routes from '../../../../routes';
 import { ExperimentPageTabName } from '../../../../constants';
 import { JobStatus, isJobComplete, useFetchJobStatus } from '../../../run-page/hooks/useFetchJobStatus';
 import { getPreservedQueryString } from '../../../../pages/experiment-page-tabs/side-nav/utils';
+import { useActiveWorkspace } from '../../../../../workspaces/utils/WorkspaceUtils';
 
 export interface SubmittedIssueDetectionJob {
   experimentId: string;
@@ -16,7 +17,10 @@ export interface SubmittedIssueDetectionJob {
   runId: string;
   traceCount: number;
   submittedAtMs: number;
+  startTimeMs?: number;
 }
+
+type TrackedIssueDetectionJob = SubmittedIssueDetectionJob & { observedOnly?: boolean };
 
 type StoredSubmittedIssueDetectionJob = Omit<SubmittedIssueDetectionJob, 'experimentId'>;
 
@@ -24,8 +28,10 @@ export const ISSUE_DETECTION_SUBMITTED_JOBS_STORAGE_KEY = 'mlflow.issueDetection
 const ISSUE_DETECTION_TRACKED_EXPERIMENTS_STORAGE_KEY = 'mlflow.issueDetection.trackedExperiments';
 const ISSUE_DETECTION_JOB_STORAGE_COMPONENT = 'IssueDetectionJobWatcher';
 export const ISSUE_DETECTION_JOB_SUBMITTED_EVENT = 'mlflow.issueDetection.jobSubmitted';
+export const ISSUE_DETECTION_JOB_OBSERVED_EVENT = 'mlflow.issueDetection.jobObserved';
 export const ISSUE_DETECTION_JOB_COMPLETED_EVENT = 'mlflow.issueDetection.jobCompleted';
 const ISSUE_DETECTION_JOB_TTL_MS = 60 * 60 * 1000;
+const MAX_ERROR_MESSAGE_LENGTH = 500;
 
 /* eslint-disable formatjs/no-multiple-plurals */
 const COMPLETION_MESSAGES = defineMessages({
@@ -243,13 +249,20 @@ const TrackedIssueDetectionJobNotification = ({
   onTerminalStatus,
   onStopTracking,
 }: {
-  job: SubmittedIssueDetectionJob;
-  onTerminalStatus: (job: SubmittedIssueDetectionJob, status: JobStatus, result: unknown) => void;
+  job: TrackedIssueDetectionJob;
+  onTerminalStatus: (
+    job: SubmittedIssueDetectionJob,
+    status: JobStatus,
+    result: unknown,
+    errorMessage?: string,
+  ) => void;
   onStopTracking: (job: SubmittedIssueDetectionJob) => void;
 }) => {
-  const { status, result, error } = useFetchJobStatus({
+  const workspace = useActiveWorkspace();
+  const sawActiveStatus = useRef(false);
+  const { status, result, error, errorMessage } = useFetchJobStatus({
     jobId: job.jobId,
-    enabled: true,
+    enabled: job.workspace === undefined || job.workspace === workspace,
   });
 
   useEffect(() => {
@@ -259,6 +272,8 @@ const TrackedIssueDetectionJobNotification = ({
   }, [error, job, onStopTracking]);
 
   useEffect(() => {
+    // Observed jobs are live server work, not session submissions subject to the recovery TTL.
+    if (job.observedOnly) return;
     if (isSubmittedIssueDetectionJobExpired(job)) {
       onStopTracking(job);
       return;
@@ -270,27 +285,63 @@ const TrackedIssueDetectionJobNotification = ({
   }, [job, onStopTracking]);
 
   useEffect(() => {
-    if (status && isJobComplete(status)) {
-      onTerminalStatus(job, status, result);
+    if (status === JobStatus.PENDING || status === JobStatus.RUNNING) {
+      sawActiveStatus.current = true;
+    } else if (status && isJobComplete(status)) {
+      // A stale RUNNING run can point to an already-ended job; it must not re-announce on reload.
+      if (job.observedOnly && !sawActiveStatus.current) onStopTracking(job);
+      else onTerminalStatus(job, status, result, errorMessage);
     }
-  }, [job, onTerminalStatus, result, status]);
+  }, [job, onTerminalStatus, onStopTracking, result, status, errorMessage]);
 
   return null;
 };
 
 export const IssueDetectionJobNotifications = () => {
+  const intl = useIntl();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [notification, notificationContextHolder] = useLegacyNotification();
 
-  const [trackedJobs, setTrackedJobs] = useState<SubmittedIssueDetectionJob[]>(() => getSubmittedIssueDetectionJobs());
+  const [trackedJobs, setTrackedJobs] = useState<TrackedIssueDetectionJob[]>(() => getSubmittedIssueDetectionJobs());
   const [startedNotificationJobs, setStartedNotificationJobs] = useState<SubmittedIssueDetectionJob[]>([]);
   const notifiedStartJobIdsRef = useRef<Set<string>>(new Set());
   const notifiedCompletionJobIdsRef = useRef<Set<string>>(new Set());
   const preservedQueryString = getPreservedQueryString(searchParams.toString());
   const withPreservedQueryString = useCallback(
-    (route: string) => (preservedQueryString ? `${route}${preservedQueryString}` : route),
+    (route: string, workspace?: string | null) => {
+      const query = new URLSearchParams(preservedQueryString);
+      if (workspace === null) query.delete('workspace');
+      else if (workspace !== undefined) query.set('workspace', workspace);
+      const queryString = query.toString();
+      return queryString ? `${route}?${queryString}` : route;
+    },
     [preservedQueryString],
+  );
+  const navigateFromNotification = useCallback(
+    (key: string, route: string, workspace?: string | null) => {
+      // Closed dialogs can stay mounted; only a visible dialog owns an in-progress interaction.
+      const dialogOpen = Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"]')).some(
+        (dialog) => dialog.getClientRects().length > 0,
+      );
+      if (dialogOpen) {
+        notification.info({
+          key: 'issue-detection-close-dialog-first',
+          placement: 'topRight',
+          duration: 8,
+          message: (
+            <FormattedMessage
+              defaultMessage="Close the open dialog before continuing."
+              description="Message when following an issue detection notification would discard an open dialog"
+            />
+          ),
+        });
+        return;
+      }
+      notification.close(key);
+      navigate(withPreservedQueryString(route, workspace));
+    },
+    [navigate, notification, withPreservedQueryString],
   );
   const stopTrackingJob = useCallback((trackedJob: SubmittedIssueDetectionJob) => {
     removeSubmittedIssueDetectionJob(trackedJob);
@@ -298,19 +349,37 @@ export const IssueDetectionJobNotifications = () => {
   }, []);
 
   useEffect(() => {
-    const handleSubmittedJob = (event: Event) => {
+    const handleJobEvent = (event: Event) => {
       const job = (event as CustomEvent<unknown>).detail;
       if (!isSubmittedIssueDetectionJob(job)) {
         return;
       }
 
-      setTrackedJobs((currentJobs) => appendSubmittedJob(currentJobs, job));
-      setStartedNotificationJobs((currentJobs) => appendSubmittedJob(currentJobs, job));
+      if (!notifiedCompletionJobIdsRef.current.has(job.jobId)) {
+        setTrackedJobs((currentJobs) => {
+          const existing = currentJobs.find((tracked) => tracked.jobId === job.jobId);
+          // An observation adds the actual start time without resetting submission metadata or expiry.
+          const trackedJob = existing
+            ? {
+                ...(event.type === ISSUE_DETECTION_JOB_OBSERVED_EVENT ? existing : job),
+                startTimeMs: existing.startTimeMs ?? job.startTimeMs,
+              }
+            : event.type === ISSUE_DETECTION_JOB_OBSERVED_EVENT
+              ? { ...job, observedOnly: true }
+              : job;
+          return appendSubmittedJob(currentJobs, trackedJob);
+        });
+      }
+      if (event.type === ISSUE_DETECTION_JOB_SUBMITTED_EVENT) {
+        setStartedNotificationJobs((currentJobs) => appendSubmittedJob(currentJobs, job));
+      }
     };
 
-    window.addEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, handleSubmittedJob);
+    window.addEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, handleJobEvent);
+    window.addEventListener(ISSUE_DETECTION_JOB_OBSERVED_EVENT, handleJobEvent);
     return () => {
-      window.removeEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, handleSubmittedJob);
+      window.removeEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, handleJobEvent);
+      window.removeEventListener(ISSUE_DETECTION_JOB_OBSERVED_EVENT, handleJobEvent);
     };
   }, []);
 
@@ -342,9 +411,10 @@ export const IssueDetectionJobNotifications = () => {
             <Typography.Link
               componentId="mlflow.traces.issue-detection.started-toast.view-progress"
               onClick={() => {
-                notification.close(startedKey);
-                navigate(
-                  withPreservedQueryString(Routes.getIssueDetectionRunsRoute(startedNotificationJob.experimentId)),
+                navigateFromNotification(
+                  startedKey,
+                  Routes.getIssueDetectionRunsRoute(startedNotificationJob.experimentId),
+                  startedNotificationJob.workspace,
                 );
               }}
             >
@@ -357,11 +427,33 @@ export const IssueDetectionJobNotifications = () => {
         ),
       });
     });
-  }, [startedNotificationJobs, notification, navigate, withPreservedQueryString]);
+  }, [startedNotificationJobs, notification, navigateFromNotification]);
 
   const handleTerminalStatus = useCallback(
-    (trackedJob: SubmittedIssueDetectionJob, status: JobStatus, result: unknown) => {
+    (trackedJob: SubmittedIssueDetectionJob, status: JobStatus, result: unknown, errorMessage?: string) => {
       const { experimentId, jobId, runId } = trackedJob;
+      const reason = errorMessage?.replace(/\s+/g, ' ').trim();
+      const shortReason =
+        reason && reason.length > MAX_ERROR_MESSAGE_LENGTH
+          ? `${reason.slice(0, MAX_ERROR_MESSAGE_LENGTH - 1)}…`
+          : reason;
+      const startTimeMs = trackedJob.startTimeMs;
+      const started = typeof startTimeMs === 'number' && Number.isFinite(startTimeMs) && startTimeMs > 0 && (
+        <div>
+          <FormattedMessage
+            defaultMessage="Started {startTime}."
+            description="Start time shown in an issue detection job completion notification"
+            values={{
+              startTime: intl.formatDate(startTimeMs, {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+              }),
+            }}
+          />
+        </div>
+      );
       if (!notifiedCompletionJobIdsRef.current.has(jobId)) {
         notifiedCompletionJobIdsRef.current.add(jobId);
         window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_COMPLETED_EVENT, { detail: trackedJob }));
@@ -389,12 +481,12 @@ export const IssueDetectionJobNotifications = () => {
             ),
             description: (
               <div>
+                {started}
                 <FormattedMessage {...summary.descriptor} values={summary.values} />{' '}
                 <Typography.Link
                   componentId="mlflow.traces.issue-detection.completed-toast.view-results"
                   onClick={() => {
-                    notification.close(completedKey);
-                    navigate(withPreservedQueryString(getIssuesTabRoute(experimentId)));
+                    navigateFromNotification(completedKey, getIssuesTabRoute(experimentId), trackedJob.workspace);
                   }}
                 >
                   {issueCount <= 1 ? (
@@ -424,25 +516,45 @@ export const IssueDetectionJobNotifications = () => {
               />
             ),
             description: (
-              <Typography.Link
-                componentId="mlflow.traces.issue-detection.failed-toast.view-details"
-                onClick={() => {
-                  notification.close(completedKey);
-                  navigate(withPreservedQueryString(Routes.getIssueDetectionRunsRoute(experimentId)));
-                }}
-              >
-                <FormattedMessage
-                  defaultMessage="View details"
-                  description="Link to the issue detection run history from the failure notification"
-                />
-              </Typography.Link>
+              <div>
+                {started}
+                <div>
+                  {shortReason ||
+                    (status === JobStatus.TIMEOUT ? (
+                      <FormattedMessage
+                        defaultMessage="The run timed out."
+                        description="Fallback reason in a timed out issue detection notification"
+                      />
+                    ) : (
+                      <FormattedMessage
+                        defaultMessage="The run ended with an error."
+                        description="Fallback reason in a failed issue detection notification"
+                      />
+                    ))}
+                </div>
+                <Typography.Link
+                  componentId="mlflow.traces.issue-detection.failed-toast.view-details"
+                  onClick={() => {
+                    navigateFromNotification(
+                      completedKey,
+                      Routes.getIssueDetectionRunsRoute(experimentId),
+                      trackedJob.workspace,
+                    );
+                  }}
+                >
+                  <FormattedMessage
+                    defaultMessage="View details"
+                    description="Link to the issue detection run history from the failure notification"
+                  />
+                </Typography.Link>
+              </div>
             ),
           });
         }
       }
       stopTrackingJob(trackedJob);
     },
-    [notification, navigate, stopTrackingJob, withPreservedQueryString],
+    [notification, navigateFromNotification, stopTrackingJob, intl],
   );
 
   return (
