@@ -850,12 +850,43 @@ def test_merge_records_marks_state_stale_when_upsert_fails(error):
         assert dataset._records is None
 
         mock_store.get_dataset.return_value = Mock(
-            digest="digest456", schema='{"inputs": {}}', profile='{"num_records": 1}'
+            digest="digest456",
+            schema='{"inputs": {}}',
+            profile='{"num_records": 1}',
+            last_update_time=123456790,
+            last_updated_by="bob",
         )
+        assert dataset.last_update_time == 123456790
+        assert dataset.last_updated_by == "bob"
         assert dataset.digest == "digest456"
         assert dataset.schema == '{"inputs": {}}'
         assert dataset.profile == '{"num_records": 1}'
         assert mock_store.get_dataset.call_count == 2
+
+
+def test_merge_records_retries_refresh_when_post_write_refresh_fails():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+    dataset._records = []
+
+    mock_store = Mock()
+    mock_store.get_dataset.side_effect = [
+        Mock(schema=None),
+        MlflowException("refresh failed"),
+        Mock(digest="digest456", last_update_time=123456790),
+    ]
+
+    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        with pytest.raises(MlflowException, match="refresh failed"):
+            dataset.merge_records([{"inputs": {"q": "a"}}])
+        assert dataset.last_update_time == 123456790
+        assert dataset.digest == "digest456"
+        assert mock_store.get_dataset.call_count == 3
 
 
 def test_stale_metadata_refresh_retries_after_refresh_fails():

@@ -2317,12 +2317,11 @@ class RestStore(
             records[i : i + _UPSERT_DATASET_RECORDS_CHUNK_SIZE]
             for i in range(0, len(records), _UPSERT_DATASET_RECORDS_CHUNK_SIZE)
         ] or [records]
+        # Serialize every chunk up front so that unserializable records fail before any request
+        # is sent, rather than after earlier chunks have been committed.
+        req_bodies = [message_to_json(UpsertDatasetRecords(records=json.dumps(c))) for c in chunks]
         inserted = updated = committed = 0
-        for chunk in chunks:
-            req = UpsertDatasetRecords(
-                records=json.dumps(chunk),
-            )
-            req_body = message_to_json(req)
+        for chunk, req_body in zip(chunks, req_bodies):
             try:
                 response_proto = self._call_endpoint(
                     UpsertDatasetRecords,
@@ -2330,14 +2329,16 @@ class RestStore(
                     endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
                 )
             except MlflowException as e:
-                if committed == 0:
-                    raise
-                raise MlflowException(
-                    f"Failed to upsert records into dataset {dataset_id} after {committed} of "
-                    f"{len(records)} records were committed. Retrying the upsert is safe because "
-                    f"records are deduplicated by their inputs. Error: {e.message}",
-                    error_code=databricks_pb2.ErrorCode.Value(e.error_code),
-                ) from e
+                if committed:
+                    # Add progress to the original exception so its type and the server-provided
+                    # error code, SQLSTATE, and error class are preserved.
+                    e.message = (
+                        f"Failed to upsert records into dataset {dataset_id} after {committed} "
+                        f"of {len(records)} records were committed. Retrying the upsert is safe "
+                        f"because records are deduplicated by their inputs. Error: {e.message}"
+                    )
+                    e.args = (e.message, *e.args[1:])
+                raise
             committed += len(chunk)
             inserted += response_proto.inserted_count
             updated += response_proto.updated_count

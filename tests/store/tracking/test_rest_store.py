@@ -66,6 +66,7 @@ from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
     MlflowTraceDataCorrupted,
+    RestException,
 )
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
@@ -2272,23 +2273,41 @@ def test_upsert_dataset_records_reports_committed_records_on_chunk_failure():
     creds = MlflowHostCreds("https://test-server")
     store = RestStore(lambda: creds)
     records = [{"inputs": {"q": str(i)}} for i in range(1500)]
+    error = RestException({
+        "error_code": "RESOURCE_DOES_NOT_EXIST",
+        "message": "database is locked",
+        "sqlstate": "40001",
+        "error_class": "CUSTOM_ERROR_CLASS",
+    })
 
     with mock.patch.object(
         store,
         "_call_endpoint",
-        side_effect=[
-            UpsertDatasetRecords.Response(),
-            MlflowException("database is locked", error_code=RESOURCE_DOES_NOT_EXIST),
-        ],
+        side_effect=[UpsertDatasetRecords.Response(), error],
     ) as mock_call:
         with pytest.raises(
-            MlflowException, match=r"after 1000 of 1500 records were committed"
+            RestException, match=r"after 1000 of 1500 records were committed"
         ) as exc_info:
             store.upsert_dataset_records(dataset_id="d-123", records=records)
 
     assert mock_call.call_count == 2
+    assert exc_info.value is error
     assert "database is locked" in exc_info.value.message
     assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    assert exc_info.value.sqlstate == "40001"
+    assert exc_info.value.error_class == "CUSTOM_ERROR_CLASS"
+
+
+def test_upsert_dataset_records_serializes_all_chunks_before_sending():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+    records = [{"inputs": {"q": str(i)}} for i in range(1000)] + [{"inputs": {"q": {1}}}]
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        with pytest.raises(TypeError, match="not JSON serializable"):
+            store.upsert_dataset_records(dataset_id="d-123", records=records)
+
+    mock_call.assert_not_called()
 
 
 def test_upsert_dataset_records_first_chunk_failure_propagates_unchanged():
