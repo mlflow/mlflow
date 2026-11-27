@@ -959,6 +959,19 @@ def test_run_data_logging_enforces_workspaces(workspace_tracking_store):
                 params=[Param("cross", "1")],
                 tags=[RunTag("cross", "1")],
             ),
+            lambda: workspace_tracking_store.log_inputs(
+                run_a.info.run_id,
+                [
+                    DatasetInput(
+                        Dataset(
+                            name="cross-dataset",
+                            digest="cross-digest",
+                            source_type="synthetic",
+                            source="{}",
+                        )
+                    )
+                ],
+            ),
         ):
             with pytest.raises(
                 MlflowException, match=f"Run with id={run_a.info.run_id} not found"
@@ -973,6 +986,7 @@ def test_run_data_logging_enforces_workspaces(workspace_tracking_store):
         run = workspace_tracking_store.get_run(run_a.info.run_id)
         assert "cross" not in run.data.params
         assert run.data.tags["t2"] == "v2"
+        assert run.inputs.dataset_inputs == []
 
 
 def test_run_lifecycle_operations_workspace_isolation(workspace_tracking_store):

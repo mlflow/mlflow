@@ -2539,12 +2539,13 @@ class SqlAlchemyStore(
             run = self._get_run(run_uuid=run_id, session=session)
             experiment_id = run.experiment_id
             self._check_run_is_active(run)
-            try:
-                self._log_inputs_impl(experiment_id, run_id, datasets, models)
-            except MlflowException as e:
-                raise e
-            except Exception as e:
-                raise MlflowException(e, INTERNAL_ERROR)
+
+        try:
+            self._log_inputs_impl(experiment_id, run_id, datasets, models)
+        except MlflowException:
+            raise
+        except Exception as e:
+            raise MlflowException(e, INTERNAL_ERROR)
 
     def _log_inputs_impl(
         self,
