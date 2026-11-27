@@ -9958,8 +9958,35 @@ def test_artifact_proxy_child_types_ignore_case():
         (f"1/{run_id.upper()}", auth_module.RESOURCE_TYPE_RUN),
         (f"1/{run_id.upper()}/ARTIFACTS/f", auth_module.RESOURCE_TYPE_RUN),
         ("workspaces/wsb/1/MODELS/m-1", auth_module.RESOURCE_TYPE_LOGGED_MODEL),
+        # U+017F folds to ``s`` on a store that applies Unicode case folding (macOS APFS).
+        ("1/model\u017f/m-1/artifacts/f", auth_module.RESOURCE_TYPE_LOGGED_MODEL),
+        ("1/trace\u017f/tr-1/artifacts/f", auth_module.RESOURCE_TYPE_TRACE),
+        # Not a run id, so only recognizing ``artifact\u017f`` classifies it as a run.
+        ("1/run-id/artifact\u017f/f", auth_module.RESOURCE_TYPE_RUN),
+        ("work\u017fpaces/wsb/1/model\u017f/m-1", auth_module.RESOURCE_TYPE_LOGGED_MODEL),
     ):
         assert classify(path, recursive=False) == (expected,)
+
+
+@pytest.mark.parametrize("prefix", ["WORKSPACES", "work\u017fpaces"])
+def test_parse_artifact_auth_target_workspace_prefix_ignores_case(prefix):
+    target = auth_module._parse_artifact_auth_target(f"{prefix}/team-b/7/run-id/artifacts/f")
+    assert target.workspace == "team-b"
+    assert target.experiment_id == "7"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "SKILLS/reviewer/0123456789abcdef0123456789abcdef/SKILL.md",
+        "skill\u017f/reviewer/0123456789abcdef0123456789abcdef/SKILL.md",
+        "workspaces/team-a/skill\u017f/reviewer",
+    ],
+)
+def test_parse_artifact_auth_target_skill_namespace_ignores_case(path):
+    # A case-insensitive store serves these from ``skills/``, so they must stay in the Skill
+    # namespace rather than fall back to workspace-level artifact permission.
+    assert auth_module._parse_artifact_auth_target(path).skill_namespace
 
 
 @pytest.mark.parametrize(
