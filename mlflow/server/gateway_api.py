@@ -415,6 +415,7 @@ def _build_endpoint_config(
 
     Raises:
         MlflowException: If provider configuration is invalid.
+        HTTPException: With status 502 if a stored Vertex AI service account key is invalid.
     """
     provider_name = model_config.provider
     if not is_provider_allowed(provider_name):
