@@ -70,21 +70,21 @@ const TraceContentBubble = ({ content, variant }: { content: string; variant: 'i
   const wrapperCss = isInput
     ? {
         maxWidth: '50%',
-        padding: theme.spacing.sm,
+        padding: 'var(--db-space-2)',
         backgroundColor: theme.isDarkMode ? theme.colors.blue800 : theme.colors.blue200,
-        borderRadius: theme.borders.borderRadiusMd,
-        fontSize: theme.typography.fontSizeSm,
+        borderRadius: 'var(--db-shape-container-small)',
+        fontSize: 'var(--db-font-size-sm)',
         wordBreak: 'break-word' as const,
-        '& pre[class*="prism"]': { padding: `${theme.spacing.sm}px ${theme.spacing.md}px` },
+        '& pre[class*="prism"]': { padding: 'var(--db-space-2) var(--db-space-4)' },
       }
     : {
-        padding: theme.spacing.md,
+        padding: 'var(--db-space-4)',
         backgroundColor: theme.isDarkMode ? theme.colors.backgroundSecondary : theme.colors.white,
-        borderRadius: theme.borders.borderRadiusMd,
-        fontSize: theme.typography.fontSizeSm,
+        borderRadius: 'var(--db-shape-container-small)',
+        fontSize: 'var(--db-font-size-sm)',
         lineHeight: 1.6,
         wordBreak: 'break-word' as const,
-        '& pre[class*="prism"]': { padding: `${theme.spacing.sm}px ${theme.spacing.md}px` },
+        '& pre[class*="prism"]': { padding: 'var(--db-space-2) var(--db-space-4)' },
       };
 
   const body = (() => {
@@ -97,7 +97,7 @@ const TraceContentBubble = ({ content, variant }: { content: string; variant: 'i
             wordBreak: 'break-all',
             maxHeight: 400,
             overflow: 'auto',
-            fontSize: theme.typography.fontSizeSm,
+            fontSize: 'var(--db-font-size-sm)',
           }}
         >
           {text.slice(0, 10_000)}
@@ -111,7 +111,7 @@ const TraceContentBubble = ({ content, variant }: { content: string; variant: 'i
             margin: 0,
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
-            fontSize: theme.typography.fontSizeSm,
+            fontSize: 'var(--db-font-size-sm)',
             fontFamily: 'monospace',
           }}
         >
@@ -409,8 +409,8 @@ export const FocusedReview = ({
   };
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, height: '100%' }}>
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+    <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-4)', height: '100%' }}>
+      <div css={{ display: 'flex', alignItems: 'center', gap: 'var(--db-space-2)' }}>
         <Button componentId={`${CID}.back`} type="tertiary" icon={<CloseSmallIcon />} onClick={onBack}>
           <FormattedMessage defaultMessage="Exit review" description="Review focused view: exit review button" />
         </Button>
@@ -464,8 +464,8 @@ export const FocusedReview = ({
           css={{
             flex: 1,
             minWidth: 0,
-            backgroundColor: theme.colors.backgroundSecondary,
-            borderRadius: theme.borders.borderRadiusMd,
+            backgroundColor: 'var(--db-surface-subtle)',
+            borderRadius: 'var(--db-shape-container-small)',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -473,11 +473,11 @@ export const FocusedReview = ({
         >
           <div
             css={{
-              padding: `${theme.spacing.sm}px ${theme.spacing.md}px 0`,
+              padding: 'var(--db-space-2) var(--db-space-4) 0',
               flexShrink: 0,
               display: 'flex',
               alignItems: 'center',
-              gap: theme.spacing.sm,
+              gap: 'var(--db-space-2)',
             }}
           >
             {onTraceViewDisplayModeChange && (
@@ -509,10 +509,10 @@ export const FocusedReview = ({
               flex: 1,
               minHeight: 0,
               overflow: isCustomViewRendered ? 'hidden' : 'auto',
-              padding: isCustomViewRendered ? 0 : theme.spacing.md,
+              padding: isCustomViewRendered ? 0 : 'var(--db-space-4)',
               display: 'flex',
               flexDirection: 'column',
-              gap: theme.spacing.md,
+              gap: 'var(--db-space-4)',
             }}
           >
             {traceLoading ? (
@@ -564,10 +564,10 @@ export const FocusedReview = ({
             maxHeight: '100%',
             display: 'flex',
             flexDirection: 'column',
-            padding: theme.spacing.lg,
-            backgroundColor: theme.colors.backgroundPrimary,
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: theme.borders.borderRadiusMd,
+            padding: 'var(--db-space-6)',
+            backgroundColor: 'var(--db-surface-base)',
+            border: '1px solid var(--db-border-base)',
+            borderRadius: 'var(--db-shape-container-small)',
             boxShadow: theme.shadows.lg,
             overflow: 'hidden',
           }}
@@ -583,7 +583,7 @@ export const FocusedReview = ({
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
-              gap: theme.spacing.lg,
+              gap: 'var(--db-space-6)',
             }}
           >
             {schemas.length === 0 ? (
@@ -598,7 +598,7 @@ export const FocusedReview = ({
                 const v = valueFor(schema.name);
                 const answered = v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
                 return (
-                  <div key={schema.schema_id} css={{ display: 'flex', gap: theme.spacing.sm }}>
+                  <div key={schema.schema_id} css={{ display: 'flex', gap: 'var(--db-space-2)' }}>
                     <span
                       css={{
                         display: 'inline-block',
@@ -611,11 +611,13 @@ export const FocusedReview = ({
                       }}
                     />
                     <div
-                      css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}
+                      css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--db-space-1)' }}
                     >
                       <Typography.Text bold>{schema.name}</Typography.Text>
                       {schema.instruction && !schema.input.text && (
-                        <Typography.Hint css={{ marginBottom: theme.spacing.xs }}>{schema.instruction}</Typography.Hint>
+                        <Typography.Hint css={{ marginBottom: 'var(--db-space-1)' }}>
+                          {schema.instruction}
+                        </Typography.Hint>
                       )}
                       <LabelSchemaInputRenderer
                         input={schema.input}
@@ -664,14 +666,14 @@ export const FocusedReview = ({
               flexShrink: 0,
               display: 'flex',
               flexDirection: 'column',
-              gap: theme.spacing.sm,
-              marginTop: theme.spacing.lg,
-              paddingTop: theme.spacing.md,
-              borderTop: `1px solid ${theme.colors.border}`,
+              gap: 'var(--db-space-2)',
+              marginTop: 'var(--db-space-6)',
+              paddingTop: 'var(--db-space-4)',
+              borderTop: '1px solid var(--db-border-base)',
             }}
           >
             {!canReview && (
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+              <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-2)' }}>
                 <Alert
                   componentId={`${CID}.not-assigned`}
                   type="info"
@@ -698,7 +700,7 @@ export const FocusedReview = ({
             )}
             {hasClearedPriorAnswer && !isDeclined && canReview && (
               <Typography.Hint
-                css={{ textAlign: 'right', color: theme.colors.textValidationDanger }}
+                css={{ textAlign: 'right', color: 'var(--db-negative-text)' }}
                 data-testid={`${CID}.cleared-answer-hint`}
               >
                 <FormattedMessage
@@ -707,7 +709,7 @@ export const FocusedReview = ({
                 />
               </Typography.Hint>
             )}
-            <div css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
+            <div css={{ display: 'flex', gap: 'var(--db-space-2)', justifyContent: 'flex-end' }}>
               {/* A terminal trace can be sent back to the to-do list. Declining is
                   no longer offered in the UI (the API still supports it); a pending
                   trace's only action is Submit. */}

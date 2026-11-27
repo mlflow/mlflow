@@ -1,6 +1,6 @@
 import React, { lazy, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button, Modal, PlusIcon, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, Modal, PlusIcon, TableSkeleton } from '@databricks/design-system';
 import {
   ModelTraceExplorerResizablePane,
   useGetTracesById,
@@ -54,7 +54,6 @@ const LazyExperimentCustomViewDefinitionProvider = lazy(() =>
  * The left list of visible queues lives in `ReviewQueueSidebar`.
  */
 const ExperimentReviewQueuePage = () => {
-  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { experimentId } = useParams<{ experimentId: string }>();
   const reviewer = useReviewer();
@@ -498,8 +497,8 @@ const ExperimentReviewQueuePage = () => {
         flexDirection: 'column',
         height: '100%',
         minHeight: 0,
-        paddingRight: theme.spacing.md,
-        paddingBottom: theme.spacing.md,
+        paddingRight: 'var(--db-space-4)',
+        paddingBottom: 'var(--db-space-4)',
       }}
     >
       <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: inFocusMode ? 'visible' : 'hidden' }}>
@@ -547,8 +546,8 @@ const ExperimentReviewQueuePage = () => {
                   overflow: 'hidden',
                   display: 'flex',
                   flexDirection: 'column',
-                  paddingLeft: theme.spacing.md,
-                  borderLeft: `1px solid ${theme.colors.border}`,
+                  paddingLeft: 'var(--db-space-4)',
+                  borderLeft: '1px solid var(--db-border-base)',
                 }}
               >
                 {rightContent}

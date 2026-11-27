@@ -10,7 +10,6 @@ import {
   DialogComboboxTrigger,
   PlusIcon,
   Typography,
-  useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -44,7 +43,6 @@ export const QuestionChecklistCombobox = ({
   disabled?: boolean;
   dropdownZIndex?: number;
 }) => {
-  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [search, setSearch] = useState('');
   const visibleSchemas = useMemo(() => {
@@ -79,12 +77,12 @@ export const QuestionChecklistCombobox = ({
                 css={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: theme.spacing.xs,
-                  padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+                  gap: 'var(--db-space-1)',
+                  padding: 'var(--db-space-1) var(--db-space-2)',
                 }}
                 onClick={onCreateQuestion}
               >
-                <PlusIcon css={{ paddingLeft: theme.spacing.xs, paddingRight: theme.spacing.xs }} />
+                <PlusIcon css={{ paddingLeft: 'var(--db-space-1)', paddingRight: 'var(--db-space-1)' }} />
                 <FormattedMessage
                   defaultMessage="New question"
                   description="Review queue: create new question link in dropdown"

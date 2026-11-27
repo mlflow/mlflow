@@ -84,7 +84,7 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
           </div>
         }
       >
-        <Typography.Hint css={{ marginBottom: theme.spacing.md }}>
+        <Typography.Hint css={{ marginBottom: 'var(--db-space-4)' }}>
           <FormattedMessage
             defaultMessage="Add a new question, or click a question to edit it."
             description="Manage review questions: explanatory hint"
@@ -107,7 +107,7 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
             css={{
               display: 'flex',
               flexDirection: 'column',
-              gap: theme.spacing.sm,
+              gap: 'var(--db-space-2)',
               // Cap the list so the modal stops growing with every question; the
               // list scrolls past this height.
               maxHeight: 360,
@@ -117,8 +117,8 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
               // the scrollable-ness is noticeable. The cover gradients are the
               // modal's own background; the shadow radials are scroll-attached.
               background: `
-                linear-gradient(${theme.colors.backgroundPrimary} 30%, rgba(0, 0, 0, 0)) 0 0,
-                linear-gradient(rgba(0, 0, 0, 0), ${theme.colors.backgroundPrimary} 70%) 0 100%,
+                linear-gradient(var(--db-surface-base) 30%, rgba(0, 0, 0, 0)) 0 0,
+                linear-gradient(rgba(0, 0, 0, 0), var(--db-surface-base) 70%) 0 100%,
                 radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0)) 0 0,
                 radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0)) 0 100%
               `,
@@ -150,10 +150,10 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
                   css={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: theme.spacing.sm,
-                    padding: theme.spacing.sm,
-                    border: `1px solid ${theme.colors.border}`,
-                    borderRadius: theme.borders.borderRadiusMd,
+                    gap: 'var(--db-space-2)',
+                    padding: 'var(--db-space-2)',
+                    border: '1px solid var(--db-border-base)',
+                    borderRadius: 'var(--db-shape-container-small)',
                     cursor: isDefault ? 'default' : 'pointer',
                     ...(isDefault ? {} : { '&:hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover } }),
                   }}
@@ -232,14 +232,14 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
             }
           }}
         >
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+          <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-2)' }}>
             <FormattedMessage
               defaultMessage='Deleting "{name}" removes it from every review queue in this experiment. This cannot be undone.'
               description="Manage review questions: delete confirmation body"
               values={{ name: pendingDelete.name }}
             />
             {affectedQueues.length > 0 ? (
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+              <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-1)' }}>
                 <Typography.Text bold>
                   {userQueueCount > 0 ? (
                     // Each count is its own single-plural message, composed into a
@@ -282,10 +282,10 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
                     overflowY: 'auto',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: theme.spacing.xs,
-                    border: `1px solid ${theme.colors.border}`,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    padding: theme.spacing.sm,
+                    gap: 'var(--db-space-1)',
+                    border: '1px solid var(--db-border-base)',
+                    borderRadius: 'var(--db-shape-container-small)',
+                    padding: 'var(--db-space-2)',
                   }}
                 >
                   {affectedQueues.map((q) => (

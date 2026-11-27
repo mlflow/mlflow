@@ -53,7 +53,6 @@ const PendingDot = () => {
 };
 
 export const StatusTag = ({ status }: { status: ReviewStatus }) => {
-  const { theme } = useDesignSystemTheme();
   const label: Record<ReviewStatus, React.ReactNode> = {
     PENDING: <FormattedMessage defaultMessage="Needs review" description="Review queue status: pending" />,
     COMPLETE: <FormattedMessage defaultMessage="Reviewed" description="Review queue status: complete" />,
@@ -69,7 +68,7 @@ export const StatusTag = ({ status }: { status: ReviewStatus }) => {
       componentId={`${CID}.status-tag`}
       color={STATUS_META[status].color}
       icon={icon[status]}
-      css={{ paddingLeft: theme.spacing.xs, paddingRight: theme.spacing.xs }}
+      css={{ paddingLeft: 'var(--db-space-1)', paddingRight: 'var(--db-space-1)' }}
     >
       {label[status]}
     </Tag>
@@ -320,7 +319,9 @@ export const ReviewQueueList = ({
             {previews?.response || '—'}
           </Typography.Text>
         </TableCell>
-        <TableCell css={{ flex: colFlex.get('status'), display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+        <TableCell
+          css={{ flex: colFlex.get('status'), display: 'flex', alignItems: 'center', gap: 'var(--db-space-1)' }}
+        >
           <StatusTag status={item.status} />
           {hasNewQuestions && (
             <Tag componentId={`${CID}.new-questions-tag`} color="lemon">
@@ -339,9 +340,9 @@ export const ReviewQueueList = ({
   };
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: theme.spacing.sm }}>
+    <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: 'var(--db-space-2)' }}>
       {(title || selectable || onCopyLink || onManageQueue || onDeleteQueue) && (
-        <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm }}>
+        <div css={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--db-space-2)' }}>
           <div css={{ minWidth: 0 }}>
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs / 2, minWidth: 0 }}>
               <Typography.Title level={3} withoutMargins ellipsis css={{ minWidth: 0 }}>

@@ -48,7 +48,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
   const intl = useIntl();
   const { inputKind } = watchedValues;
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+    <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-4)' }}>
       {isEdit && (
         <Typography.Text color="error" css={{ marginBottom: -theme.spacing.sm }}>
           <FormattedMessage
@@ -189,7 +189,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
                 isChecked={field.value}
                 onChange={(checked) => field.onChange(checked)}
                 isDisabled={isEdit}
-                css={{ marginTop: theme.spacing.sm }}
+                css={{ marginTop: 'var(--db-space-2)' }}
               >
                 <FormattedMessage
                   defaultMessage="Allow multiple selections (multi-select)"
@@ -233,10 +233,9 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
 };
 
 const PassFailFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
-  const { theme } = useDesignSystemTheme();
   // Positive / negative sit side-by-side (item 9) to save vertical space.
   return (
-    <div css={{ display: 'flex', gap: theme.spacing.md }}>
+    <div css={{ display: 'flex', gap: 'var(--db-space-4)' }}>
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.pass-fail.positive`} required>
           <FormattedMessage defaultMessage="Positive label" description="Pass/Fail positive label input" />
@@ -398,8 +397,8 @@ const DraggableOptionChip = ({
             // grip<->text gap is half the text<->X gap.
             marginLeft: -theme.spacing.xs,
             marginRight: theme.spacing.xs / 2,
-            color: theme.colors.textSecondary,
-            fontSize: theme.typography.fontSizeSm,
+            color: 'var(--db-text-subtle)',
+            fontSize: 'var(--db-font-size-sm)',
             cursor: 'grab',
             '&:active': { cursor: 'grabbing' },
           }}
@@ -452,8 +451,8 @@ const CategoricalOptionsEditor = ({ value, onChange }: { value: string[]; onChan
   };
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-      <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+    <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-2)' }}>
+      <div css={{ display: 'flex', gap: 'var(--db-space-2)' }}>
         <Input
           componentId={`${COMPONENT_PREFIX}.categorical.new-option`}
           id={`${COMPONENT_PREFIX}.categorical.new-option`}
@@ -502,7 +501,7 @@ const CategoricalOptionsEditor = ({ value, onChange }: { value: string[]; onChan
               display: 'flex',
               flexDirection: 'row',
               flexWrap: 'wrap',
-              gap: theme.spacing.xs,
+              gap: 'var(--db-space-1)',
               maxHeight: theme.spacing.md * 9,
               overflowY: 'auto',
             }}
@@ -549,11 +548,10 @@ const CategoricalFields = ({ control, errors }: { control: Control<LabelSchemaFo
 };
 
 const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
-  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   // Min / max sit side-by-side (item 9) to save vertical space.
   return (
-    <div css={{ display: 'flex', gap: theme.spacing.md }}>
+    <div css={{ display: 'flex', gap: 'var(--db-space-4)' }}>
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <FormUI.Label
           htmlFor={`${COMPONENT_PREFIX}.numeric.min`}
@@ -611,10 +609,9 @@ const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormDa
 };
 
 const TextFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
-  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+    <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-4)' }}>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.text.max-length`}>
           <FormattedMessage defaultMessage="Max length" description="Text max length input" />

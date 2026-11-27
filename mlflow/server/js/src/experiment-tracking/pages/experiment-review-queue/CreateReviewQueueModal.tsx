@@ -234,7 +234,7 @@ export const CreateReviewQueueModal = ({
           drawer that can host this modal — the drawer's stacking context would
           otherwise trap them below the modal regardless of z-index. */}
         <ApplyDesignSystemContextOverrides getPopupContainer={() => document.body}>
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-4)' }}>
             <div>
               <FormUI.Label htmlFor={`${CID}.name-input`}>
                 <FormattedMessage defaultMessage="Name" description="Create review queue: name field label" />
@@ -259,7 +259,7 @@ export const CreateReviewQueueModal = ({
                     description="Create review queue: reviewers field label"
                   />
                 </FormUI.Label>
-                <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
+                <FormUI.Hint css={{ marginBottom: 'var(--db-space-2)' }}>
                   <FormattedMessage
                     defaultMessage="Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”."
                     description="Create review queue: reviewers field hint"
@@ -284,7 +284,7 @@ export const CreateReviewQueueModal = ({
               <FormUI.Label>
                 <FormattedMessage defaultMessage="Questions" description="Create review queue: questions field label" />
               </FormUI.Label>
-              <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
+              <FormUI.Hint css={{ marginBottom: 'var(--db-space-2)' }}>
                 <FormattedMessage
                   defaultMessage="Choose which questions reviewers answer for traces in this queue."
                   description="Create review queue: questions field hint"
@@ -302,7 +302,7 @@ export const CreateReviewQueueModal = ({
                   }
                 />
               ) : (
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-2)' }}>
                   <QuestionChecklistCombobox
                     componentId={`${CID}.questions`}
                     schemas={labelSchemas}
@@ -323,14 +323,14 @@ export const CreateReviewQueueModal = ({
                     }}
                   >
                     <div css={{ overflow: 'hidden' }}>
-                      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                      <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-1)' }}>
                         <FormUI.Label>
                           <FormattedMessage
                             defaultMessage="Question preview"
                             description="Create review queue: question preview section label"
                           />
                         </FormUI.Label>
-                        <FormUI.Hint css={{ marginBottom: theme.spacing.xs }}>
+                        <FormUI.Hint css={{ marginBottom: 'var(--db-space-1)' }}>
                           <FormattedMessage
                             defaultMessage="Preview how the questions will appear for the human reviewer."
                             description="Create review queue: question preview section hint"
@@ -340,7 +340,7 @@ export const CreateReviewQueueModal = ({
                           css={{
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: theme.spacing.sm,
+                            gap: 'var(--db-space-2)',
                             // Fixed height (~4 collapsed question rows), reserved up front
                             // so the modal never resizes: more questions or an expanded
                             // preview scroll within this section instead of growing it.
@@ -357,10 +357,10 @@ export const CreateReviewQueueModal = ({
                                 css={{
                                   display: 'flex',
                                   flexDirection: 'column',
-                                  gap: theme.spacing.xs,
-                                  padding: theme.spacing.sm,
-                                  border: `1px solid ${theme.colors.border}`,
-                                  borderRadius: theme.borders.borderRadiusMd,
+                                  gap: 'var(--db-space-1)',
+                                  padding: 'var(--db-space-2)',
+                                  border: '1px solid var(--db-border-base)',
+                                  borderRadius: 'var(--db-shape-container-small)',
                                 }}
                               >
                                 <div
@@ -376,7 +376,7 @@ export const CreateReviewQueueModal = ({
                                   css={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: theme.spacing.xs,
+                                    gap: 'var(--db-space-1)',
                                     cursor: 'pointer',
                                   }}
                                 >

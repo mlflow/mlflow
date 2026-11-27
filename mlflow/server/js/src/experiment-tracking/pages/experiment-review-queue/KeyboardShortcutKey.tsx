@@ -9,16 +9,16 @@ export const KeyboardShortcutKey = ({ children }: { children: string }) => {
       css={{
         minWidth: 20,
         height: 20,
-        padding: `0 ${theme.spacing.xs}px`,
+        padding: '0 var(--db-space-1)',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusSm,
-        backgroundColor: theme.colors.backgroundSecondary,
-        color: theme.colors.textSecondary,
+        backgroundColor: 'var(--db-surface-subtle)',
+        color: 'var(--db-text-subtle)',
         fontFamily: 'inherit',
-        fontSize: theme.typography.fontSizeSm,
+        fontSize: 'var(--db-font-size-sm)',
         lineHeight: 1,
       }}
     >
