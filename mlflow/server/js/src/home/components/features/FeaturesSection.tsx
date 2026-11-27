@@ -44,7 +44,7 @@ export const FeaturesSection = () => {
         </span>
       </button>
       {!isCollapsed && (
-        <div css={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: theme.spacing.md }}>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.mid, marginTop: theme.spacing.md }}>
           <LaunchDemoCard />
           <div
             css={{
@@ -58,7 +58,7 @@ export const FeaturesSection = () => {
               },
               '&::-webkit-scrollbar-thumb': {
                 background: theme.colors.borderDecorative,
-                borderRadius: 2,
+                borderRadius: theme.borders.borderRadiusFull,
               },
             }}
           >

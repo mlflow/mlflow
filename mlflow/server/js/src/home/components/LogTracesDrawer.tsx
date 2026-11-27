@@ -149,10 +149,10 @@ export const LogTracesDrawer = () => {
           >
             <span
               css={{
-                borderRadius: theme.borders.borderRadiusSm,
+                borderRadius: theme.borders.borderRadiusMd,
                 background: theme.colors.actionDefaultBackgroundHover,
                 padding: theme.spacing.xs,
-                color: theme.colors.blue500,
+                color: theme.colors.actionLinkDefault,
                 height: 'min-content',
                 display: 'flex',
                 alignItems: 'center',
@@ -223,7 +223,7 @@ export const LogTracesDrawer = () => {
                         : theme.colors.actionDefaultBackgroundHover,
                     },
                     '&:focus-visible': {
-                      outline: `2px solid ${theme.colors.actionPrimaryBackgroundHover}`,
+                      outline: `2px solid ${theme.colors.actionDefaultBorderFocus}`,
                       outlineOffset: 2,
                     },
                   }}
@@ -266,7 +266,7 @@ export const LogTracesDrawer = () => {
               borderRadius: theme.borders.borderRadiusLg,
               padding: theme.spacing.lg,
               backgroundColor: theme.colors.backgroundPrimary,
-              boxShadow: theme.shadows.xs,
+              boxShadow: '0px 2px 3px -1px rgba(0, 0, 0, 0.05), 0px 1px 0px 0px rgba(0, 0, 0, 0.02)',
             }}
           >
             <section

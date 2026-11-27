@@ -36,7 +36,7 @@ const NewsThumbnail = ({ gradient, title, description, icon: IconComponent }: Ne
       </div>
       {IconComponent && (
         <div css={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', flex: 1 }}>
-          <IconComponent css={{ color: theme.colors.white, fontSize: 24 }} />
+          <IconComponent css={{ color: theme.colors.textSecondary, fontSize: 24 }} />
         </div>
       )}
     </div>
@@ -55,15 +55,15 @@ const DiscoverNewsCard = ({ title, description, link, thumbnail }: (typeof homeN
     <div
       css={{
         overflow: 'hidden',
-        border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
+        border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusMd,
         background: theme.colors.backgroundPrimary,
-        padding: theme.spacing.sm + theme.spacing.xs,
+        padding: theme.spacing.mid,
         display: 'flex',
         flexDirection: 'column' as const,
         gap: theme.spacing.sm,
         boxSizing: 'border-box' as const,
-        boxShadow: theme.shadows.sm,
+        boxShadow: '0px 2px 3px -1px rgba(0, 0, 0, 0.05), 0px 1px 0px 0px rgba(0, 0, 0, 0.02)',
         cursor: 'pointer',
         transition: 'background 150ms ease',
         height: '100%',
@@ -118,7 +118,7 @@ export const DiscoverNews = () => {
           css={{
             width: '100%',
             display: 'flex',
-            gap: theme.spacing.sm + theme.spacing.xs,
+            gap: theme.spacing.mid,
             flexWrap: 'wrap',
           }}
         >
