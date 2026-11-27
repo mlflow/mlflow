@@ -409,7 +409,7 @@ const styles = {
     maxWidth: 300,
   },
   runLink: (theme: Theme) => ({
-    color: theme.colors.primary,
+    color: theme.colors.actionLinkDefault,
     '&:hover': {},
   }),
   actionsWrapper: {

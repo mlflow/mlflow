@@ -97,7 +97,7 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
         css={{
           backgroundColor: theme.colors.backgroundPrimary,
           border: `1px solid ${theme.colors.border}`,
-          borderRadius: theme.general.borderRadiusBase,
+          borderRadius: theme.borders.borderRadiusMd,
         }}
         ref={setElementRef}
       />
@@ -162,7 +162,7 @@ const ResizableHandle = forwardRef((props, ref) => {
         cursor: 'se-resize',
         lineHeight: 0,
         padding: theme.spacing.xs,
-        color: theme.colors.actionDefaultIconDefault,
+        color: theme.colors.textSecondary,
       }}
     >
       <svg width="8" height="8" viewBox="0 0 8 8">

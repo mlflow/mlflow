@@ -189,8 +189,8 @@ export const RunsChartsSectionHeader = ({
             css={{
               position: 'absolute',
               inset: 0,
-              backgroundColor: theme.isDarkMode ? theme.colors.blue800 : theme.colors.blue100,
-              border: `2px dashed ${theme.colors.blue400}`,
+              backgroundColor: theme.colors.actionDefaultBackgroundHover,
+              border: `2px dashed ${theme.colors.actionPrimaryBackgroundDefault}`,
               opacity: 0.75,
             }}
           />

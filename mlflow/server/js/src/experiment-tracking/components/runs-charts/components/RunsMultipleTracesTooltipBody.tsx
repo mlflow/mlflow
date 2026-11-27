@@ -52,7 +52,7 @@ export const RunsMultipleTracesTooltipBody = ({ hoverData }: { hoverData: RunsCo
       <div>
         {!isUndefined(xValue) && (
           <div css={{ marginBottom: theme.spacing.xs }}>
-            <span css={{ fontWeight: 'bold' }}>{displayedXValueLabel}</span>{' '}
+            <span css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>{displayedXValueLabel}</span>{' '}
             {hoverData.xAxisKey === RunsChartsLineChartXAxisType.TIME ? (
               <PlotlyLikeFormattedTime value={xValue} />
             ) : shouldEnableRelativeTimeDateAxis() &&
@@ -89,7 +89,7 @@ export const RunsMultipleTracesTooltipBody = ({ hoverData }: { hoverData: RunsCo
                 {!isUndefined(value) && (
                   <span
                     css={{
-                      fontWeight: hoveredTraceUuid === uuid ? 'bold' : 'normal',
+                      fontWeight: hoveredTraceUuid === uuid ? theme.typography.typographyBoldFontWeight : 'normal',
                       color: hoveredTraceUuid === uuid ? 'unset' : theme.colors.textPlaceholder,
                     }}
                   >

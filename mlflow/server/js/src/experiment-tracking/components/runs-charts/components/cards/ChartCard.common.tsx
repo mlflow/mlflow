@@ -152,7 +152,7 @@ const RunsChartCardWrapperRaw = ({
         // flag is on to accomodate the legend in the charts
         paddingBottom: theme.spacing.sm,
         border: `1px solid ${theme.colors.border}`,
-        borderRadius: theme.general.borderRadiusBase,
+        borderRadius: theme.borders.borderRadiusMd,
         transition: 'opacity 0.12s',
         position: 'relative',
       }}
@@ -361,7 +361,7 @@ const styles = {
     backgroundColor: theme.colors.backgroundPrimary,
     padding: theme.spacing.md,
     border: `1px solid ${theme.colors.border}`,
-    borderRadius: theme.general.borderRadiusBase,
+    borderRadius: theme.borders.borderRadiusMd,
   }),
   chartComponentWrapper: () => ({
     overflow: 'hidden',

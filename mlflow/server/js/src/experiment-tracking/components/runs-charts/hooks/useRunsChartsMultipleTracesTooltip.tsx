@@ -1,3 +1,4 @@
+import { useDesignSystemTheme } from '@databricks/design-system';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Figure } from 'react-plotly.js';
 import type {
@@ -58,6 +59,8 @@ export const useRunsMultipleTracesTooltipData = ({
   xAxisScaleType?: 'linear' | 'log';
   positionInSection?: number;
 }) => {
+  const { theme } = useDesignSystemTheme();
+
   // Save current boundaries/dimensions of the plot in the mutable ref object
   const chartBoundaries = useRef<{
     containerLeftPixels: number;
@@ -400,7 +403,7 @@ export const useRunsMultipleTracesTooltipData = ({
       css={{
         top: 0,
         width: 0,
-        borderLeft: `1px dashed rgba(0,0,0,0.5)`,
+        borderLeft: `1px dashed ${theme.isDarkMode ? theme.colors.grey300 : theme.colors.textSecondary}`,
         height: '100%',
         position: 'absolute',
         pointerEvents: 'none',

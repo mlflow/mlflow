@@ -464,6 +464,9 @@ const ParallelCoordinatesPlot = (props: any) => {
         '.parcoords text.label': {
           fill: theme.colors.textPrimary,
         },
+        '.parcoords g.axis-label-tooltip rect, .parcoords g.tick-label-tooltip rect': {
+          outline: `1px solid ${theme.isDarkMode ? theme.colors.grey300 : theme.colors.textSecondary}`,
+        },
       }}
     >
       {isResizing ? (
