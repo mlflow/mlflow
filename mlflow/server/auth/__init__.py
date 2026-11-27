@@ -4490,6 +4490,10 @@ def validate_can_read_model_version_artifact():
 
 
 def _is_uri_within_artifact_root(uri: str, root: str | None) -> bool:
+    """
+    Stricter than `mlflow.server.handlers._is_uri_within_root`: resolves local paths, rejects
+    mixed local and remote URIs and `..` segments, and compares object-store keys literally.
+    """
     if not root:
         return False
     try:
