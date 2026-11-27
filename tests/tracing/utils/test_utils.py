@@ -1118,6 +1118,10 @@ def custom_model_catalog(tmp_path, monkeypatch):
                 "mode": "chat",
                 "pricing": {"input_per_million_tokens": 10.0, "output_per_million_tokens": 10.0},
             },
+            "acme/my-model": {
+                "mode": "chat",
+                "pricing": {"input_per_million_tokens": 90.0, "output_per_million_tokens": 90.0},
+            },
         },
     }
     (tmp_path / "ollama.json").write_text(json.dumps(catalog))
@@ -1142,6 +1146,8 @@ def litellm_cost(mock_litellm_cost):
         ("ollama/my-model", 0.01),
         ("free-model", 0.0),
         ("acme/prefixed-model", 0.01),
+        # The stripped name "my-model" takes precedence over the full-name key
+        ("acme/my-model", 0.01),
     ],
 )
 def test_custom_model_catalog_price_takes_precedence_over_litellm(

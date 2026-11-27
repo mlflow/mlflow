@@ -345,10 +345,19 @@ def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> Mo
         return _get_catalog_entry(_load_provider(custom_llm_provider), model)
 
     # No provider given — scan bundled providers only (no remote fetch)
-    # to avoid O(N) network requests across all providers.
+    # to avoid O(N) network requests across all providers. Match the stripped name across
+    # every provider before trying the full name, so a provider that keys the full name
+    # (e.g. "meta-llama/...") can't shadow another provider that keys the stripped name.
+    for name in dict.fromkeys([model.split("/", 1)[-1], model]):
+        if info := _scan_bundled_providers(name):
+            return info
+    return None
+
+
+def _scan_bundled_providers(name: str) -> ModelInfo | None:
     fallback = None
     for provider in _list_provider_names():
-        if info := _get_catalog_entry(_load_bundled_provider(provider), model):
+        if info := _load_bundled_provider(provider).get(name):
             if info.get("input_cost_per_token"):
                 return info
             if fallback is None:

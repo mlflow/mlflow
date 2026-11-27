@@ -333,6 +333,10 @@ _MOCK_PROVIDER_DATA = {
             "cache_creation_input_token_cost": 3e-6,
             "cache_creation_input_token_cost_above_1hr": 4.8e-6,
         },
+        "mistralai/test-provider-model": {
+            "input_cost_per_token": 9e-6,
+            "output_cost_per_token": 9e-6,
+        },
     },
     "openai": {
         "test-provider-model": {
@@ -428,6 +432,16 @@ def test_cost_per_token_prefers_stripped_name_over_full_name(mock_model_cost):
         prompt_tokens=1000,
         completion_tokens=500,
         custom_llm_provider="vertex_ai",
+    )
+    assert input_cost == pytest.approx(0.001)
+    assert output_cost == pytest.approx(0.001)
+
+
+def test_cost_per_token_prefers_stripped_name_across_providers(mock_model_cost):
+    # "test_provider" is scanned first and keys the full name, but "openai" keys the stripped
+    # name, which takes precedence.
+    input_cost, output_cost = cost_per_token(
+        model="mistralai/test-provider-model", prompt_tokens=1000, completion_tokens=500
     )
     assert input_cost == pytest.approx(0.001)
     assert output_cost == pytest.approx(0.001)
