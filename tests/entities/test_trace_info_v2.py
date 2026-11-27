@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -168,3 +170,13 @@ def test_trace_info_v3(trace_info):
         v3_proto.tags["k" * MAX_CHARS_IN_TRACE_INFO_TAGS_KEY]
         == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
     )
+
+
+def test_from_dict_does_not_mutate_input(trace_info):
+    d = trace_info.to_dict()
+    original = copy.deepcopy(d)
+
+    TraceInfoV2.from_dict(d)
+
+    assert type(d["status"]) is str
+    assert d == original
