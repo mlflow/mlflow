@@ -175,6 +175,7 @@ describe('useCountInfo', () => {
       useCountInfo({
         ...defaultParams,
         runUuid: 'run-123',
+        loggedModelId: 'model-123',
         traceInfos,
         metadataTraceInfos: traceInfos,
         countSessions: true,
@@ -185,7 +186,7 @@ describe('useCountInfo', () => {
       expect.objectContaining({
         metricName: TraceMetricKey.SESSION_COUNT,
         enabled: true,
-        filters: ['trace.metadata.`mlflow.sourceRun` = "run-123"'],
+        filters: ['trace.metadata.`mlflow.sourceRun` = "run-123"', 'trace.metadata.`mlflow.modelId` = "model-123"'],
       }),
     );
   });

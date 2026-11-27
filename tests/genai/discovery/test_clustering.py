@@ -96,6 +96,7 @@ def test_summarize_cluster():
                     "example_indices": [],
                     "severity": "high",
                     "categories": [],
+                    "category_rationale": "",
                 })
             )
         )
@@ -162,6 +163,8 @@ def test_summarize_cluster_filters_invalid_categories():
                     "example_indices": [],
                     "severity": "high",
                     "categories": ["hallucination", "invalid_cat", "tool_error", "another_invalid"],
+                    "category_rationale": "hallucination: The agent made up facts. "
+                    "tool_error: The tool call failed.",
                 })
             )
         )
@@ -188,3 +191,44 @@ def test_build_cluster_summary_prompt_with_categories():
     assert "tool_error" in prompt
     assert "latency" in prompt
     assert "Assign one or more categories from" in prompt
+
+
+def test_clustering_attributes_llm_calls_to_issue_detection():
+    from mlflow.gateway.constants import GatewayCaller
+
+    clusters = MagicMock()
+    clusters.choices = [
+        MagicMock(
+            message=MagicMock(content=json.dumps({"groups": [{"name": "a", "indices": [0]}]}))
+        )
+    ]
+    summary = MagicMock()
+    summary.choices = [
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps({
+                    "name": "hallucination",
+                    "description": "LLM generates incorrect facts",
+                    "root_cause": "Model confabulation",
+                    "example_indices": [],
+                    "severity": "high",
+                    "categories": [],
+                    "category_rationale": "",
+                })
+            )
+        )
+    ]
+    analyses = [
+        _ConversationAnalysis(full_rationale="hallucinated facts", affected_trace_ids=["t-1"])
+    ]
+
+    with patch(
+        "mlflow.genai.discovery.clustering._call_llm", side_effect=[clusters, summary]
+    ) as mock_call:
+        cluster_by_llm(["[pipeline] hallucinated facts"], max_issues=5, model="gateway:/my-ep")
+        summarize_cluster([0], analyses, "gateway:/my-ep", categories=[])
+
+    assert [call.kwargs["gateway_caller"] for call in mock_call.call_args_list] == [
+        GatewayCaller.ISSUE_DETECTION,
+        GatewayCaller.ISSUE_DETECTION,
+    ]

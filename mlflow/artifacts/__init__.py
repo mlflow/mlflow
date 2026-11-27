@@ -4,13 +4,15 @@ APIs for interacting with artifacts in MLflow
 
 import json
 import pathlib
-import posixpath
 import tempfile
 from typing import Any
+
+import yaml
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
@@ -59,7 +61,9 @@ def download_artifacts(
             specified artifacts. If the directory does not exist, it is created. If
             unspecified, the artifacts are downloaded to a new uniquely-named directory on
             the local filesystem, unless the artifacts already exist on the local
-            filesystem, in which case their local path is returned directly.
+            filesystem, in which case their local path is returned directly. When ``run_id``
+            is specified, artifacts keep their path relative to the run's artifact root, so
+            ``artifact_path="a/b.txt"`` is downloaded to ``<dst_path>/a/b.txt``.
         tracking_uri: The tracking URI to be used when downloading artifacts.
         registry_uri: The registry URI to be used when downloading artifacts.
 
@@ -85,14 +89,14 @@ def download_artifacts(
             artifact_uri, output_path=dst_path, tracking_uri=tracking_uri, registry_uri=registry_uri
         )
 
-    # Use `runs:/<run_id>/<artifact_path>` to download both run and model (if exists) artifacts
+    # Use a `runs:/<run_id>` repository to download both run and model (if exists) artifacts.
+    # `artifact_path` is passed separately because embedding it in the URI would percent-decode
+    # it and treat `?` as the start of a query string.
     if run_id and artifact_path:
-        return _download_artifact_from_uri(
-            f"runs:/{posixpath.join(run_id, artifact_path)}",
-            output_path=dst_path,
-            tracking_uri=tracking_uri,
-            registry_uri=registry_uri,
+        repo = RunsArtifactRepository(
+            f"runs:/{run_id}", tracking_uri=tracking_uri, registry_uri=registry_uri
         )
+        return repo.download_artifacts(artifact_path, dst_path=dst_path)
 
     artifact_path = artifact_path if artifact_path is not None else ""
 
@@ -158,6 +162,15 @@ def list_artifacts(
     return artifact_repo.list_artifacts(artifact_path)
 
 
+def _not_utf8_error(artifact_uri: str) -> MlflowException:
+    return MlflowException(
+        f"Artifact {artifact_uri!r} is not valid UTF-8. To read a file in another encoding, "
+        "download it with `mlflow.artifacts.download_artifacts` and open it with the correct "
+        "`encoding`.",
+        BAD_REQUEST,
+    )
+
+
 def load_text(artifact_uri: str) -> str:
     """Loads the artifact contents as a string.
 
@@ -185,11 +198,15 @@ def load_text(artifact_uri: str) -> str:
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
-        with open(local_artifact) as local_artifact_fd:
+        with open(local_artifact, encoding="utf-8") as local_artifact_fd:
             try:
                 return str(local_artifact_fd.read())
-            except Exception:
-                raise MlflowException("Unable to form a str object from file content", BAD_REQUEST)
+            except UnicodeDecodeError as e:
+                raise _not_utf8_error(artifact_uri) from e
+            except Exception as e:
+                raise MlflowException(
+                    "Unable to form a str object from file content", BAD_REQUEST
+                ) from e
 
 
 def load_dict(artifact_uri: str) -> dict[str, Any]:
@@ -219,11 +236,22 @@ def load_dict(artifact_uri: str) -> dict[str, Any]:
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
-        with open(local_artifact) as local_artifact_fd:
+        with open(local_artifact, encoding="utf-8") as local_artifact_fd:
             try:
+                # Mirror `log_dict`, which infers the format from the file extension
+                if pathlib.Path(local_artifact).suffix in (".yml", ".yaml"):
+                    return yaml.safe_load(local_artifact_fd)
                 return json.load(local_artifact_fd)
-            except json.JSONDecodeError:
-                raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
+            except UnicodeDecodeError as e:
+                raise _not_utf8_error(artifact_uri) from e
+            except json.JSONDecodeError as e:
+                raise MlflowException(
+                    "Unable to form a JSON object from file content", BAD_REQUEST
+                ) from e
+            except yaml.YAMLError as e:
+                raise MlflowException(
+                    "Unable to form a YAML object from file content", BAD_REQUEST
+                ) from e
 
 
 def load_image(artifact_uri: str):

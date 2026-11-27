@@ -1,9 +1,9 @@
-import { describe, expect, jest, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { BrowserRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { BrowserRouter, MemoryRouter, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import type { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import userEvent from '@testing-library/user-event';
@@ -11,8 +11,20 @@ import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
+import { shouldEnableExperimentSettingsPage } from '../../../../../common/utils/FeatureUtils';
+
+jest.mock('../../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
+    '../../../../../common/utils/FeatureUtils',
+  ),
+  shouldEnableExperimentSettingsPage: jest.fn(() => false),
+}));
 
 describe('ExperimentViewManagementMenu', () => {
+  afterEach(() => {
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
+  });
+
   const defaultExperiment: ExperimentEntity = {
     experimentId: '123',
     name: 'test/experiment/name',
@@ -126,5 +138,86 @@ describe('ExperimentViewManagementMenu', () => {
 
     expect(await screen.findByText('Edit experiment')).toBeInTheDocument();
     expect(screen.getByText('Delete')).toBeInTheDocument();
+  });
+
+  describe('with the experiment Settings page', () => {
+    test('offers Settings and Edit description instead of Edit experiment', async () => {
+      jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
+      const setEditing = jest.fn();
+      renderTestComponent({
+        setEditing,
+        experiment: { ...defaultExperiment, allowedActions: ['RENAME', 'MODIFIY_PERMISSION', 'DELETE'] },
+      });
+
+      await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
+
+      expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+        'Experiment settings',
+        'Edit description',
+        'Delete',
+      ]);
+      await userEvent.click(screen.getByText('Edit description'));
+      expect(setEditing).toHaveBeenCalledWith(true);
+    });
+
+    test('does not offer Edit description when only renaming is allowed', async () => {
+      jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
+      renderTestComponent({ setEditing: jest.fn(), experiment: { ...defaultExperiment, allowedActions: ['RENAME'] } });
+
+      await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
+
+      expect(screen.getByText('Experiment settings')).toBeInTheDocument();
+      expect(screen.queryByText('Edit description')).not.toBeInTheDocument();
+      expect(screen.queryByText('Edit experiment')).not.toBeInTheDocument();
+    });
+  });
+
+  test('it should not offer Settings without the experiment Settings page', async () => {
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
+    renderTestComponent();
+
+    await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
+
+    expect(screen.queryByText('Experiment settings')).not.toBeInTheDocument();
+  });
+
+  test('it should open the experiment Settings page from the menu', async () => {
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
+    renderTestComponent();
+
+    await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
+    await userEvent.click(screen.getByText('Experiment settings'));
+
+    expect(window.location.pathname).toBe('/experiments/123/settings');
+  });
+
+  test('it should keep the workflow type and workspace when opening Settings', async () => {
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
+    const LocationDisplay = () => {
+      const { pathname, search } = useLocation();
+      return <div data-testid="location">{`${pathname}${search}`}</div>;
+    };
+    const mockStore = configureStore([thunk, promiseMiddleware()]);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/experiments/123/runs?workflowType=machine_learning&workspace=team-a&x=1']}>
+          <Provider store={mockStore({ entities: { experimentsById: {} } })}>
+            <IntlProvider locale="en">
+              <DesignSystemProvider>
+                <ExperimentViewManagementMenu experiment={defaultExperiment} />
+                <LocationDisplay />
+              </DesignSystemProvider>
+            </IntlProvider>
+          </Provider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
+    await userEvent.click(screen.getByText('Experiment settings'));
+
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/experiments/123/settings?workflowType=machine_learning&workspace=team-a',
+    );
   });
 });

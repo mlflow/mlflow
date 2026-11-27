@@ -10,6 +10,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.gateway.providers.openai import OpenAIConfig
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
 from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
@@ -24,7 +25,7 @@ from mlflow.genai.judges.adapters.gateway_adapter import (
 )
 from mlflow.genai.judges.adapters.utils import ChatCompletionError, is_context_window_error
 from mlflow.genai.judges.utils.tool_calling_utils import _remove_oldest_tool_call_pair
-from mlflow.genai.utils.gateway_utils import GatewayConfig
+from mlflow.genai.utils.gateway_utils import GatewayConfig, gateway_caller
 from mlflow.metrics.genai.model_utils import _get_provider_instance, _MlflowGatewayProvider
 from mlflow.types.llm import ChatMessage
 
@@ -176,6 +177,34 @@ def test_invoke_without_trace_uses_tool_calling_loop():
         result = adapter.invoke(input_params)
 
     mock_invoke.assert_called_once()
+    assert result.feedback.value == "yes"
+
+
+@pytest.mark.parametrize(
+    "model_uri", ["bedrock:/anthropic.claude-v2", "amazon-bedrock:/anthropic.claude-v2"]
+)
+@pytest.mark.parametrize(
+    "prompt", ["test", [ChatMessage(role="user", content="test")]], ids=["str", "messages"]
+)
+def test_invoke_bedrock_without_trace_skips_tool_calling_loop(model_uri, prompt):
+    adapter = GatewayAdapter()
+    input_params = AdapterInvocationInput(
+        model_uri=model_uri,
+        prompt=prompt,
+        assessment_name="test_metric",
+    )
+
+    with (
+        mock.patch.object(adapter, "_invoke_and_handle_tools") as mock_tools,
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+            return_value=json.dumps({"result": "yes", "rationale": "ok"}),
+        ) as mock_gateway,
+    ):
+        result = adapter.invoke(input_params)
+
+    mock_tools.assert_not_called()
+    mock_gateway.assert_called_once()
     assert result.feedback.value == "yes"
 
 
@@ -433,6 +462,35 @@ def test_build_request_with_inference_params():
     )
     assert payload["temperature"] == 0.5
     assert payload["max_tokens"] == 100
+
+
+def test_build_request_response_format_is_strict():
+    # Regression test for https://github.com/mlflow/mlflow/issues/23981: the AI
+    # Gateway (and openai/azure providers) reject a json_schema response format
+    # unless it is strict and every object - including nested $defs - declares
+    # additionalProperties=False.
+    class Address(pydantic.BaseModel):
+        city: str
+
+    class CustomSchema(pydantic.BaseModel):
+        result: int
+        rationale: str
+        address: Address
+
+    payload = _build_request(
+        messages=[ChatMessage(role="user", content="test")],
+        tools=None,
+        response_format=CustomSchema,
+        include_response_format=True,
+        inference_params=None,
+    )
+
+    response_format = payload["response_format"]
+    assert response_format["type"] == "json_schema"
+    assert response_format["json_schema"]["strict"] is True
+    schema = response_format["json_schema"]["schema"]
+    assert schema["additionalProperties"] is False
+    assert schema["$defs"]["Address"]["additionalProperties"] is False
 
 
 # --- _parse_response_message tests ---
@@ -730,6 +788,111 @@ def test_tool_calling_loop(mock_trace):
     assert mock_send.call_count == 2
     mock_process.assert_called_once()
     assert json.loads(output.response) == {"result": "yes", "rationale": "Trace looks good"}
+
+
+@pytest.mark.parametrize(
+    ("call_ids", "signatures", "prune", "parallel"),
+    [
+        (["call_1"], ["sig_1"], False, False),
+        ([None, None], ["sig_1", "sig_2"], False, False),
+        ([None, None], ["sig_1", None], False, False),
+        (["call_1", "call_2"], ["sig_1", "sig_2"], True, False),
+        (["call_1", "call_2"], ["sig_1", None], False, True),
+        (["call_1", "call_2"], [None, "sig_2"], False, True),
+    ],
+)
+def test_tool_calling_loop_preserves_gemini_thought_signatures(
+    mock_trace, monkeypatch, call_ids, signatures, prune, parallel
+):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+
+    def response(parts):
+        return {
+            "candidates": [
+                {
+                    "content": {"role": "model", "parts": parts},
+                    "finishReason": "STOP",
+                }
+            ],
+            "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5},
+        }
+
+    parts = []
+    for call_id, sig in zip(call_ids, signatures, strict=True):
+        function_call = {"name": "get_trace_info", "args": {}}
+        if call_id is not None:
+            function_call["id"] = call_id
+        part = {"functionCall": function_call}
+        if sig is not None:
+            part["thoughtSignature"] = sig
+        parts.append(part)
+    responses = [response(parts)] if parallel else [response([part]) for part in parts]
+    if prune:
+        responses.append(
+            ChatCompletionError(
+                400, "maximum context length exceeded", is_context_window_error=True
+            )
+        )
+    responses.append(response([{"text": json.dumps({"result": "yes", "rationale": "ok"})}]))
+
+    def process_tool_calls(tool_calls, trace):
+        return [
+            ChatMessage(
+                role="tool",
+                content='{"trace_id": "test-trace"}',
+                tool_call_id=tc.id,
+                name=tc.function.name,
+            )
+            for tc in tool_calls
+        ]
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+            side_effect=responses,
+        ) as mock_send,
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
+            side_effect=process_tool_calls,
+        ) as mock_process,
+    ):
+        output = GatewayAdapter()._invoke_and_handle_tools(
+            provider="gemini",
+            model_name="gemini-3-flash",
+            messages=[ChatMessage(role="user", content="evaluate this")],
+            trace=mock_trace,
+            num_retries=0,
+        )
+
+    tool_rounds = 1 if parallel else len(signatures)
+    assert mock_send.call_count == tool_rounds + 1 + int(prune)
+    assert mock_process.call_args_list == [
+        mock.call(tool_calls=mock.ANY, trace=mock_trace) for _ in range(tool_rounds)
+    ]
+    assert json.loads(output.response) == {"result": "yes", "rationale": "ok"}
+    final_payload = mock_send.call_args_list[-1].kwargs["payload"]
+    model_turns = [c for c in final_payload["contents"] if c["role"] == "model"]
+    expected_signatures = signatures[1:] if prune else signatures
+    assert len(model_turns) == (1 if parallel else len(expected_signatures))
+    assert [
+        part.get("thoughtSignature") for turn in model_turns for part in turn["parts"]
+    ] == expected_signatures
+    if parallel:
+        assert sum("thoughtSignature" in part for part in model_turns[0]["parts"]) == 1
+    if prune or parallel:
+        assert [
+            part["functionResponse"]["id"]
+            for turn in final_payload["contents"]
+            for part in turn["parts"]
+            if "functionResponse" in part
+        ] == (["call_2"] if prune else call_ids)
+    if len(call_ids) == 1:
+        assert model_turns[0]["parts"] == [
+            {
+                "functionCall": {"id": "call_1", "name": "get_trace_info", "args": {}},
+                "thoughtSignature": "sig_1",
+            }
+        ]
 
 
 def test_token_counts_accumulated_across_iterations(mock_trace):
@@ -1320,3 +1483,58 @@ def test_invoke_and_handle_tools_forwards_workspace_header():
         )
 
     assert captured_headers["X-MLFLOW-WORKSPACE"] == "my-workspace"
+
+
+@pytest.mark.parametrize(
+    ("caller", "expected"),
+    [(None, "judge"), (GatewayCaller.ISSUE_DETECTION, "issue_detection")],
+)
+def test_invoke_via_gateway_attributes_calls_to_the_owning_feature(caller, expected):
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
+            return_value='{"result": "yes", "rationale": "ok"}',
+        ) as mock_score,
+        gateway_caller(caller),
+    ):
+        _invoke_via_gateway(
+            model_uri="gateway:/my-endpoint",
+            provider="gateway",
+            prompt="Is this helpful?",
+        )
+
+    assert mock_score.call_args.kwargs["extra_headers"][MLFLOW_GATEWAY_CALLER_HEADER] == expected
+
+
+@pytest.mark.parametrize(
+    ("caller", "expected"),
+    [(None, "judge"), (GatewayCaller.ISSUE_DETECTION, "issue_detection")],
+)
+def test_invoke_and_handle_tools_attributes_calls_to_the_owning_feature(caller, expected):
+    captured_headers = {}
+
+    def capture_and_raise(**kwargs):
+        captured_headers.update(kwargs.get("headers", {}))
+        raise MlflowException("stop")
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider_instance",
+            return_value=_mock_provider(),
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+            side_effect=capture_and_raise,
+        ),
+        gateway_caller(caller),
+        pytest.raises(MlflowException, match="stop"),
+    ):
+        GatewayAdapter()._invoke_and_handle_tools(
+            provider="gateway",
+            model_name="my-endpoint",
+            messages=[ChatMessage(role="user", content="evaluate this")],
+            trace=None,
+            num_retries=0,
+        )
+
+    assert captured_headers[MLFLOW_GATEWAY_CALLER_HEADER] == expected

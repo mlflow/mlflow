@@ -1,0 +1,313 @@
+import { isNil, isString } from 'lodash';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { Button, ChevronDownIcon, ChevronUpIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
+
+import type { SearchMatch } from './ModelTrace.types';
+import { CodeSnippetRenderMode } from './ModelTrace.types';
+import { getTextPreview } from '../ModelTraceExplorerCodeSnippet.utils';
+import { CollapsibleJsonViewer, getJsonColors } from './CollapsibleJsonViewer';
+import { ModelTraceExplorerHighlightedCodeSnippet } from '../ModelTraceExplorerHighlightedCodeSnippet';
+import { formatJsonStringAsYaml, getYamlCollectionPreview, yamlJsonMayContain } from './ModelTraceExplorerYaml.utils';
+import { useCachedPayloadGetter, useCachedPayloadResult } from './right-pane/ModelTraceExplorerPayloadCache';
+import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
+import { CodeSnippet } from '../../snippet/CodeSnippet';
+import { SnippetCopyAction } from '../../snippet/actions/SnippetCopyAction';
+
+const MAX_LINES_FOR_PREVIEW = 10;
+// the `isContentLong` check does not work for
+// markdown rendering, since the content is wrapped
+const MAX_CHARS_FOR_PREVIEW = 300;
+const YAML_MAX_LINES_FOR_PREVIEW = 100;
+const YAML_MAX_CHARS_FOR_PREVIEW = 12000;
+const JSON_PREVIEW_HEIGHT = 110;
+
+export function ModelTraceExplorerCodeSnippetBody({
+  data,
+  searchFilter = '',
+  activeMatch = null,
+  containsActiveMatch = false,
+  renderMode = CodeSnippetRenderMode.JSON,
+  initialExpanded = false,
+}: {
+  data: string;
+  searchFilter?: string;
+  activeMatch?: SearchMatch | null;
+  containsActiveMatch?: boolean;
+  renderMode?: CodeSnippetRenderMode;
+  initialExpanded?: boolean;
+}): JSX.Element {
+  const { theme } = useDesignSystemTheme();
+  const getFullYaml = useCachedPayloadGetter('yaml', data, () => formatJsonStringAsYaml(data));
+  const isYamlRenderMode = renderMode === CodeSnippetRenderMode.YAML;
+  const needsPreview = isYamlRenderMode && data.length > YAML_MAX_CHARS_FOR_PREVIEW * 2;
+  const yamlPreview = useCachedPayloadResult('yaml-preview', needsPreview ? data : undefined, () =>
+    needsPreview ? getYamlCollectionPreview(data, YAML_MAX_LINES_FOR_PREVIEW, YAML_MAX_CHARS_FOR_PREVIEW) : undefined,
+  );
+  const eagerYaml = useCachedPayloadResult('yaml', isYamlRenderMode && !yamlPreview ? data : undefined, () =>
+    isYamlRenderMode && !yamlPreview ? formatJsonStringAsYaml(data) : data,
+  );
+  const isPartialYaml = yamlPreview?.isComplete === false;
+  const isSearching = Boolean(searchFilter) && !isNil(activeMatch);
+  const needsSearchYaml = useMemo(
+    () => isPartialYaml && isSearching && yamlJsonMayContain(data, searchFilter),
+    [isPartialYaml, isSearching, data, searchFilter],
+  );
+  const searchedYaml = useCachedPayloadResult('yaml', needsSearchYaml ? data : undefined, () =>
+    needsSearchYaml ? formatJsonStringAsYaml(data) : '',
+  );
+  const searchableData = isYamlRenderMode ? (isPartialYaml ? searchedYaml : (yamlPreview?.text ?? eagerYaml)) : data;
+  const containsMatches = isSearching && searchableData.toLowerCase().includes(searchFilter);
+  const [isContentLong, setIsContentLong] = useState(false);
+  const [expanded, setExpanded] = useState(initialExpanded || containsMatches);
+  const needsExpandedYaml = isPartialYaml && expanded && !needsSearchYaml;
+  const expandedYaml = useCachedPayloadResult('yaml', needsExpandedYaml ? data : undefined, () =>
+    needsExpandedYaml ? formatJsonStringAsYaml(data) : '',
+  );
+  const yamlData = needsSearchYaml ? searchedYaml : needsExpandedYaml ? expandedYaml : (yamlPreview?.text ?? eagerYaml);
+  const hasPartialPreview = isPartialYaml && !needsSearchYaml && !needsExpandedYaml;
+  const snippetRef = useRef<HTMLPreElement>(null);
+  const jsonViewerRef = useRef<HTMLDivElement>(null);
+  // if the data is rendered in text / markdown mode, then
+  // we need to parse it so that the newlines are unescaped
+  const dataToTruncate: string = useMemo(() => {
+    if (renderMode === 'json') {
+      return data;
+    }
+
+    if (isYamlRenderMode) {
+      return yamlData;
+    }
+
+    const parsedData = JSON.parse(data);
+    if (isString(parsedData)) {
+      return parsedData;
+    }
+
+    return data;
+  }, [data, renderMode, yamlData, isYamlRenderMode]);
+
+  const maxLinesForPreview = isYamlRenderMode ? YAML_MAX_LINES_FOR_PREVIEW : MAX_LINES_FOR_PREVIEW;
+  const maxCharsForPreview = isYamlRenderMode ? YAML_MAX_CHARS_FOR_PREVIEW : MAX_CHARS_FOR_PREVIEW;
+  const yamlColors = useMemo(
+    () => getJsonColors(theme.isDarkMode, theme.colors.textPrimary, theme.colors.textSecondary),
+    [theme.isDarkMode, theme.colors.textPrimary, theme.colors.textSecondary],
+  );
+
+  const expandable =
+    hasPartialPreview ||
+    isContentLong ||
+    dataToTruncate.length > maxCharsForPreview ||
+    dataToTruncate.split('\n').length > maxLinesForPreview;
+
+  // Truncate to the preview limits while collapsed.
+  const displayedData = useMemo(() => {
+    if (expandable && !expanded) {
+      return getTextPreview(dataToTruncate, maxLinesForPreview, maxCharsForPreview);
+    }
+
+    return dataToTruncate;
+  }, [dataToTruncate, expandable, expanded, maxLinesForPreview, maxCharsForPreview]);
+
+  useEffect(() => {
+    if (renderMode === CodeSnippetRenderMode.JSON && jsonViewerRef.current) {
+      setIsContentLong(jsonViewerRef.current.scrollHeight > JSON_PREVIEW_HEIGHT);
+      return;
+    }
+
+    if (snippetRef.current) {
+      setIsContentLong(snippetRef.current.scrollWidth > snippetRef.current.clientWidth);
+    }
+  }, [renderMode, data]);
+
+  // add a ref to the <pre> component within <CodeSnippet>.
+  // we use the ref to check whether the <pre>'s content is overflowing
+  const PreWithRef = useCallback((preProps: any) => <pre {...preProps} ref={snippetRef} />, []);
+
+  if (containsMatches) {
+    return (
+      // if the snippet contains matches, render the search-highlighted version
+      <ModelTraceExplorerHighlightedCodeSnippet
+        data={searchableData}
+        searchFilter={searchFilter}
+        activeMatch={activeMatch}
+        containsActiveMatch={!activeMatch.isKeyMatch && containsActiveMatch}
+      />
+    );
+  }
+
+  if (renderMode === 'json') {
+    return (
+      <div css={{ position: 'relative' }}>
+        <SnippetCopyAction
+          key="copy-snippet"
+          componentId="shared.model-trace-explorer.copy-snippet"
+          copyText={data}
+          size="small"
+          css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs, zIndex: 1 }}
+        />
+        <div
+          ref={jsonViewerRef}
+          css={{
+            maxHeight: expandable && !expanded ? JSON_PREVIEW_HEIGHT : 'none',
+            overflow: expandable && !expanded ? 'hidden' : 'visible',
+            position: 'relative',
+          }}
+        >
+          <CollapsibleJsonViewer data={data} initialExpanded />
+          {expandable && !expanded && (
+            <div
+              css={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '40px',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+        </div>
+        {expandable && (
+          <div
+            css={{
+              backgroundColor: theme.colors.backgroundSecondary,
+              borderTop: `1px solid ${theme.colors.border}`,
+            }}
+          >
+            <Button
+              css={{ width: '100%', padding: 0 }}
+              componentId={
+                expanded
+                  ? 'shared.model-trace-explorer.snippet-see-less'
+                  : 'shared.model-trace-explorer.snippet-see-more'
+              }
+              icon={expanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
+              type="tertiary"
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? (
+                <FormattedMessage
+                  defaultMessage="See less"
+                  description="Model trace explorer > selected span > code snippet > see less button"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="See more"
+                  description="Model trace explorer > selected span > code snippet > see more button"
+                />
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      css={{
+        position: 'relative',
+        ...(isYamlRenderMode
+          ? {
+              'code, pre': {
+                color: theme.colors.textPrimary,
+              },
+              '.token.atrule, .token.attr-name, .token.key, .token.property, .token.tag': {
+                color: yamlColors.key,
+              },
+              '.token.boolean': {
+                color: yamlColors.boolean,
+              },
+              '.token.number': {
+                color: yamlColors.number,
+              },
+              '.token.null': {
+                color: yamlColors.null,
+              },
+              '.token.punctuation': {
+                color: yamlColors.punctuation,
+              },
+              '.token.scalar, .token.string': {
+                color: yamlColors.string,
+              },
+            }
+          : {}),
+      }}
+    >
+      {renderMode === 'markdown' ? (
+        <div
+          css={{
+            padding: theme.spacing.md,
+            backgroundColor: theme.colors.backgroundSecondary,
+            marginBottom: -theme.spacing.md,
+          }}
+        >
+          <GenAIMarkdownRenderer>{displayedData}</GenAIMarkdownRenderer>
+        </div>
+      ) : (
+        <>
+          <SnippetCopyAction
+            key="copy-snippet"
+            componentId="shared.model-trace-explorer.copy-snippet"
+            copyText={hasPartialPreview ? getFullYaml : isYamlRenderMode ? dataToTruncate : data}
+            size="small"
+            css={{
+              position: 'absolute',
+              top: theme.spacing.xs,
+              right: theme.spacing.xs,
+              zIndex: 1,
+            }}
+          />
+          <CodeSnippet
+            PreTag={PreWithRef}
+            showLineNumbers={!isYamlRenderMode}
+            language={renderMode}
+            useInlineStyles={!isYamlRenderMode}
+            lineProps={{ style: { wordBreak: 'break-word', whiteSpace: 'pre-wrap' } }}
+            wrapLines={expanded}
+            theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
+            style={{
+              backgroundColor: theme.colors.backgroundSecondary,
+              padding: theme.spacing.sm,
+              paddingBottom: expandable ? 0 : theme.spacing.sm,
+              paddingRight: theme.spacing.md * 2,
+              overflow: expanded ? 'auto' : 'hidden',
+              textOverflow: 'ellipsis',
+              fontSize: theme.typography.fontSizeSm,
+              lineHeight: theme.typography.lineHeightBase,
+            }}
+          >
+            {displayedData}
+          </CodeSnippet>
+        </>
+      )}
+      {expandable && (
+        <div css={{ backgroundColor: theme.colors.backgroundSecondary }}>
+          <Button
+            css={{ width: '100%', padding: 0 }}
+            componentId={
+              expanded ? 'shared.model-trace-explorer.snippet-see-less' : 'shared.model-trace-explorer.snippet-see-more'
+            }
+            icon={expanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
+            type="tertiary"
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? (
+              <FormattedMessage
+                defaultMessage="See less"
+                description="Model trace explorer > selected span > code snippet > see less button"
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="See more"
+                description="Model trace explorer > selected span > code snippet > see more button"
+              />
+            )}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}

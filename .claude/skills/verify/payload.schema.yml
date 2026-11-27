@@ -1,0 +1,163 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: PR Code Review and Runtime Verification
+description: |
+  Write the review payload as a JSON object matching this schema. Do not request changes,
+  create a review, or approve the PR yourself. Avoid @-mentions.
+
+  Save screenshots or recordings in the supplied temporary directory's out/media folder.
+  When they support a finding or verification gap, cite their absolute paths in that inline
+  comment, for example:
+  ![Observed behavior](/absolute/path/to/out/media/observed.png)
+  When they show verified behavior working as expected (for example, base vs. PR), cite them
+  in the body's evidence section instead.
+  Put recording citations on their own lines. Do not upload media yourself.
+type: object
+additionalProperties: false
+required:
+  - event
+  - body
+  - comments
+allOf:
+  - if:
+      properties:
+        event:
+          const: APPROVE
+    then:
+      properties:
+        comments:
+          maxItems: 0
+properties:
+  event:
+    description: >-
+      Choose APPROVE after reviewing the code and exercising at least one affected entry point,
+      when you have verified all affected behavior you can exercise locally and no material finding remains.
+      Disclose any behavior you could verify only with an unavailable external service, credentials,
+      hardware, or scale. Choose COMMENT for a material code finding, a behavioral regression,
+      locally exercisable behavior left unchecked or inconclusive, or no runtime evidence beyond tests.
+      An existing thread can already cover the finding that warrants COMMENT.
+    type: string
+    enum:
+      - APPROVE
+      - COMMENT
+  body:
+    description: |
+      Above the Evidence section, summarize in at most three short sentences and 80 words. Don't
+      join clauses with semicolons or colons to fit more in. Open with the verdict and the entry
+      points it covers, not with what you ran (avoid "I ran ..."). Then report only what needs
+      attention: material findings, regressions, and verification gaps. Cover behavior that
+      matched expectations in one clause instead of listing each case. Distinguish runtime
+      observations from findings inferred from the code. Leave out your method, test pass
+      counts, and edge cases you judge immaterial. Disclosures required by `event` still belong
+      here. When a finding has no relevant diff line, is already covered by an existing thread,
+      or is a non-blocking note on an approval, mention it here in one clause and omit a
+      duplicate inline comment.
+
+      Put commands, inputs, short output excerpts, and captioned media in one collapsed Evidence
+      section when they add to the summary and inline comments. Include only output that shows a
+      behavior change or supports a finding or gap. Omit test pass counts, and reduce output
+      identical on both builds to one line. Keep the blank lines inside the block so GitHub
+      renders the Markdown.
+
+      ```markdown
+      <details><summary>Evidence</summary>
+
+      Base: <behavior observed on the base build>
+      ![Base behavior](/absolute/path/to/out/media/base.png)
+
+      PR: <behavior observed on the PR build>
+      ![PR behavior](/absolute/path/to/out/media/pr.png)
+
+      </details>
+      ```
+    type: string
+    minLength: 1
+    maxLength: 3000
+    pattern: \S
+  commit_id:
+    description: Optional PR head SHA.
+    type: string
+    pattern: ^[0-9a-f]{40}$
+  comments:
+    description: >-
+      Anchor each new material finding or locally exercisable verification gap to the most
+      relevant diff line. For a consequence in a caller outside the diff, anchor to the change
+      responsible and identify the caller. Include source or runtime evidence. Prioritize distinct
+      findings by impact. Use an empty array when there is nothing new to anchor.
+    type: array
+    maxItems: 10
+    items:
+      $ref: "#/$defs/comment"
+$defs:
+  side:
+    type: string
+    enum:
+      - LEFT
+      - RIGHT
+  comment:
+    type: object
+    additionalProperties: false
+    required:
+      - path
+      - body
+      - line
+      - side
+    properties:
+      path:
+        description: Repository-relative path with a hunk in the PR diff.
+        type: string
+        minLength: 1
+        maxLength: 1024
+        pattern: \S
+      body:
+        description: |
+          For fixable findings, use this format, including a `suggestion` block when possible:
+
+          ````markdown
+          **🐛 Issue:** <Trigger and consequence. Give the observed result or trace the specific code path.>
+
+          **🔧 Fix:** <Recommended change.>
+
+          ```suggestion
+          <Replacement code>
+          ```
+          ````
+
+          Say whether you observed the result at runtime or inferred it from the source. For a
+          finding reproduced in the browser, cite the screenshot or recording that shows it.
+
+          For verification gaps, state what you tried and couldn't verify.
+          Use Mermaid when helpful. Prefer code permalinks over `<path>:<line>` references.
+        type: string
+        minLength: 1
+        maxLength: 3000
+        pattern: \S
+      line:
+        description: Last line of the comment, inside a diff hunk on the chosen side.
+        type: integer
+        minimum: 1
+      side:
+        description: RIGHT for added or context lines; LEFT for deleted or context lines.
+        $ref: "#/$defs/side"
+      start_line:
+        description: First line of a multi-line comment; must precede line in diff order, in the same hunk.
+        type: integer
+        minimum: 1
+      start_side:
+        description: Side of start_line in the same hunk as line.
+        $ref: "#/$defs/side"
+    dependentRequired:
+      start_line:
+        - start_side
+      start_side:
+        - start_line
+    # A range cannot start on the new side and end on the old side.
+    if:
+      required:
+        - start_side
+      properties:
+        start_side:
+          const: RIGHT
+    then:
+      properties:
+        side:
+          const: RIGHT

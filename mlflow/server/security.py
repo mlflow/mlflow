@@ -10,7 +10,6 @@ from mlflow.environment_variables import (
 )
 from mlflow.server.security_utils import (
     CORS_BLOCKED_MSG,
-    HEALTH_ENDPOINTS,
     INVALID_HOST_MSG,
     LOCALHOST_ORIGIN_PATTERNS,
     get_allowed_hosts_from_env,
@@ -18,6 +17,7 @@ from mlflow.server.security_utils import (
     get_default_allowed_hosts,
     is_allowed_host_header,
     is_api_endpoint,
+    is_health_endpoint,
     should_block_cors_request,
 )
 from mlflow.tracing.constant import TRACE_RENDERER_ASSET_PATH
@@ -74,7 +74,7 @@ def init_security_middleware(app: Flask) -> None:
 
         @app.before_request
         def validate_host():
-            if request.path in HEALTH_ENDPOINTS:
+            if is_health_endpoint(request.path):
                 return None
 
             if not is_allowed_host_header(allowed_hosts, host := request.headers.get("Host")):

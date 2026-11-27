@@ -1,20 +1,54 @@
 /**
  * CLI script to bump the version of MLflow TypeScript libraries.
  *
- * This script updates the version in:
- * - libs/typescript/core/package.json
- * - libs/typescript/integrations/openai/package.json (version and peerDependencies)
+ * Updates the version of the core package and every published integration
+ * package, and rewrites each integration's `@mlflow/core` constraint (declared
+ * in either `dependencies` or `peerDependencies`) to match. Integrations that
+ * ship a Claude Code plugin manifest (`.claude-plugin/plugin.json`) get its
+ * `version` field bumped too.
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-// list of packages that contain `@mlflow/core` in peerDependencies
-const INTEGRATION_PACKAGES = ['openai', 'anthropic', 'gemini', 'vercel'];
+// Published integration packages to bump alongside `@mlflow/core`.
+// `openclaw` is intentionally omitted until its first npm publish (see #23137).
+// `helpers` is a shared test utility, not a published package.
+const INTEGRATION_PACKAGES = [
+  'openai',
+  'anthropic',
+  'gemini',
+  'vercel',
+  'claude-code',
+  'codex',
+  'opencode',
+  'qwen-code',
+  'typesafe',
+];
+
+// Integrations that must ship a Claude Code plugin manifest. Claude Code derives
+// an installed plugin's version from the manifest's `version` field, so if it
+// lags behind `package.json`, marketplace installs never pick up a new npm
+// release. Never edit that field by hand; let this script keep it in sync. Every
+// integration that has a manifest is bumped; the ones listed here additionally
+// fail the bump if the manifest is missing.
+const PLUGIN_MANIFEST_PACKAGES = ['claude-code'];
+const PLUGIN_MANIFEST_RELPATH = join('.claude-plugin', 'plugin.json');
+
+interface PluginManifest {
+  version?: unknown;
+}
+
+interface PluginManifestUpdate {
+  manifestPath: string;
+  oldVersion: string;
+  updatedText: string;
+}
 
 interface PackageJson {
   name: string;
   version: string;
+  dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   [key: string]: any;
 }
@@ -48,6 +82,16 @@ function bumpVersion(version: string): void {
     process.exit(1);
   }
 
+  // Read and validate every plugin manifest before writing anything, so a bad
+  // manifest cannot leave the tree half-bumped.
+  const manifestUpdates = new Map<string, PluginManifestUpdate>();
+  for (const packageName of INTEGRATION_PACKAGES) {
+    const update = preparePluginManifestUpdate(tsRoot, packageName, version);
+    if (update) {
+      manifestUpdates.set(packageName, update);
+    }
+  }
+
   // Update core package.json
   console.log(`Updating core/package.json...`);
   const corePackageText = readFileSync(corePackagePath, 'utf-8');
@@ -59,6 +103,8 @@ function bumpVersion(version: string): void {
   writeFileSync(corePackagePath, JSON.stringify(corePackage, null, 2) + '\n', 'utf-8');
   console.log(`  ✓ Updated version: ${oldCoreVersion} → ${version}`);
 
+  const coreRange = `^${version}`;
+
   for (const packageName of INTEGRATION_PACKAGES) {
     const packagePath = join(tsRoot, 'integrations', packageName, 'package.json');
     console.log(`Updating integrations/${packageName}/package.json...`);
@@ -67,19 +113,65 @@ function bumpVersion(version: string): void {
 
     const oldVersion = packageJson.version;
     packageJson.version = version;
-
-    writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
     console.log(`  ✓ Updated version: ${oldVersion} → ${version}`);
 
-    if (packageJson.peerDependencies && '@mlflow/core' in packageJson.peerDependencies) {
-      const oldPeerDep = packageJson.peerDependencies['@mlflow/core'];
-      packageJson.peerDependencies['@mlflow/core'] = `^${version}`;
-      writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
-      console.log(`  ✓ Updated peerDependency @mlflow/core: ${oldPeerDep} → ^${version}`);
+    // The `@mlflow/core` constraint may live in either `dependencies` (bundled
+    // integrations) or `peerDependencies` (host-provided core). Rewrite whichever
+    // one declares it so the integration pins the matching core release.
+    for (const depKey of ['dependencies', 'peerDependencies'] as const) {
+      const deps = packageJson[depKey];
+      if (deps && '@mlflow/core' in deps) {
+        const oldRange = deps['@mlflow/core'];
+        deps['@mlflow/core'] = coreRange;
+        console.log(`  ✓ Updated ${depKey} @mlflow/core: ${oldRange} → ${coreRange}`);
+      }
+    }
+
+    writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
+
+    const manifestUpdate = manifestUpdates.get(packageName);
+    if (manifestUpdate) {
+      console.log(`Updating integrations/${packageName}/${PLUGIN_MANIFEST_RELPATH}...`);
+      writeFileSync(manifestUpdate.manifestPath, manifestUpdate.updatedText, 'utf-8');
+      console.log(`  ✓ Updated version: ${manifestUpdate.oldVersion} → ${version}`);
     }
   }
 
   console.log(`\n✅ Successfully bumped TypeScript library versions to ${version}`);
+}
+
+function preparePluginManifestUpdate(
+  tsRoot: string,
+  packageName: string,
+  version: string,
+): PluginManifestUpdate | null {
+  const manifestPath = join(tsRoot, 'integrations', packageName, PLUGIN_MANIFEST_RELPATH);
+  if (!existsSync(manifestPath)) {
+    if (PLUGIN_MANIFEST_PACKAGES.includes(packageName)) {
+      console.error(`Error: ${manifestPath} does not exist`);
+      process.exit(1);
+    }
+    return null;
+  }
+
+  const manifestText = readFileSync(manifestPath, 'utf-8');
+  const oldVersion = (JSON.parse(manifestText) as PluginManifest).version;
+  if (typeof oldVersion !== 'string') {
+    console.error(`Error: ${manifestPath} has no string 'version' field`);
+    process.exit(1);
+  }
+
+  // Rewrite the field in place rather than re-serializing the whole file:
+  // prettier formats plugin.json with its `json` parser (unlike package.json),
+  // which keeps short arrays on one line, so a JSON.stringify round-trip would
+  // fail `npm run format:check`.
+  const updatedText = manifestText.replace(/^(\s*"version":\s*")[^"]*(")/m, `$1${version}$2`);
+  if ((JSON.parse(updatedText) as PluginManifest).version !== version) {
+    console.error(`Error: Failed to rewrite 'version' in ${manifestPath}`);
+    process.exit(1);
+  }
+
+  return { manifestPath, oldVersion, updatedText };
 }
 
 function main(): void {

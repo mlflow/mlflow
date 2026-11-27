@@ -5,8 +5,7 @@
       "mode": "completion",
       "context_window": {
         "max_input": 32000,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.25,
@@ -20,7 +19,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-09"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

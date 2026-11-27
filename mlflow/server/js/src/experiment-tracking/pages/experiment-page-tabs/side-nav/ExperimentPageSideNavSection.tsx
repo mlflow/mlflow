@@ -17,7 +17,7 @@ import { ExperimentPageTabName } from '../../../constants';
 import { Link, useLocation, useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import invariant from 'invariant';
-import { isTracesRelatedTab, getTimeRangeQueryString } from './utils';
+import { isTracesRelatedTab, getPreservedQueryString } from './utils';
 import { useLogTelemetryEvent } from '@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent';
 import { useMemo } from 'react';
 
@@ -83,7 +83,7 @@ export const ExperimentPageSideNavSection = ({
             key={`${sectionKey}-${item.tabName}`}
             to={{
               pathname: Routes.getExperimentPageTabRoute(experimentId, item.tabName),
-              search: preserveQueryParams ? search : getTimeRangeQueryString(search),
+              search: preserveQueryParams ? search : getPreservedQueryString(search),
             }}
             onClick={() =>
               logTelemetryEvent({

@@ -277,6 +277,8 @@ curl http://localhost:5000/api/2.0/mlflow/experiments/list \
   -H "X-MLFLOW-WORKSPACE: team-a"
 ```
 
+This same header also applies to OpenTelemetry trace ingestion requests sent to `/v1/traces`. For example, OTLP clients exporting traces into a non-default workspace should send `X-MLFLOW-WORKSPACE` alongside the OTLP headers such as `x-mlflow-experiment-id`. See [Collect OpenTelemetry Traces into MLflow](/genai/tracing/opentelemetry/ingest) for complete examples.
+
 ## Troubleshooting
 
 ### Error: "Active workspace is required"

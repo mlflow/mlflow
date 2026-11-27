@@ -125,7 +125,7 @@ export const DatasetRecordsColumnSelector = ({
         >
           <FormattedMessage
             defaultMessage="Reset to defaults"
-            description="Menu item that resets the dataset records column visibility to defaults"
+            description="Menu item that resets the dataset records column visibility AND widths to defaults"
           />
         </DropdownMenu.Item>
       </DropdownMenu.Content>

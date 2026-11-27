@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
+import mlflow
 from mlflow.entities.span import Span, SpanAttributeKey, SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.deepeval.models import create_deepeval_model
@@ -9,6 +10,7 @@ from mlflow.genai.scorers.deepeval.utils import (
     _convert_to_deepeval_tool_calls,
     _extract_tool_calls_from_trace,
     map_scorer_inputs_to_deepeval_test_case,
+    map_session_to_deepeval_conversational_test_case,
 )
 
 
@@ -87,6 +89,22 @@ def test_extract_tool_calls_from_trace():
     trace.search_spans.assert_called_once_with(span_type=SpanType.TOOL)
 
 
+def test_extract_tool_calls_from_trace_skips_google_adk_merged_tool_span():
+    with mlflow.start_span(name="root") as root_span:
+        with mlflow.start_span(name="execute_tool log_food", span_type=SpanType.TOOL) as span:
+            span.set_attribute("gen_ai.tool.name", "log_food")
+            span.set_inputs({"food": "bread"})
+        with mlflow.start_span(name="execute_tool (merged)", span_type=SpanType.TOOL) as span:
+            span.set_attribute("gen_ai.tool.name", "(merged tools)")
+            span.set_inputs("N/A")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+    tool_calls = _extract_tool_calls_from_trace(trace)
+
+    assert [tool_call.name for tool_call in tool_calls] == ["log_food"]
+    assert tool_calls[0].input_parameters == {"food": "bread"}
+
+
 def test_extract_tool_calls_from_trace_returns_none_when_no_tools():
     trace = Mock()
     trace.search_spans.return_value = []
@@ -140,3 +158,75 @@ def test_map_mlflow_to_test_case_with_expected_tool_calls():
     assert test_case.expected_tools is not None
     assert len(test_case.expected_tools) == 1
     assert test_case.expected_tools[0].name == "search"
+
+
+def _trace_with_tools(user_message, reply, tools=()):
+    with mlflow.start_span(name="root") as root_span:
+        root_span.set_inputs(user_message)
+        for tool_name, tool_inputs, tool_outputs in tools:
+            with mlflow.start_span(name=tool_name, span_type=SpanType.TOOL) as tool_span:
+                tool_span.set_inputs(tool_inputs)
+                tool_span.set_outputs(tool_outputs)
+        root_span.set_outputs(reply)
+    return mlflow.get_trace(root_span.trace_id)
+
+
+def test_map_session_to_conversational_test_case_includes_tool_calls():
+    session = [
+        _trace_with_tools(
+            "How much is left?",
+            "1,344 kcal left.",
+            tools=[("get_remaining", {"day": "today"}, {"remaining_kcal": 1344})],
+        ),
+        _trace_with_tools("Thanks", "You're welcome."),
+    ]
+
+    test_case = map_session_to_deepeval_conversational_test_case(session)
+
+    assert [turn.role for turn in test_case.turns] == ["user", "assistant", "user", "assistant"]
+    tool_calls = test_case.turns[1].tools_called
+    assert [call.name for call in tool_calls] == ["get_remaining"]
+    assert tool_calls[0].input_parameters == {"day": "today"}
+    assert tool_calls[0].output == {"remaining_kcal": 1344}
+    assert test_case.turns[0].tools_called is None
+    assert test_case.turns[3].tools_called is None
+
+
+def test_map_session_to_conversational_test_case_with_multiple_tool_calls_in_turn():
+    session = [
+        _trace_with_tools(
+            "Log 2 eggs and tell me what's left",
+            "Logged. 1,188 kcal left.",
+            tools=[
+                ("log_food", {"food": "egg", "qty": 2}, {"kcal": 156}),
+                ("get_remaining", {"day": "today"}, {"remaining_kcal": 1188}),
+            ],
+        ),
+    ]
+
+    test_case = map_session_to_deepeval_conversational_test_case(session)
+
+    tool_calls = test_case.turns[1].tools_called
+    assert [call.name for call in tool_calls] == ["log_food", "get_remaining"]
+    assert [call.input_parameters for call in tool_calls] == [
+        {"food": "egg", "qty": 2},
+        {"day": "today"},
+    ]
+    assert [call.output for call in tool_calls] == [{"kcal": 156}, {"remaining_kcal": 1188}]
+
+
+def test_map_session_to_conversational_test_case_with_string_tool_inputs():
+    session = [
+        _trace_with_tools(
+            "What's the weather in SF?",
+            "Sunny.",
+            tools=[("weather", "weather in SF", "sunny")],
+        ),
+    ]
+
+    test_case = map_session_to_deepeval_conversational_test_case(session)
+
+    tool_calls = test_case.turns[1].tools_called
+    assert [call.name for call in tool_calls] == ["weather"]
+    assert tool_calls[0].input_parameters == {"input": "weather in SF"}
+    assert tool_calls[0].output == "sunny"

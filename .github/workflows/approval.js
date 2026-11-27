@@ -65,7 +65,17 @@ function hasAnyApproval(reviews) {
 module.exports = async ({ github, context, core }) => {
   const { pull_request: pr } = context.payload;
   const authorLogin = pr?.user?.login;
-  if (authorLogin === "mlflow-app[bot]") {
+  const isTriageBotPr =
+    authorLogin === "mlflow-app[bot]" && pr?.head?.ref?.startsWith("triage/") === true;
+  if (!isTriageBotPr && ["mlflow-app[bot]", "dependabot[bot]"].includes(authorLogin)) {
+    return;
+  }
+  // Release PRs (e.g. version bumps) are filed by org members from `release/*` branches
+  // and don't need a maintainer approval.
+  if (
+    ["MEMBER", "OWNER"].includes(pr?.author_association) &&
+    pr?.head?.ref?.startsWith("release/")
+  ) {
     return;
   }
 
@@ -75,7 +85,7 @@ module.exports = async ({ github, context, core }) => {
     repo: context.repo.repo,
     pull_number: context.issue.number,
   });
-  const APPROVED_BOTS = new Set(["mlflow-app[bot]", "nailaopus[bot]"]);
+  const APPROVED_BOTS = new Set(["nailaopus[bot]"]);
   const maintainerApproved = reviews.some(
     ({ state, user }) =>
       state === "APPROVED" &&

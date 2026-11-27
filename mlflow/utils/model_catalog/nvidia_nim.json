@@ -1,0 +1,602 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "01-ai/yi-large": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "aisingapore/sea-lion-7b-instruct": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "bigcode/starcoder2-15b": {
+      "mode": "completion",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "databricks/dbrx-instruct": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "deepseek-ai/deepseek-v4.1-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 1048576
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "google/codegemma-7b": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "google/diffusiongemma-26b-a4b-it": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "google/gemma-2b": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "google/gemma-4-31b-it": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "google/recurrentgemma-2b": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "ibm/granite-34b-code-instruct": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "ibm/granite-8b-code-instruct": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "meta/codellama-70b": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "meta/llama-3.2-90b-vision-instruct": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "meta/llama-guard-4-12b": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "meta/llama2-70b": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "meta/muse-glimmer-30b": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 16384
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "minimaxai/minimax-m3.1-flash": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "mistralai/mistral-large-4-1t-a52b": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 262144
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "moonshotai/kimi-k3.1-pro": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-25"
+    },
+    "nv-mistralai/mistral-nemo-12b-instruct": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/cosmos-reason2-8b": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 4096
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/embed-qa-4": {
+      "mode": "embedding",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/ising-calibration-1.5-31b": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/llama-nemotron-embed-vl-1b-v2": {
+      "mode": "embedding",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/mistral-nemo-minitron-8b-8k-instruct": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nemotron-3-embed-1b": {
+      "mode": "embedding",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nemotron-3-super-120b-a12b": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nemotron-3-ultra-550b-a55b": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 32768
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nemotron-3.5-bolt-e4b": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 65536
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nemotron-3.5-content-safety": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nemotron-3.5-lightning-30b-a3b": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 32768
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nemotron-3.5-super-vl-120b-a12b": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 131072
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nemotron-4-340b-instruct": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nemotron-4-340b-reward": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nemotron-parse": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nemotron-parse-2.0": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nv-embedqa-mistral-7b-v2": {
+      "mode": "embedding",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/nvclip": {
+      "mode": "embedding",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/riva-translate-4b-instruct": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "nvidia/riva-translate-4b-instruct-v2": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 4096
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "openai/gpt-oss-20b": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 32768
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-22"
+    },
+    "poolside/laguna-xs-2.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 16384
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "snowflake/arctic-embed-l": {
+      "mode": "embedding",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "stepfun-ai/step-5-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_output": 1048576
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "writer/palmyra-creative-122b": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "writer/palmyra-fin-70b-32k": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "writer/palmyra-med-70b": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "writer/palmyra-med-70b-32k": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "zyphra/zamba2-7b-instruct": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    }
+  }
+}

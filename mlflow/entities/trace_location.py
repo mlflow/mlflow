@@ -6,7 +6,7 @@ from typing import Any
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
 from mlflow.protos import service_pb2 as pb
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated
 
 _UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME = "mlflow_experiment_trace_otel_spans"
 _UC_SCHEMA_DEFAULT_LOGS_TABLE_NAME = "mlflow_experiment_trace_otel_logs"
@@ -86,7 +86,7 @@ class UCSchemaLocation(TraceLocationBase):
     Represents the location of a Databricks Unity Catalog (UC) schema.
 
     Args:
-        catalog_name: The name of the Unity Catalog catalog name.
+        catalog_name: The name of the Unity Catalog catalog.
         schema_name: The name of the Unity Catalog schema.
     """
 
@@ -138,7 +138,6 @@ class UCSchemaLocation(TraceLocationBase):
         return uc_schema_location_from_proto(proto)
 
 
-@experimental(version="3.11.0")
 @dataclass
 class UnityCatalog(TraceLocationBase):
     """

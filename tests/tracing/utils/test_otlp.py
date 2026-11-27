@@ -8,11 +8,15 @@ from fastapi import HTTPException
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
+from mlflow.environment_variables import (
+    MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE,
+    MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
+)
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.tracing.provider import provider as mlflow_provider
+from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 from mlflow.tracking import MlflowClient
 from mlflow.utils.os import is_windows
 
@@ -26,6 +30,7 @@ try:
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
         OTLPSpanExporter as HttpExporter,
     )
+    from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 except ImportError:
     pytest.skip("OTLP exporters are not installed", allow_module_level=True)
 
@@ -38,6 +43,12 @@ from mlflow.tracing.utils.otlp import (
 
 _TEST_HTTP_OTLP_ENDPOINT = "http://127.0.0.1:4317/v1/traces"
 _TEST_HTTPS_OTLP_ENDPOINT = "https://127.0.0.1:4317/v1/traces"
+
+_COMPRESSION_CASES = [
+    pytest.param("gzip", gzip.compress, id="gzip"),
+    pytest.param("deflate", zlib.compress, id="deflate-rfc"),
+    pytest.param("deflate", lambda d: zlib.compress(d)[2:-4], id="deflate-raw"),  # Raw deflate
+]
 
 
 @pytest.mark.parametrize(
@@ -110,6 +121,8 @@ def test_get_otlp_exporter_invalid_protocol(monkeypatch):
         get_otlp_exporter()
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 @pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
 @pytest.mark.parametrize("dual_export", [True, False, None], ids=["enable", "disable", "default"])
 def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
@@ -120,7 +133,7 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
 
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-    _, _, port = otel_collector
+    output_file, port = otel_collector
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", f"http://127.0.0.1:{port}/v1/traces")
 
     class TestModel:
@@ -171,7 +184,6 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
         assert len(mlflow_traces) == 0
 
     # Wait for collector to receive spans, checking every second for up to 60 seconds
-    _, output_file, _ = otel_collector
     spans_found = False
     for _ in range(60):
         time.sleep(1)
@@ -197,12 +209,14 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
     )
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 @pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
 def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     """
     Test that dual export mode sends traces to both MLflow and OTLP collector.
     """
-    _, _, port = otel_collector
+    output_file, port = otel_collector
     monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", f"http://127.0.0.1:{port}/v1/traces")
 
@@ -242,7 +256,6 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     assert trace.info.tags["version"] == "1.0"
 
     # Wait for collector to receive spans, checking every second for up to 60 seconds
-    _, output_file, _ = otel_collector
     spans_found = False
     for _ in range(60):
         time.sleep(1)
@@ -262,18 +275,9 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     )
 
 
-@pytest.mark.parametrize(
-    ("encoding", "compress_fn", "data"),
-    [
-        ("gzip", gzip.compress, b"otlp-data-test"),
-        ("deflate", zlib.compress, b"otlp-deflate-data"),
-        ("deflate", lambda d: zlib.compress(d)[2:-4], b"raw-deflate-data"),  # Raw deflate
-    ],
-    ids=["gzip", "deflate-rfc", "deflate-raw"],
-)
-def test_decompress_otlp_body_valid(
-    encoding: str, compress_fn: Callable[[bytes], bytes], data: bytes
-):
+@pytest.mark.parametrize(("encoding", "compress_fn"), _COMPRESSION_CASES)
+def test_decompress_otlp_body_valid(encoding: str, compress_fn: Callable[[bytes], bytes]):
+    data = b"otlp-data-test"
     compressed = compress_fn(data)
     output = decompress_otlp_body(compressed, encoding)
     assert output == data
@@ -291,3 +295,131 @@ def test_decompress_otlp_body_valid(
 def test_decompress_otlp_body_invalid(encoding: str, invalid_data: bytes, expected_error: str):
     with pytest.raises(HTTPException, match=expected_error, check=lambda e: e.status_code == 400):
         decompress_otlp_body(invalid_data, encoding)
+
+
+@pytest.mark.parametrize(("encoding", "compress_fn"), _COMPRESSION_CASES)
+def test_decompress_otlp_body_rejects_oversize(
+    encoding: str, compress_fn: Callable[[bytes], bytes], monkeypatch
+):
+    monkeypatch.setenv(MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name, "1024")
+    # A tiny compressed body that expands far past the cap must be rejected with HTTP 413
+    # before the full decompressed buffer is allocated.
+    compressed = compress_fn(b"\x00" * (64 * 1024))
+    assert len(compressed) < 1024
+    with pytest.raises(
+        HTTPException,
+        match=r"exceeds the maximum allowed size",
+        check=lambda e: e.status_code == 413,
+    ):
+        decompress_otlp_body(compressed, encoding)
+
+
+@pytest.mark.parametrize(("encoding", "compress_fn"), _COMPRESSION_CASES)
+def test_decompress_otlp_body_allows_at_limit(
+    encoding: str, compress_fn: Callable[[bytes], bytes], monkeypatch
+):
+    data = b"\x00" * 1024
+    monkeypatch.setenv(MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name, str(len(data)))
+    assert decompress_otlp_body(compress_fn(data), encoding) == data
+
+
+@pytest.mark.parametrize("limit", ["-1", "-2"])
+@pytest.mark.parametrize("encoding", ["gzip", "deflate"])
+def test_decompress_otlp_body_rejects_negative_limit(encoding: str, limit: str, monkeypatch):
+    monkeypatch.setenv(MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name, limit)
+    compressed = gzip.compress(b"data") if encoding == "gzip" else zlib.compress(b"data")
+    with pytest.raises(ValueError, match=r"must be non-negative"):
+        decompress_otlp_body(compressed, encoding)
+
+
+@pytest.mark.parametrize(
+    ("encoding", "invalid_data", "expected_error"),
+    [
+        ("gzip", gzip.compress(b"otlp-data-test" * 100)[:-10], r"gzip"),
+        ("deflate", zlib.compress(b"otlp-data-test" * 100)[:-10], r"deflate"),
+        ("deflate", zlib.compress(b"otlp-data-test" * 100)[2:-10], r"deflate"),
+        ("deflate", b"", r"deflate"),
+    ],
+    ids=["gzip-truncated", "deflate-rfc-truncated", "deflate-raw-truncated", "deflate-empty"],
+)
+def test_decompress_otlp_body_rejects_incomplete_stream(
+    encoding: str, invalid_data: bytes, expected_error: str
+):
+    with pytest.raises(
+        HTTPException,
+        match=rf"Failed to decompress {expected_error} payload",
+        check=lambda e: e.status_code == 400,
+    ):
+        decompress_otlp_body(invalid_data, encoding)
+
+
+def test_decompress_otlp_body_gzip_multiple_members():
+    body = gzip.compress(b"first-") + gzip.compress(b"second") + b"\x00\x00"
+    assert decompress_otlp_body(body, "gzip") == b"first-second"
+
+
+def test_decompress_otlp_body_gzip_multiple_members_share_limit(monkeypatch):
+    monkeypatch.setenv(MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name, "1024")
+    body = gzip.compress(b"\x00" * 600) + gzip.compress(b"\x00" * 600)
+    with pytest.raises(
+        HTTPException,
+        match=r"exceeds the maximum allowed size",
+        check=lambda e: e.status_code == 413,
+    ):
+        decompress_otlp_body(body, "gzip")
+
+
+def test_decompress_otlp_body_stops_inflating_past_limit(monkeypatch):
+    limit = 1024
+    monkeypatch.setenv(MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name, str(limit))
+    output_sizes = []
+    original_decompressobj = zlib.decompressobj
+
+    class SpyDecompressor:
+        def __init__(self, *args, **kwargs):
+            self._decompressor = original_decompressobj(*args, **kwargs)
+
+        def __getattr__(self, name):
+            return getattr(self._decompressor, name)
+
+        def decompress(self, *args, **kwargs):
+            out = self._decompressor.decompress(*args, **kwargs)
+            output_sizes.append(len(out))
+            return out
+
+    monkeypatch.setattr(zlib, "decompressobj", SpyDecompressor)
+    with pytest.raises(HTTPException, check=lambda e: e.status_code == 413):
+        decompress_otlp_body(gzip.compress(b"\x00" * (1024 * 1024)), "gzip")
+    assert output_sizes == [limit + 1]
+
+
+def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_string():
+    value = AnyValue()
+    _set_otel_proto_anyvalue(value, "x" * 149 + "\ud83e")
+    assert value.string_value == "x" * 149 + "?"
+
+
+def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_fallback():
+    class BadStr:
+        def __str__(self):
+            return "bad\ud83e"
+
+    value = AnyValue()
+    _set_otel_proto_anyvalue(value, BadStr())
+    assert value.string_value == "bad?"
+
+
+def test_set_otel_proto_anyvalue_sanitizes_nested_lone_surrogate():
+    value = AnyValue()
+    _set_otel_proto_anyvalue(value, {"items": ["ok", {"bad": "x\ud83e"}]})
+    nested = value.kvlist_value.values[0].value.array_value.values[1]
+    assert nested.kvlist_value.values[0].value.string_value == "x?"
+
+
+def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_dict_key():
+    value = AnyValue()
+
+    _set_otel_proto_anyvalue(value, {"bad\ud83e": "ok"})
+
+    assert value.kvlist_value.values[0].key == "bad?"
+    assert value.kvlist_value.values[0].value.string_value == "ok"

@@ -3,7 +3,7 @@ tensorflow-cpu<=2.12.0; platform_system!="Darwin" or platform_machine!="arm64"
 tensorflow-macos<=2.12.0; platform_system=="Darwin" and platform_machine=="arm64"
 pyspark<4.1.0
 datasets
-# requried to run `log_figure` examples
+# required to run `log_figure` examples
 plotly
 # nbsphinx and ipython are required for jupyter notebook rendering
 nbsphinx==0.8.8
@@ -26,6 +26,8 @@ polars>=1
 openai
 # required for the haystack
 haystack-ai
+# required for haystack >= 3 (`OpenTelemetryTracer` moved out of the core package)
+opentelemetry-haystack
 # required for deepeval scorer documentation
 deepeval
 # required for ragas scorer documentation

@@ -1,11 +1,17 @@
+from unittest import mock
+
 import pytest
+import transformers
+from tokenizers import Tokenizer, models, pre_tokenizers
 
 from mlflow.exceptions import MlflowException
 from mlflow.transformers import _build_pipeline_from_model_input
 from mlflow.transformers.flavor_config import (
     build_flavor_config,
+    build_flavor_config_from_local_checkpoint,
     update_flavor_conf_to_persist_pretrained_model,
 )
+from mlflow.transformers.torch_utils import _get_torch_dtype_kwarg_name
 from mlflow.utils.huggingface_utils import is_valid_hf_repo_id
 
 from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, IS_TRANSFORMERS_V5_OR_LATER
@@ -61,6 +67,21 @@ def test_flavor_config_torch_dtype_overridden_when_specified(small_qa_pipeline):
 
     conf = build_flavor_config(small_qa_pipeline, torch_dtype=torch.float16, save_pretrained=False)
     assert conf["torch_dtype"] == "torch.float16"
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [
+        ("4.55.0", "torch_dtype"),
+        ("4.56.0", "dtype"),
+        ("5.13.0", "dtype"),
+    ],
+)
+def test_get_torch_dtype_kwarg_name(version, expected):
+    # `_get_torch_dtype_kwarg_name` imports transformers lazily, so patch the attribute on the
+    # transformers module object itself (there is no module-level binding to scope the patch to).
+    with mock.patch("transformers.__version__", version):
+        assert _get_torch_dtype_kwarg_name() == expected
 
 
 def test_flavor_config_component_multi_modal(multi_modal_pipeline):
@@ -166,3 +187,37 @@ def test_update_flavor_conf_to_persist_pretrained_model_raise_if_already_persist
 
     with pytest.raises(MlflowException, match="It appears that the pretrained model weight"):
         update_flavor_conf_to_persist_pretrained_model(flavor_conf)
+
+
+@pytest.fixture
+def tiny_local_checkpoint(tmp_path):
+    config = transformers.GPT2Config(n_layer=1, n_head=2, n_embd=8, vocab_size=16, n_positions=16)
+    transformers.GPT2LMHeadModel(config).save_pretrained(tmp_path)
+    tokenizer = Tokenizer(models.WordLevel({"[UNK]": 0, "hello": 1}, unk_token="[UNK]"))
+    tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
+    transformers.PreTrainedTokenizerFast(
+        tokenizer_object=tokenizer, unk_token="[UNK]"
+    ).save_pretrained(tmp_path)
+    return str(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "impl",
+    [
+        transformers.TextGenerationPipeline,
+        # transformers >= 5.23 stores a dotted-path string instead of the class
+        "transformers.pipelines.text_generation.TextGenerationPipeline",
+    ],
+)
+def test_build_flavor_config_from_local_checkpoint_pipeline_impl(tiny_local_checkpoint, impl):
+    task_metadata = ("text-generation", {"impl": impl}, None)
+    with mock.patch(
+        "transformers.pipelines.check_task", return_value=task_metadata
+    ) as mock_check_task:
+        flavor_conf = build_flavor_config_from_local_checkpoint(
+            tiny_local_checkpoint, "text-generation"
+        )
+
+    mock_check_task.assert_called_once_with("text-generation")
+    assert flavor_conf["instance_type"] == "TextGenerationPipeline"
+    assert flavor_conf["pipeline_model_type"] == "GPT2LMHeadModel"

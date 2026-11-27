@@ -22,12 +22,12 @@ class DatabricksLLMJudgePrompts(NamedTuple):
 
 def format_prompt(prompt: str, **values) -> str:
     """Format double-curly variables in the prompt template."""
-    for key, value in values.items():
-        # Escape backslashes in the replacement string to prevent re.sub from interpreting
-        # them as escape sequences (e.g. \u being treated as Unicode escape)
-        replacement = str(value).replace("\\", "\\\\")
-        prompt = re.sub(r"\{\{\s*" + key + r"\s*\}\}", replacement, prompt)
-    return prompt
+    if not values:
+        return prompt
+    # Replace all variables in a single pass, so text inserted for one variable is never treated
+    # as a placeholder for another (e.g. a value that contains "{{ context }}").
+    pattern = re.compile(r"\{\{\s*(" + "|".join(map(re.escape, values)) + r")\s*\}\}")
+    return pattern.sub(lambda match: str(values[match.group(1)]), prompt)
 
 
 def format_type(value_type: Any) -> str:

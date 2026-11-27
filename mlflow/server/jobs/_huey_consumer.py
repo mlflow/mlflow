@@ -27,9 +27,8 @@ from mlflow.server.jobs.utils import (
 # Configure Python logging to suppress noisy job logs
 configure_logging_for_jobs()
 
-# ensure the subprocess is killed when parent process dies.
-# The huey consumer's parent process is `_job_runner` process,
-# if `_job_runner` process is died, it means the MLflow server exits.
+# Ensure the subprocess exits if its original parent dies and it gets reparented.
+# The Huey consumer's direct parent process is `_job_runner`.
 threading.Thread(
     target=_exit_when_orphaned,
     name="exit_when_orphaned",

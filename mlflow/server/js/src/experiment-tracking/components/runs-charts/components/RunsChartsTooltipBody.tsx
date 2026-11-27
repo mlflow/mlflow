@@ -32,6 +32,7 @@ interface RunsChartsContextMenuContentDataType {
   onTogglePin?: (runUuid: string) => void;
   onHideRun?: (runUuid: string, isCurrentlyVisible: boolean) => void;
   getDataTraceLink?: (experimentId: string, traceUuid: string) => string;
+  compactRunDescription?: boolean;
 }
 
 type RunsChartContextMenuHoverDataType = RunsChartsCardConfig;
@@ -275,7 +276,7 @@ export const RunsChartsTooltipBody = ({
   RunsChartContextMenuHoverDataType,
   RunsMetricsSingleTraceTooltipData | RunsCompareMultipleTracesTooltipData
 >) => {
-  const { runs, onTogglePin, onHideRun, getDataTraceLink } = contextData;
+  const { runs, onTogglePin, onHideRun, getDataTraceLink, compactRunDescription } = contextData;
   const [experimentId] = useExperimentIds();
   const activeRun = runs?.find((run) => run.uuid === runUuid);
 
@@ -328,7 +329,11 @@ export const RunsChartsTooltipBody = ({
 
       {description && (
         <div css={styles.description}>
-          <Typography.Paragraph color="secondary" withoutMargins ellipsis={{ rows: 2, tooltip: description }}>
+          <Typography.Paragraph
+            color="secondary"
+            withoutMargins
+            ellipsis={{ rows: compactRunDescription ? 1 : 2, tooltip: description }}
+          >
             {description}
           </Typography.Paragraph>
         </div>

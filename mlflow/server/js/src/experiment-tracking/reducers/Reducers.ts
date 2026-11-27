@@ -16,6 +16,7 @@ import {
   SEARCH_RUNS_API,
   LOAD_MORE_RUNS_API,
   SET_EXPERIMENT_TAG_API,
+  DELETE_EXPERIMENT_TAG_API,
   SET_TAG_API,
   DELETE_TAG_API,
   SET_COMPARE_EXPERIMENTS,
@@ -390,6 +391,16 @@ export const experimentTagsByExperimentId = (state = {}, action: any) => {
     case fulfilled(SET_EXPERIMENT_TAG_API): {
       const tag = { key: action.meta.key, value: action.meta.value };
       return amendExperimentTagsByExperimentId(state, [tag], action.meta.experimentId);
+    }
+    case fulfilled(DELETE_EXPERIMENT_TAG_API): {
+      const { experimentId } = action.meta;
+      // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
+      const oldTags = state[experimentId] ? state[experimentId] : {};
+      const newTags = omit(oldTags, action.meta.key);
+      if (Object.keys(newTags).length === 0) {
+        return omit({ ...state }, experimentId);
+      }
+      return { ...state, [experimentId]: newTags };
     }
     default:
       return state;

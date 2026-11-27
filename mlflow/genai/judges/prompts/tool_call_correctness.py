@@ -127,6 +127,57 @@ their described capabilities/constraints), and the actual tool calls made by the
 whether the agent selected the correct tools and used reasonable arguments.\
 """
 
+
+def _get_prompt_rubric(
+    *,
+    has_expected_calls: bool,
+    include_arguments: bool,
+    check_order: bool,
+) -> tuple[str, str]:
+    ordering = ORDERING_INSTRUCTION_CHECK if check_order else ORDERING_INSTRUCTION_IGNORE
+    if not has_expected_calls:
+        preamble = _GROUND_TRUTH_FREE_PREAMBLE
+        criteria = _GROUND_TRUTH_FREE_CRITERIA
+    elif include_arguments:
+        preamble = _FULL_EXPECTATIONS_PREAMBLE
+        criteria = _FULL_EXPECTATIONS_CRITERIA
+    else:
+        preamble = _PARTIAL_EXPECTATIONS_PREAMBLE
+        criteria = _PARTIAL_EXPECTATIONS_CRITERIA
+    return preamble, criteria.replace("{{ordering_instruction}}", ordering)
+
+
+def get_typesafe_prompt_instructions(
+    *,
+    has_expected_calls: bool,
+    include_arguments: bool = True,
+    check_order: bool = False,
+) -> str:
+    preamble, criteria = _get_prompt_rubric(
+        has_expected_calls=has_expected_calls,
+        include_arguments=include_arguments,
+        check_order=check_order,
+    )
+    expected_section = (
+        "<expected_tool_calls>\n{{expected_calls}}\n</expected_tool_calls>\n\n"
+        if has_expected_calls
+        else ""
+    )
+    return format_prompt(
+        _PROMPT_TEMPLATE
+        + """
+
+The result is "yes" if the tool calls and arguments are correct and reasonable, and "no" otherwise.\
+""",
+        preamble=preamble,
+        evaluation_criteria=criteria,
+        expected_section=expected_section,
+        request="{{request}}",
+        available_tools="{{available_tools}}",
+        tools_called="{{tools_called}}",
+    )
+
+
 # Used by ToolCallCorrectness.instructions property for serialization
 TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS = (
     _GROUND_TRUTH_FREE_PREAMBLE

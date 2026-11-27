@@ -39,7 +39,13 @@ class Trace(_MlflowObject):
             self.info = self.info.to_v3(request=self.data.request, response=self.data.response)
 
     def __repr__(self) -> str:
-        return f"Trace(trace_id={self.info.trace_id})"
+        trace_id = getattr(self.info, "trace_id", None) if self.info else None
+        return f"Trace(trace_id={trace_id!r})"
+
+    @property
+    def trace_id(self) -> str:
+        """The primary identifier for the trace."""
+        return self.info.trace_id
 
     def to_dict(self) -> dict[str, Any]:
         return {"info": self.info.to_dict(), "data": self.data.to_dict()}

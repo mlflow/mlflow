@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -47,7 +49,7 @@ class Run(_MlflowObject):
         return self._data
 
     @property
-    def inputs(self) -> RunInputs:
+    def inputs(self) -> RunInputs | None:
         """
         The run inputs, including dataset inputs.
 
@@ -56,7 +58,7 @@ class Run(_MlflowObject):
         return self._inputs
 
     @property
-    def outputs(self) -> RunOutputs:
+    def outputs(self) -> RunOutputs | None:
         """
         The run outputs, including model outputs.
 
@@ -64,7 +66,7 @@ class Run(_MlflowObject):
         """
         return self._outputs
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoRun:
         run = ProtoRun()
         run.info.MergeFrom(self.info.to_proto())
         if self.data:
@@ -76,7 +78,7 @@ class Run(_MlflowObject):
         return run
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoRun) -> Run:
         return cls(
             RunInfo.from_proto(proto.info),
             RunData.from_proto(proto.data),

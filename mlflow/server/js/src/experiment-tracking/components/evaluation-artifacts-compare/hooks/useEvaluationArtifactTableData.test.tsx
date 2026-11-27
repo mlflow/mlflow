@@ -43,6 +43,35 @@ describe('useEvaluationArtifactTableData', () => {
     return { getHookResult: () => result.current };
   };
 
+  it('represents image cells only by their run and artifact paths', () => {
+    const results = mountTestComponent({
+      artifactsByRun: {
+        run_a: {
+          '/table.json': {
+            path: '/table.json',
+            columns: ['input', 'output'],
+            entries: [
+              {
+                input: 'question',
+                output: { type: 'image', filepath: 'images/full.png', compressed_filepath: 'images/thumb.png' },
+              },
+            ],
+          },
+        },
+      },
+      comparedRunUuids: ['run_a'],
+      tableNames: ['/table.json'],
+      groupByColumns: ['input'],
+      outputColumn: 'output',
+    }).getHookResult();
+
+    expect(results[0].cellValues['run_a']).toEqual({
+      runUuid: 'run_a',
+      filepath: 'images/full.png',
+      compressedFilepath: 'images/thumb.png',
+    });
+  });
+
   describe('properly generates data for a single table', () => {
     const TABLE_NAME = '/table1';
     const COLUMNS = ['input', 'additionalInput', 'answer', 'prompt'];

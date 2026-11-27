@@ -11,6 +11,7 @@ from mlflow.protos.databricks_pb2 import (
     DATA_LOSS,
     DEADLINE_EXCEEDED,
     ENDPOINT_NOT_FOUND,
+    FEATURE_DISABLED,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
@@ -46,6 +47,7 @@ ERROR_CODE_TO_HTTP_STATUS = {
     ErrorCode.Name(PERMISSION_DENIED): 403,
     ErrorCode.Name(CUSTOMER_UNAUTHORIZED): 401,
     ErrorCode.Name(UNAUTHENTICATED): 401,
+    ErrorCode.Name(FEATURE_DISABLED): 400,
     ErrorCode.Name(BAD_REQUEST): 400,
     ErrorCode.Name(RESOURCE_ALREADY_EXISTS): 400,
     ErrorCode.Name(INVALID_PARAMETER_VALUE): 400,
@@ -235,6 +237,15 @@ class _UnsupportedPresignedUploadException(MlflowException):
     """Exception thrown when presigned upload is unsupported by an artifact repository"""
 
     MESSAGE = "Presigned upload is not supported for the current artifact repository"
+
+    def __init__(self):
+        super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)
+
+
+class _UnsupportedPresignedDownloadException(MlflowException):
+    """Exception thrown when presigned download is unsupported by an artifact repository"""
+
+    MESSAGE = "Presigned download is not supported for the current artifact repository"
 
     def __init__(self):
         super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)

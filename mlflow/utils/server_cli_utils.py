@@ -7,7 +7,11 @@ for users.
 
 import click
 
-from mlflow.environment_variables import MLFLOW_WORKSPACE
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD,
+    MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD,
+    MLFLOW_WORKSPACE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import (
     DEFAULT_ARTIFACTS_URI,
@@ -67,13 +71,14 @@ def artifacts_only_config_validation(
     artifacts_only: bool,
     backend_store_uri: str,
     enable_workspaces: bool = False,
+    workspace_store_uri: str | None = None,
     trace_archival_config_path: str | None = None,
 ) -> None:
-    if artifacts_only and enable_workspaces:
-        # Workspace mode relies on a workspace provider to resolve the default workspace and seed
-        # request context. Artifact-only servers never load that stack, so they cannot determine
-        # the active workspace safely. This decision can be revisited in the future.
-        raise click.UsageError("--enable-workspaces cannot be combined with --artifacts-only.")
+    if artifacts_only and enable_workspaces and not workspace_store_uri:
+        raise click.UsageError(
+            "--workspace-store-uri is required when combining --enable-workspaces with "
+            "--artifacts-only so artifact requests can be validated against a workspace provider."
+        )
     if artifacts_only and not _is_default_backend_store_uri(backend_store_uri):
         msg = (
             "You are starting a tracking server in `--artifacts-only` mode and have provided a "
@@ -90,4 +95,57 @@ def artifacts_only_config_validation(
             "--trace-archival-config cannot be combined with --artifacts-only because "
             "artifact-only servers do not initialize the tracking store required for "
             "server-owned trace archival."
+        )
+
+
+def artifacts_presigned_config_validation(
+    artifacts_presigned_only: bool,
+    serve_artifacts: bool,
+    artifacts_destination: str,
+) -> None:
+    presigned_enabled = artifacts_presigned_only or (
+        serve_artifacts
+        and (
+            MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get()
+            or MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD.get()
+        )
+    )
+    if not presigned_enabled:
+        return
+    if artifacts_presigned_only and not serve_artifacts:
+        raise click.UsageError(
+            "--artifacts-presigned-only requires artifact serving to be enabled; "
+            "--no-serve-artifacts is not supported."
+        )
+
+    from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
+    from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+    from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+
+    artifact_repo = get_artifact_repository(artifacts_destination)
+    if isinstance(artifact_repo, S3ArtifactRepository) and "SSECustomerKey" in (
+        artifact_repo.get_s3_file_upload_extra_args() or {}
+    ):
+        mode = (
+            "--artifacts-presigned-only"
+            if artifacts_presigned_only
+            else "Presigned multipart transfers"
+        )
+        raise click.UsageError(
+            f"{mode} cannot be used with SSECustomerKey in "
+            "MLFLOW_S3_UPLOAD_EXTRA_ARGS because presigned transfers would disclose the key "
+            "to clients. Remove SSECustomerKey to use presigned transfers."
+        )
+    if not artifacts_presigned_only:
+        return
+    missing = []
+    if not isinstance(artifact_repo, MultipartUploadMixin):
+        missing.append("presigned uploads")
+    if not isinstance(artifact_repo, MultipartDownloadMixin):
+        missing.append("presigned downloads")
+    if missing:
+        raise click.UsageError(
+            "--artifacts-presigned-only requires an artifacts destination that supports "
+            + " and ".join(missing)
+            + f" (got {artifacts_destination!r})."
         )

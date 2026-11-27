@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
+from mlflow.entities.issue import Issue, IssueCategory, IssueSeverity, IssueStatus
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
 
 
@@ -485,3 +485,22 @@ def test_issue_proto_roundtrip_all_fields():
     assert recovered.source_run_id == original.source_run_id
     assert recovered.categories == original.categories
     assert recovered.created_by == original.created_by
+
+
+def test_extended_issue_roundtrips():
+    issue = create_issue(IssueSeverity.HIGH)
+    issue.last_seen_timestamp = 0
+    issue.last_updated_by = "editor"
+    issue.metadata = {"evidence": "[]"}
+    assert Issue.from_proto(issue.to_proto()) == issue
+    assert Issue.from_dictionary(issue.to_dictionary()) == issue
+
+
+def test_issue_categories_accept_enum_and_custom_values():
+    issue = create_issue(IssueSeverity.HIGH)
+    issue.categories = [IssueCategory.CORRECTNESS, "custom-category"]
+
+    assert str(IssueCategory.CORRECTNESS) == "correctness"
+    assert list(issue.to_proto().categories) == ["correctness", "custom-category"]
+    assert Issue.from_proto(issue.to_proto()) == issue
+    assert Issue.from_dictionary(issue.to_dictionary()) == issue

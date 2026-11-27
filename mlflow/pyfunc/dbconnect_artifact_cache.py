@@ -1,12 +1,13 @@
 import json
 import os
-import subprocess
+import shutil
 import tarfile
+from contextlib import ExitStack
 from pathlib import Path
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils.file_utils import check_tarfile_security, get_or_create_tmp_dir
+from mlflow.utils.file_utils import check_tarfile_security, get_or_create_tmp_dir, remove_on_error
 
 _CACHE_MAP_FILE_NAME = "db_connect_artifact_cache.json"
 
@@ -138,10 +139,12 @@ def archive_directory(input_dir, archive_file_path):
     #  the file symlink pointing to, which is not the expected behavior in our usage.
     #  We need to pack the python and virtualenv environment, which contains a bunch of
     #  symlink files.
-    subprocess.check_call(
-        ["tar", "-czf", archive_file_path, *os.listdir(input_dir)],
-        cwd=input_dir,
-    )
+    # Use `tarfile` instead of the `tar` CLI so entry names are always treated literally:
+    #  GNU tar parses names starting with "-" as options and decodes backslash escapes
+    #  (e.g. "\056\056\057x" becomes "../x"), which can archive files outside `input_dir`.
+    with tarfile.open(archive_file_path, "w:gz", compresslevel=6, dereference=False) as tar:
+        for name in os.listdir(input_dir):
+            tar.add(os.path.join(input_dir, name), arcname=name)
     return archive_file_path
 
 
@@ -155,11 +158,50 @@ def extract_archive_to_dir(archive_path, dest_dir):
 
 def _safe_extractall(tar, dest_dir):
     resolved_dest = Path(dest_dir).resolve()
+
+    def is_regular_file_within_dest(path: Path) -> bool:
+        return (
+            path.is_file()
+            and not path.is_symlink()
+            and path.resolve().is_relative_to(resolved_dest)
+        )
+
     for member in tar.getmembers():
         member_path = (resolved_dest / member.name).resolve()
-        if not (member_path == resolved_dest or resolved_dest in member_path.parents):
+        # A hard link is created on the file its target resolves to, following any symlink
+        # already extracted, so the resolved target must stay inside the destination too.
+        # When the target is missing (e.g. a dangling symlink), tarfile instead re-extracts
+        # the target member at the link's path, so require an existing regular file.
+        if not member_path.is_relative_to(resolved_dest) or (
+            member.islnk() and not is_regular_file_within_dest(resolved_dest / member.linkname)
+        ):
             raise MlflowException.invalid_parameter_value(
                 f"Tar archive member {member.name!r} would be extracted outside "
                 f"the destination directory."
             )
-        tar.extract(member, path=resolved_dest)
+        if member.islnk():
+            try:
+                _extract_hardlink(member, resolved_dest)
+            except OSError as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to extract hard link {member.name!r} -> {member.linkname!r}: {e}"
+                ) from e
+        else:
+            tar.extract(member, path=resolved_dest)
+
+
+def _extract_hardlink(member, resolved_dest):
+    # Keep the original path spelling so that os.link and open resolve the same target.
+    target_path = os.path.join(resolved_dest, member.linkname)
+    link_path = os.path.join(resolved_dest, member.name)
+    os.makedirs(os.path.dirname(link_path), exist_ok=True)
+    try:
+        os.link(target_path, link_path)
+    except OSError:
+        # Filesystems report unsupported hard links with different errors. Copy the
+        # validated target to a new file without re-extracting an archive member.
+        with ExitStack() as cleanup:
+            with open(target_path, "rb") as source, open(link_path, "xb") as destination:
+                cleanup.enter_context(remove_on_error(link_path))
+                shutil.copyfileobj(source, destination)
+            shutil.copystat(target_path, link_path)

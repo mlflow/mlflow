@@ -1,5 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+import React, { useCallback, useMemo, useRef } from 'react';
 import {
   Avatar,
   BeakerIcon,
@@ -9,16 +8,12 @@ import {
   GearIcon,
   HomeIcon,
   ModelsIcon,
-  Tag,
-  TextBoxIcon,
+  SparkleDoubleIcon,
   Typography,
   useDesignSystemTheme,
-  DesignSystemEventProviderComponentTypes,
-  DesignSystemEventProviderAnalyticsEventTypes,
   SidebarCollapseIcon,
   SidebarExpandIcon,
   InfoBookIcon,
-  Tooltip,
   NewWindowIcon,
 } from '@databricks/design-system';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
@@ -27,17 +22,16 @@ import { Link, matchPath, useLocation, useNavigate, useParams, useSearchParams }
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
+import { isAiRegistryActive, MlflowSidebarAiRegistryItems } from './MlflowSidebarAiRegistryItems';
 import AccountRoutes from '../../account/routes';
 import AdminRoutes from '../../admin/routes';
 import { useCurrentUserIsAdmin, useCurrentUserQuery, useIsBasicAuth } from '../../account/hooks';
 import { performLogout } from '../../account/auth-utils';
 import { GatewayLabel, GatewayNewTag } from './GatewayNewTag';
 import { FormattedMessage } from 'react-intl';
-import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
 import { useWorkflowType, WorkflowType } from '../contexts/WorkflowTypeContext';
 import { shouldEnableWorkflowBasedNavigation, shouldEnableWorkspaces } from '../utils/FeatureUtils';
-import { AssistantSparkleIcon } from '../../assistant/AssistantIconButton';
-import { useAssistant } from '../../assistant/AssistantContext';
+import { SERVER_FEATURE_KEYS, useFeatureEnabled } from '../../experiment-tracking/hooks/useServerInfo';
 import { extractWorkspaceFromSearchParams, useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { SETTINGS_RETURN_TO_PARAM, SETTINGS_SECTION_GENERAL } from '../../settings/settingsSectionConstants';
 import { getSidebarItemStyles, MlflowSidebarLink } from './MlflowSidebarLink';
@@ -51,6 +45,8 @@ import { MlflowSidebarWorkflowSwitch } from './MlflowSidebarWorkflowSwitch';
 
 const isInsideExperiment = (location: Location) =>
   Boolean(matchPath('/experiments/:experimentId/*', location.pathname));
+const isExperimentsListActive = (location: Location) =>
+  Boolean(matchPath({ path: '/experiments', end: true }, location.pathname));
 const isHomeActive = (location: Location) => Boolean(matchPath({ path: '/', end: true }, location.pathname));
 const isExperimentsActive = (location: Location) =>
   Boolean(
@@ -58,7 +54,6 @@ const isExperimentsActive = (location: Location) =>
     matchPath('/compare-experiments/*', location.pathname),
   );
 const isModelsActive = (location: Location) => Boolean(matchPath('/models/*', location.pathname));
-const isPromptsActive = (location: Location) => Boolean(matchPath('/prompts/*', location.pathname));
 const isGatewayActive = (location: Location) => Boolean(matchPath('/gateway/*', location.pathname));
 const isSettingsActive = (location: Location) =>
   Boolean(
@@ -101,12 +96,11 @@ export function MlflowSidebar({
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { theme } = useDesignSystemTheme();
-  const viewId = useMemo(() => uuidv4(), []);
   const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
+  const gatewayEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
   // WorkflowType context is always available, but UI is guarded by feature flag
   const { workflowType, setWorkflowType } = useWorkflowType();
   const { experimentId } = useParams();
-  const logTelemetryEvent = useLogTelemetryEvent();
   const toggleSidebar = useCallback(() => {
     setShowSidebar(!showSidebar);
   }, [setShowSidebar, showSidebar]);
@@ -130,6 +124,9 @@ export function MlflowSidebar({
   // Update the ref when we're inside an experiment
   if (experimentId && isInsideExperiment(location)) {
     lastSelectedExperimentIdRef.current = experimentId;
+  } else if (isExperimentsListActive(location)) {
+    // Returning to the experiments list (e.g. via the browser back button) exits the experiment
+    lastSelectedExperimentIdRef.current = null;
   }
 
   // Callback to clear the persisted experiment ID (used by back button)
@@ -149,28 +146,10 @@ export function MlflowSidebar({
   const isAdmin = useCurrentUserIsAdmin();
   const canManage = isAdmin;
 
-  const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
-  const [isAssistantHovered, setIsAssistantHovered] = useState(false);
-
   // Radix restores focus to the trigger on dismiss, but the browser
   // keeps ``:focus-visible`` - leaving a stale outline. Skip auto-focus
   // return on pointer dismiss; keyboard dismiss still restores focus.
   const accountDropdownClosedByPointerRef = useRef(false);
-
-  const handleAssistantToggle = useCallback(() => {
-    if (isPanelOpen) {
-      closePanel();
-    } else {
-      openPanel();
-    }
-    logTelemetryEvent({
-      componentId: 'mlflow.sidebar.assistant_button',
-      componentViewId: viewId,
-      componentType: DesignSystemEventProviderComponentTypes.Button,
-      componentSubType: null,
-      eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-    });
-  }, [isPanelOpen, closePanel, openPanel, logTelemetryEvent, viewId]);
 
   const menuItems: MenuItemWithNested[] = useMemo(
     () => [
@@ -225,18 +204,27 @@ export function MlflowSidebar({
       ...(shouldShowGenAIFeatures(enableWorkflowBasedNavigation, workflowType) && !showNestedExperimentItems
         ? [
             {
-              key: 'prompts',
-              icon: <TextBoxIcon />,
+              key: 'ai-registry',
+              icon: <SparkleDoubleIcon />,
               linkProps: {
                 to: ExperimentTrackingRoutes.promptsPageRoute,
-                isActive: isPromptsActive,
-                children: <FormattedMessage defaultMessage="Prompts" description="Sidebar link for prompts tab" />,
+                isActive: isAiRegistryActive,
+                children: (
+                  <FormattedMessage
+                    defaultMessage="AI Registry"
+                    description="Sidebar link for the AI Registry section"
+                  />
+                ),
               },
-              componentId: 'mlflow.sidebar.prompts_tab_link',
+              componentId: 'mlflow.sidebar.ai_registry_tab_link',
+              nestedItems:
+                shouldEnableWorkflowBasedNavigation() && isAiRegistryActive(location) ? (
+                  <MlflowSidebarAiRegistryItems key="ai-registry" collapsed={!showSidebar} />
+                ) : undefined,
             },
           ]
         : []),
-      ...(shouldShowGenAIFeatures(enableWorkflowBasedNavigation, workflowType)
+      ...(shouldShowGenAIFeatures(enableWorkflowBasedNavigation, workflowType) && gatewayEnabled
         ? [
             {
               key: 'gateway',
@@ -266,6 +254,7 @@ export function MlflowSidebar({
       workflowType,
       clearLastSelectedExperiment,
       enableWorkflowBasedNavigation,
+      gatewayEnabled,
       location,
       showSidebar,
     ],
@@ -380,56 +369,6 @@ export function MlflowSidebar({
             ))}
         </ul>
         <div>
-          {isLocalServer && (
-            <Tooltip
-              componentId="mlflow.sidebar.assistant_tooltip"
-              content={<FormattedMessage defaultMessage="Assistant" description="Tooltip for assistant button" />}
-              open={isAssistantHovered && !showSidebar}
-              side="right"
-              delayDuration={0}
-            >
-              <div
-                role="button"
-                tabIndex={0}
-                aria-pressed={isPanelOpen}
-                css={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: theme.spacing.sm,
-                  paddingInline: showSidebar ? theme.spacing.sm : theme.spacing.xs,
-                  paddingBlock: theme.spacing.sm,
-                  borderRadius: theme.borders.borderRadiusMd - 2,
-                  justifyContent: showSidebar ? 'flex-start' : 'center',
-                  cursor: 'pointer',
-                  color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
-                  '&:hover': {
-                    color: theme.colors.actionLinkHover,
-                    backgroundColor: theme.colors.actionDefaultBackgroundHover,
-                  },
-                }}
-                onClick={handleAssistantToggle}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    handleAssistantToggle();
-                  }
-                }}
-                onMouseEnter={() => setIsAssistantHovered(true)}
-                onMouseLeave={() => setIsAssistantHovered(false)}
-              >
-                <AssistantSparkleIcon isHovered={isAssistantHovered} />
-                {showSidebar && (
-                  <>
-                    <Typography.Text color="primary">
-                      <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
-                    </Typography.Text>
-                    <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
-                      Beta
-                    </Tag>
-                  </>
-                )}
-              </div>
-            </Tooltip>
-          )}
           <MlflowSidebarLink
             disableWorkspacePrefix
             css={{ paddingBlock: theme.spacing.sm }}

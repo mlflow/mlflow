@@ -1,4 +1,5 @@
 import json
+from threading import Barrier, get_ident
 from unittest.mock import ANY, Mock, patch
 
 import crewai
@@ -7,11 +8,23 @@ from crewai import Agent, Crew, Task
 from crewai.flow.flow import Flow, start
 from crewai.tools import BaseTool
 from packaging.version import Version
+from pydantic import BaseModel
 
 import mlflow
-from mlflow.crewai.autolog import patched_class_call, patched_standalone_call
+from mlflow.crewai.autolog import (
+    _construct_full_inputs,
+    _get_agent_attributes,
+    _get_llm_attributes,
+    _sanitize_value,
+    _set_sanitized_attribute,
+    _set_span_attributes,
+    patched_class_call,
+    patched_single_native_tool_call,
+    patched_standalone_call,
+)
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import TokenUsageKey
+from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
@@ -251,12 +264,12 @@ def task_named(simple_agent_1):
     )
 
 
-def global_autolog():
+def global_autolog(log_traces=True):
     if IS_TRACING_SDK_ONLY:
         pytest.skip("Global autolog is not supported in tracing SDK")
 
     # Libraries used within tests or crewai library
-    mlflow.autolog(exclude_flavors=["openai", "litellm", "langchain"])
+    mlflow.autolog(log_traces=log_traces, exclude_flavors=["openai", "litellm", "langchain"])
     mlflow.utils.import_hooks.notify_module_loaded(crewai)
 
 
@@ -395,6 +408,111 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog, mock_lite
     assert token_usage[TokenUsageKey.OUTPUT_TOKENS] > 0
     assert TokenUsageKey.TOTAL_TOKENS in token_usage
     assert token_usage[TokenUsageKey.TOTAL_TOKENS] > 0
+
+
+@pytest.mark.skipif(
+    _CREWAI_VERSION < Version("1.15.29"),
+    reason="The replacement AgentExecutor was introduced in CrewAI 1.15.29",
+)
+@pytest.mark.parametrize("log_traces", [True, False])
+def test_kickoff_multiple_native_tool_calls(
+    tool_agent_1, task_1_with_tool, autolog, mock_litellm_cost, log_traces
+):
+    crew = Crew(agents=[tool_agent_1], tasks=[task_1_with_tool])
+    tool_calls = [
+        {
+            "id": f"call_{argument}",
+            "type": "function",
+            "function": {
+                "name": "test_tool",
+                "arguments": json.dumps({"argument": argument}),
+            },
+        }
+        for argument in ["a", "b"]
+    ]
+    barrier = Barrier(2, timeout=10)
+    worker_threads = []
+
+    def tool_result(argument):
+        worker_threads.append(get_ident())
+        barrier.wait()
+        return "Tool Answer"
+
+    with (
+        patch(
+            "litellm.completion",
+            side_effect=[create_sample_llm_response("", tool_calls), _simple_chat_completion()],
+        ),
+        patch.object(SampleTool, "_run", side_effect=tool_result) as run_tool,
+    ):
+        autolog(log_traces=log_traces)
+        result = crew.kickoff()
+
+    assert result.raw == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
+    assert sorted(call.kwargs["argument"] for call in run_tool.call_args_list) == ["a", "b"]
+    assert len(set(worker_threads)) == 2
+    assert get_ident() not in worker_threads
+    traces = get_traces()
+    if not log_traces:
+        assert traces == []
+        return
+
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    assert not any(span.name.startswith("AgentExecutor.") for span in spans)
+    agent_span = next(span for span in spans if span.span_type == SpanType.AGENT)
+    tool_spans = [span for span in spans if span.span_type == SpanType.TOOL]
+    assert len(tool_spans) == 2
+    assert sorted(span.inputs["tool_args"]["argument"] for span in tool_spans) == ["a", "b"]
+    for span in tool_spans:
+        assert span.name == "test_tool"
+        assert span.inputs["tool_name"] == "test_tool"
+        assert span.outputs == {"result": "Tool Answer"}
+        assert span.parent_id == agent_span.span_id
+
+
+@pytest.mark.parametrize("raises", [False, True])
+@pytest.mark.parametrize(
+    "tool_call",
+    [
+        {"function": {"name": "test_tool", "arguments": '{"argument": "a"}'}},
+        {"name": "test_tool", "arguments": '{"argument": "a"}'},
+        {"name": "test_tool", "input": {"argument": "a"}},
+        {
+            "function": {"name": "test_tool", "arguments": None},
+            "arguments": '{"argument": "a"}',
+        },
+        {
+            "function": {"name": "test_tool", "arguments": '{"argument": "a"}'},
+            "arguments": '{"argument": "b"}',
+            "input": {"argument": "c"},
+        },
+    ],
+)
+def test_single_native_tool_call_preserves_result_or_exception(raises, tool_call):
+    executor = Mock()
+    result = {"result": "Tool Answer", "original_tool": object()}
+    error = RuntimeError("tool failed")
+    original = Mock(side_effect=error if raises else None, return_value=result)
+    mlflow.crewai.autolog()
+
+    if raises:
+        with pytest.raises(RuntimeError, match="tool failed") as exc_info:
+            patched_single_native_tool_call(original, executor, tool_call)
+        assert exc_info.value is error
+    else:
+        assert patched_single_native_tool_call(original, executor, tool_call) is result
+    original.assert_called_once_with(executor, tool_call)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "test_tool"
+    assert span.span_type == SpanType.TOOL
+    assert span.inputs == {"tool_name": "test_tool", "tool_args": {"argument": "a"}}
+    assert span.outputs == (None if raises else {"result": "Tool Answer"})
+    assert span.status.status_code == ("ERROR" if raises else "OK")
 
 
 def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
@@ -721,3 +839,200 @@ def test_patched_standalone_call_original_when_traces_disabled(monkeypatch):
 
     original.assert_called_once_with("arg", kw="val")
     assert result == "ok"
+
+
+_FAKE_API_KEY = "sk-proj-fake-crewai-provider-key"
+
+
+def llm_with_api_key():
+    from crewai import LLM
+
+    kwargs = {"is_litellm": True} if _IS_CREWAI_V1_OR_LATER else {}
+    return LLM(model="openai/gpt-4o-mini", api_key=_FAKE_API_KEY, **kwargs)
+
+
+@pytest.fixture
+def agent_with_api_key():
+    return Agent(
+        role="City Selection Expert",
+        goal=_AGENT_1_GOAL,
+        backstory=_AGENT_1_BACKSTORY,
+        llm=llm_with_api_key(),
+        function_calling_llm=llm_with_api_key(),
+    )
+
+
+def test_agent_attributes_do_not_expose_llm_api_key(agent_with_api_key):
+    attributes = _get_agent_attributes(agent_with_api_key)
+
+    assert _FAKE_API_KEY not in json.dumps(attributes, cls=TraceJSONEncoder)
+    assert attributes["llm"] == "openai/gpt-4o-mini"
+    assert attributes["function_calling_llm"] == "openai/gpt-4o-mini"
+
+
+def test_crew_attributes_do_not_expose_llm_api_key(agent_with_api_key):
+    task = Task(description="d", expected_output="o", agent=agent_with_api_key)
+    crew = Crew(
+        agents=[agent_with_api_key],
+        tasks=[task],
+        manager_llm=llm_with_api_key(),
+        function_calling_llm=llm_with_api_key(),
+    )
+    span = Mock()
+
+    _set_span_attributes(span, crew)
+
+    attributes = {call.args[0]: call.args[1] for call in span.set_attribute.call_args_list}
+    assert _FAKE_API_KEY not in json.dumps(attributes, cls=TraceJSONEncoder)
+    assert attributes["manager_llm"] == "openai/gpt-4o-mini"
+    assert attributes["function_calling_llm"] == "openai/gpt-4o-mini"
+
+
+def test_span_inputs_do_not_expose_llm_api_key(agent_with_api_key):
+    task = Task(description="d", expected_output="o", agent=agent_with_api_key)
+
+    # Task.execute_sync receives the Agent directly; Agent.execute_task receives it via Task.agent
+    task_inputs = _construct_full_inputs(Task.execute_sync, task, agent=agent_with_api_key)
+    agent_inputs = _construct_full_inputs(Agent.execute_task, agent_with_api_key, task=task)
+
+    assert _FAKE_API_KEY not in json.dumps(task_inputs, cls=TraceJSONEncoder)
+    assert _FAKE_API_KEY not in json.dumps(agent_inputs, cls=TraceJSONEncoder)
+    assert task_inputs["agent"]["llm"] == "openai/gpt-4o-mini"
+    assert agent_inputs["task"]["agent"]["llm"] == "openai/gpt-4o-mini"
+
+
+def test_sanitize_value_drops_credential_keys_but_keeps_llm_config():
+    value = {
+        "api_key": "a",
+        "openai_api_key": "b",
+        "client_secret": "c",
+        "password": "d",
+        "auth_token": "e",
+        "accessToken": "g",
+        "refreshToken": "h",
+        "headers": {"Authorization": "Bearer x", "Content-Type": "json"},
+        "max_tokens": 10,
+        "tokenizer": "tiktoken",
+        "nested": [{"apiKey": "f", "model": "gpt"}],
+    }
+
+    assert _sanitize_value(value) == {
+        "headers": {"Content-Type": "json"},
+        "max_tokens": 10,
+        "tokenizer": "tiktoken",
+        "nested": [{"model": "gpt"}],
+    }
+
+
+def test_sanitize_value_fails_closed_when_sanitization_raises():
+    class Exploding(dict):
+        def items(self):
+            raise RuntimeError("boom")
+
+    value = {"outer": Exploding(api_key=_FAKE_API_KEY)}
+
+    sanitized = _sanitize_value(value)
+
+    assert _FAKE_API_KEY not in json.dumps(sanitized)
+    assert sanitized == "<dict: omitted, sanitization failed>"
+
+
+@pytest.mark.parametrize(
+    ("key", "expected_calls"),
+    [
+        ("auth_token", 0),
+        ("accessToken", 0),
+        ("BearerToken", 0),
+        ("TOKEN", 0),
+        ("client_secret", 0),
+        ("Authorization", 0),
+        ("aws_credentials", 0),
+        ("api_key", 0),
+        ("apiKey", 0),
+        ("max_tokens", 1),
+        ("tokenizer", 1),
+        ("token_usage", 1),
+        ("model", 1),
+    ],
+)
+def test_set_sanitized_attribute_skips_credential_keys(key, expected_calls):
+    span = Mock()
+
+    _set_sanitized_attribute(span, key, "value")
+
+    assert span.set_attribute.call_count == expected_calls
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ((1, {"api_key": "a"}), (1, {})),
+        ({1, 2}, [1, 2]),
+    ],
+)
+def test_sanitize_value_preserves_tuples_and_flattens_sets(value, expected):
+    assert _sanitize_value(value) == expected
+
+
+def test_llm_attributes_skip_credential_fields():
+    llm = Mock(spec=[])
+    llm.__dict__.update({
+        "model": "gpt",
+        "api_key": "a",
+        "auth_token": "b",
+        "callbacks": [],
+        "max_tokens": 5,
+    })
+
+    attributes = _get_llm_attributes(llm)
+
+    assert attributes["model"] == "gpt"
+    assert attributes["max_tokens"] == "5"
+    assert not {"api_key", "auth_token", "callbacks"} & attributes.keys()
+
+
+def test_sanitize_value_handles_reference_cycles(agent_with_api_key):
+    task = Task(description="d", expected_output="o", agent=agent_with_api_key)
+    crew = Crew(agents=[agent_with_api_key], tasks=[task])
+    agent_with_api_key.crew = crew
+
+    sanitized = _sanitize_value(agent_with_api_key)
+
+    assert _FAKE_API_KEY not in json.dumps(sanitized, cls=TraceJSONEncoder)
+    assert sanitized["crew"]["agents"][0] == "Agent"
+
+
+def test_kickoff_trace_does_not_expose_llm_api_key(agent_with_api_key, autolog, mock_litellm_cost):
+    task = Task(
+        description=_TASK_1_DESCRIPTION,
+        agent=agent_with_api_key,
+        expected_output=_TASK_1_OUTPUT,
+    )
+    crew = Crew(agents=[agent_with_api_key], tasks=[task])
+    with patch("litellm.completion", side_effect=_simple_chat_completion) as mock_completion:
+        autolog()
+        crew.kickoff()
+
+    mock_completion.assert_called()
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert _FAKE_API_KEY not in traces[0].to_json()
+
+
+def test_sanitize_value_does_not_expose_bound_method_owner():
+    fake_key = "tvly-fake-tool-key"
+
+    class FakeTool(BaseModel):
+        name: str = "fake_tool"
+        api_key: str = fake_key
+
+        def _run(self, query: str) -> str:
+            return query
+
+    tool = FakeTool()
+    sanitized = _sanitize_value({"tool": tool, "run": tool._run})
+
+    assert fake_key not in json.dumps(sanitized, cls=TraceJSONEncoder)
+    assert sanitized["tool"] == {"name": "fake_tool"}
+    assert sanitized["run"].endswith("FakeTool._run")

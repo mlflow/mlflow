@@ -3,14 +3,14 @@ from unittest import mock
 import pydantic
 import pytest
 
-from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
+from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig, get_gateway_caller_headers
 from mlflow.genai.utils.llm_utils import (
     _call_llm,
     _call_llm_via_gateway,
     _fetch_model_cost,
     _lookup_model_cost,
     _ModelCost,
-    _pydantic_to_response_format,
     _resolve_model_for_gateway,
     _TokenCounter,
 )
@@ -95,20 +95,6 @@ def test_call_llm_uses_litellm_when_available():
 
     mock_avail.assert_called_once()
     mock_ll.assert_called_once()
-
-
-def test_pydantic_to_response_format():
-    class MySchema(pydantic.BaseModel):
-        name: str
-        score: int
-
-    result = _pydantic_to_response_format(MySchema)
-
-    assert result["type"] == "json_schema"
-    assert result["json_schema"]["name"] == "MySchema"
-    schema = result["json_schema"]["schema"]
-    assert "name" in schema["properties"]
-    assert "score" in schema["properties"]
 
 
 def test_lookup_model_cost_returns_calculated_cost():
@@ -485,3 +471,67 @@ def test_call_llm_via_gateway_uses_resolved_model_from_token_counter():
         )
 
     assert counter._model == "openai:/gpt-4o"
+
+
+@pytest.fixture
+def gateway_server(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_URI", "http://localhost:5000")
+    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+
+
+@pytest.mark.parametrize(
+    ("gateway_caller", "expected_headers"),
+    [
+        (GatewayCaller.ISSUE_DETECTION, {MLFLOW_GATEWAY_CALLER_HEADER: "issue_detection"}),
+        (None, None),
+    ],
+)
+def test_call_llm_attributes_gateway_calls_via_litellm(
+    gateway_server, gateway_caller, expected_headers
+):
+    with (
+        mock.patch("mlflow.genai.utils.llm_utils._is_litellm_available", return_value=True),
+        mock.patch("mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm") as mock_invoke,
+    ):
+        _call_llm(
+            "gateway:/chat", [{"role": "user", "content": "hi"}], gateway_caller=gateway_caller
+        )
+
+    assert mock_invoke.call_args.kwargs["extra_headers"] == expected_headers
+    # The attribution is scoped to the call
+    assert get_gateway_caller_headers() == {}
+
+
+def test_call_llm_attributes_gateway_calls_via_gateway_provider(gateway_server):
+    with (
+        mock.patch("mlflow.genai.utils.llm_utils._is_litellm_available", return_value=False),
+        mock.patch(
+            "mlflow.genai.utils.llm_utils._send_request",
+            return_value={
+                "id": "chatcmpl-gw",
+                "object": "chat.completion",
+                "created": 1234567890,
+                "model": "chat",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": "hello"},
+                        "finish_reason": "stop",
+                    }
+                ],
+            },
+        ) as mock_send,
+    ):
+        _call_llm(
+            "gateway:/chat",
+            [{"role": "user", "content": "hi"}],
+            gateway_caller=GatewayCaller.PROMPT_OPTIMIZATION,
+        )
+
+    assert mock_send.call_args.kwargs["endpoint"] == (
+        "http://localhost:5000/gateway/mlflow/v1/chat/completions"
+    )
+    assert mock_send.call_args.kwargs["headers"][MLFLOW_GATEWAY_CALLER_HEADER] == (
+        "prompt_optimization"
+    )

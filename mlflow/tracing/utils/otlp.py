@@ -1,5 +1,4 @@
 import base64
-import gzip
 import os
 import zlib
 from typing import Any
@@ -9,7 +8,11 @@ from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoRe
 from opentelemetry.sdk.resources import Resource as OTelResource
 from opentelemetry.sdk.trace.export import SpanExporter
 
-from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER, MLFLOW_TRACKING_TOKEN
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_OTLP_EXPORTER,
+    MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE,
+    MLFLOW_TRACKING_TOKEN,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.credentials import read_mlflow_creds
@@ -156,6 +159,11 @@ def _otel_proto_bytes_to_id(id_bytes: bytes) -> int:
     return int.from_bytes(id_bytes, byteorder="big", signed=False)
 
 
+def _sanitize_otel_string(value: str) -> str:
+    """Replace characters that cannot be encoded as UTF-8 for protobuf string assignment."""
+    return value.encode("utf-8", errors="replace").decode("utf-8")
+
+
 def _set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
     """Set a value on an OTel protobuf AnyValue message.
 
@@ -169,7 +177,7 @@ def _set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
     elif isinstance(value, bool):
         pb_any_value.bool_value = value
     elif isinstance(value, str):
-        pb_any_value.string_value = value
+        pb_any_value.string_value = _sanitize_otel_string(value)
     elif isinstance(value, int):
         pb_any_value.int_value = value
     elif isinstance(value, float):
@@ -187,12 +195,12 @@ def _set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
         kvlist_value = KeyValueList()
         for k, v in value.items():
             kv = kvlist_value.values.add()
-            kv.key = str(k)
+            kv.key = _sanitize_otel_string(str(k))
             _set_otel_proto_anyvalue(kv.value, v)
         pb_any_value.kvlist_value.CopyFrom(kvlist_value)
     else:
         # For unknown types, convert to string
-        pb_any_value.string_value = str(value)
+        pb_any_value.string_value = _sanitize_otel_string(str(value))
 
 
 def _decode_otel_proto_anyvalue(pb_any_value: AnyValue) -> Any:
@@ -228,15 +236,57 @@ def decompress_otlp_body(raw_body: bytes, content_encoding: str) -> bytes:
     - gzip
     - deflate (RFC-compliant and raw deflate)
 
-    Raises HTTPException if the payload cannot be decompressed.
+    Raises HTTPException if the payload cannot be decompressed, or with status 413 if the
+    decompressed body exceeds ``MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE``.
     """
     from fastapi import HTTPException, status
+
+    max_size = MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.get()
+    # A negative limit would disable the output cap (zlib treats `max_length=0` as unlimited).
+    if max_size < 0:
+        raise ValueError(
+            f"{MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name} must be non-negative, got {max_size}"
+        )
+
+    def _too_large() -> HTTPException:
+        return HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=(
+                f"Decompressed OTLP trace body exceeds the maximum allowed size of "
+                f"{max_size} bytes. Set {MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name} "
+                f"to raise this limit."
+            ),
+        )
+
+    def _inflate(data: bytes, wbits: int, limit: int) -> tuple[bytes, bytes]:
+        # Inflate with an output cap of one byte past the limit, so an over-limit payload is
+        # rejected before the full decompressed body is materialized in memory. A tiny
+        # compressed body can otherwise expand by several orders of magnitude. When the output
+        # stays within the cap, all input has been consumed and nothing is left to flush.
+        decompressor = zlib.decompressobj(wbits)
+        out = decompressor.decompress(data, limit + 1)
+        if len(out) > limit:
+            raise _too_large()
+        if not decompressor.eof:
+            raise zlib.error("Incomplete or truncated compressed stream")
+        return out, decompressor.unused_data
+
+    def _decompress_gzip(data: bytes) -> bytes:
+        # Like `gzip.decompress`, accept concatenated members and trailing null padding.
+        members = []
+        remaining = max_size
+        while data:
+            out, data = _inflate(data, 16 + zlib.MAX_WBITS, remaining)
+            members.append(out)
+            remaining -= len(out)
+            data = data.lstrip(b"\x00")
+        return b"".join(members)
 
     match content_encoding:
         case "gzip":
             try:
-                return gzip.decompress(raw_body)
-            except Exception:
+                return _decompress_gzip(raw_body)
+            except zlib.error:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Failed to decompress gzip payload",
@@ -244,12 +294,12 @@ def decompress_otlp_body(raw_body: bytes, content_encoding: str) -> bytes:
 
         case "deflate":
             try:
-                return zlib.decompress(raw_body)
-            except Exception:
+                return _inflate(raw_body, zlib.MAX_WBITS, max_size)[0]
+            except zlib.error:
                 # Try raw DEFLATE stream (some clients send this)
                 try:
-                    return zlib.decompress(raw_body, -zlib.MAX_WBITS)
-                except Exception:
+                    return _inflate(raw_body, -zlib.MAX_WBITS, max_size)[0]
+                except zlib.error:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Failed to decompress deflate payload",

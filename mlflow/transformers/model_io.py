@@ -12,6 +12,8 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_STATE
 from mlflow.transformers.flavor_config import FlavorKey, get_peft_base_model, is_peft_model
+from mlflow.transformers.torch_utils import _get_torch_dtype_kwarg_name
+from mlflow.utils.model_utils import _check_model_code_loading_allowed
 
 if TYPE_CHECKING:
     import transformers
@@ -66,15 +68,19 @@ def save_local_checkpoint(path, checkpoint_dir, flavor_conf, processor=None):
         # Other pipeline components such as tokenizer may not saved in the checkpoint.
         # We first try to load the component instance from the checkpoint directory,
         # if it fails, we load the component from the HuggingFace Hub.
+        # This copies the user's own checkpoint while saving, so the model code checks for
+        # loading model artifacts do not apply.
         try:
-            component = _load_component(flavor_conf, name, local_path=checkpoint_dir)
+            component = _load_component(
+                flavor_conf, name, local_path=checkpoint_dir, check_model_code=False
+            )
         except Exception:
             repo_id = flavor_conf[FlavorKey.MODEL_NAME]
             _logger.info(
                 f"The {name} state file is not found ins the local checkpoint directory. MLflow "
                 f"will use the default component state from the base HF repository {repo_id}."
             )
-            component = _load_component(flavor_conf, name, repo_id=repo_id)
+            component = _load_component(flavor_conf, name, repo_id=repo_id, check_model_code=False)
 
         component.save_pretrained(path.joinpath(_COMPONENTS_BINARY_DIR_NAME, name))
 
@@ -210,7 +216,7 @@ def load_model_and_components_from_huggingface_hub(flavor_conf, accelerate_conf,
     return loaded
 
 
-def _load_component(flavor_conf, name, local_path=None, repo_id=None):
+def _load_component(flavor_conf, name, local_path=None, repo_id=None, check_model_code=True):
     import transformers
 
     _COMPONENT_TO_AUTOCLASS_MAP = {
@@ -233,6 +239,8 @@ def _load_component(flavor_conf, name, local_path=None, repo_id=None):
                 "save_pretrained=True."
             )
         cls = _COMPONENT_TO_AUTOCLASS_MAP[name]
+        if check_model_code:
+            _check_model_code_loading_allowed("a Transformers model with a custom component")
         trust_remote = True
 
     if local_path is not None:
@@ -254,6 +262,7 @@ def _load_class_from_transformers_config(model_name_or_path, revision=None):
     import transformers
     from transformers import AutoConfig
 
+    _check_model_code_loading_allowed("a Transformers model with a custom architecture")
     config = AutoConfig.from_pretrained(
         model_name_or_path,
         revision=revision,
@@ -323,7 +332,7 @@ def _load_model(model_name_or_path, flavor_conf, accelerate_conf, device, revisi
 
     load_kwargs["device"] = device
     if torch_dtype := flavor_conf.get(FlavorKey.TORCH_DTYPE):
-        load_kwargs[FlavorKey.TORCH_DTYPE] = torch_dtype
+        load_kwargs[_get_torch_dtype_kwarg_name()] = torch_dtype
 
     if model := _try_load_model_with_device(cls, model_name_or_path, load_kwargs):
         return model

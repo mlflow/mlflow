@@ -11,6 +11,7 @@ from botocore.response import StreamingBody
 from packaging.version import Version
 
 import mlflow
+from mlflow.bedrock.utils import capture_exception
 from mlflow.entities import SpanLogLevel
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -51,6 +52,17 @@ _ANTHROPIC_RESPONSE = {
     "usage": {
         "input_tokens": 8,
         "output_tokens": 12,
+    },
+}
+
+# Anthropic-native body with prompt caching active. input_tokens excludes cache tokens.
+_ANTHROPIC_CACHED_RESPONSE = {
+    **_ANTHROPIC_RESPONSE,
+    "usage": {
+        "input_tokens": 8,
+        "output_tokens": 12,
+        "cache_read_input_tokens": 100,
+        "cache_creation_input_tokens": 50,
     },
 }
 
@@ -104,6 +116,19 @@ _AMAZON_NOVA_RESPONSE = {
         "inputTokens": 8,
         "outputTokens": 12,
         "totalTokens": 20,
+    },
+}
+
+# Nova-native body with prompt caching active. Nova reports cache fields with a
+# TokenCount suffix, unlike the Converse API.
+_AMAZON_NOVA_CACHED_RESPONSE = {
+    **_AMAZON_NOVA_RESPONSE,
+    "usage": {
+        "inputTokens": 8,
+        "outputTokens": 12,
+        "totalTokens": 20,
+        "cacheReadInputTokenCount": 100,
+        "cacheWriteInputTokenCount": 0,
     },
 }
 
@@ -192,6 +217,30 @@ def _create_dummy_invoke_model_response(llm_response):
             _AMAZON_NOVA_REQUEST,
             _AMAZON_NOVA_RESPONSE,
             {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
+        ),
+        (
+            "anthropic.claude-3-5-sonnet-20241022-v2:0",
+            _ANTHROPIC_REQUEST,
+            _ANTHROPIC_CACHED_RESPONSE,
+            {
+                "input_tokens": 158,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 100,
+                "cache_creation_input_tokens": 50,
+                "total_tokens": 170,
+            },
+        ),
+        (
+            "us.amazon.nova-lite-v1:0",
+            _AMAZON_NOVA_REQUEST,
+            _AMAZON_NOVA_CACHED_RESPONSE,
+            {
+                "input_tokens": 108,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 100,
+                "cache_creation_input_tokens": 0,
+                "total_tokens": 120,
+            },
         ),
         (
             "cohere.command-r-plus-v1:0",
@@ -411,6 +460,69 @@ def test_bedrock_autolog_invoke_model_stream():
     assert usage["total_tokens"] == 20  # Calculated as input + output
 
 
+def test_bedrock_autolog_invoke_model_stream_openai_chat_chunks():
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    model_id = "us.openai.gpt-6-sol"
+    request_body = json.dumps({
+        "messages": [{"role": "user", "content": "Hi"}],
+        "max_completion_tokens": 64,
+    })
+
+    # OpenAI chat.completion.chunk bodies have no "type" key
+    dummy_chunks = [
+        {
+            "object": "chat.completion.chunk",
+            "model": model_id,
+            "choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}}],
+        },
+        {
+            "object": "chat.completion.chunk",
+            "model": model_id,
+            "choices": [{"index": 0, "delta": {"content": "pong"}}],
+        },
+        {
+            "object": "chat.completion.chunk",
+            "model": model_id,
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 13, "completion_tokens": 5, "total_tokens": 18},
+            "amazon-bedrock-invocationMetrics": {"invocationLatency": 612},
+        },
+    ]
+
+    def dummy_stream():
+        for chunk in dummy_chunks:
+            yield {"chunk": {"bytes": json.dumps(chunk).encode("utf-8")}}
+
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"body": dummy_stream()},
+    ):
+        response = client.invoke_model_with_response_stream(body=request_body, modelId=model_id)
+
+    events = list(response["body"])
+    assert len(events) == len(dummy_chunks)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert [event.name for event in span.events] == ["chunk"] * len(dummy_chunks)
+    assert [json.loads(event.attributes["json"]) for event in span.events] == dummy_chunks
+    _assert_token_usage_matches(span, {"input_tokens": 13, "output_tokens": 5, "total_tokens": 18})
+
+
+def test_capture_exception_does_not_raise_outside_tests(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
+
+    @capture_exception("Failed")
+    def fail():
+        raise ValueError("boom")
+
+    assert fail() is None
+
+
 @pytest.mark.parametrize("config", [{"disable": True}, {"log_traces": False}])
 def test_bedrock_autolog_trace_disabled(config):
     mlflow.bedrock.autolog(**config)
@@ -456,6 +568,19 @@ _CONVERSE_RESPONSE = {
     "stopReason": "end_turn",
     "usage": {"inputTokens": 8, "outputTokens": 12},
     "metrics": {"latencyMs": 551},
+}
+
+# Converse response with prompt caching active. Per the AWS docs, inputTokens contains
+# only the non-cached input tokens.
+_CONVERSE_CACHED_RESPONSE = {
+    **_CONVERSE_RESPONSE,
+    "usage": {
+        "inputTokens": 8,
+        "outputTokens": 12,
+        "totalTokens": 20,
+        "cacheReadInputTokens": 100,
+        "cacheWriteInputTokens": 50,
+    },
 }
 
 _CONVERSE_EXPECTED_CHAT_ATTRIBUTE = [
@@ -571,6 +696,32 @@ _CONVERSE_TOOL_CALLING_RESPONSE = {
     "stopReason": "end_turn",
     "usage": {"inputTokens": 8, "outputTokens": 12},
     "metrics": {"latencyMs": 551},
+}
+
+_CONVERSE_PARALLEL_TOOL_CALLING_RESPONSE = {
+    **_CONVERSE_TOOL_CALLING_RESPONSE,
+    "output": {
+        "message": {
+            "role": "assistant",
+            "content": [
+                {"text": "I'll check the weather in both cities."},
+                {
+                    "toolUse": {
+                        "toolUseId": "tool_2",
+                        "name": "get_weather",
+                        "input": '{"location": "Paris, France"}',
+                    }
+                },
+                {
+                    "toolUse": {
+                        "toolUseId": "tool_3",
+                        "name": "get_weather",
+                        "input": '{"location": "Tokyo, Japan"}',
+                    }
+                },
+            ],
+        },
+    },
 }
 
 _CONVERSE_TOOL_CALLING_EXPECTED_CHAT_ATTRIBUTE = [
@@ -758,6 +909,20 @@ _CONVERSE_MULTI_MODAL_EXPECTED_CHAT_ATTRIBUTE = [
             None,
             {"input_tokens": 8, "output_tokens": 2, "total_tokens": 10},
         ),
+        # 5. Conversation with prompt caching active
+        (
+            _CONVERSE_REQUEST,
+            _CONVERSE_CACHED_RESPONSE,
+            _CONVERSE_EXPECTED_CHAT_ATTRIBUTE,
+            None,
+            {
+                "input_tokens": 158,
+                "output_tokens": 12,
+                "cache_read_input_tokens": 100,
+                "cache_creation_input_tokens": 50,
+                "total_tokens": 170,
+            },
+        ),
     ],
 )
 def test_bedrock_autolog_converse(
@@ -857,6 +1022,14 @@ def test_bedrock_autolog_converse_skip_unsupported_content():
             _CONVERSE_TOOL_CALLING_EXPECTED_TOOL_ATTRIBUTE,
             {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
         ),
+        # 3. Parallel tool calls in a single turn
+        (
+            _CONVERSE_TOOL_CALLING_REQUEST,
+            _CONVERSE_PARALLEL_TOOL_CALLING_RESPONSE,
+            None,
+            _CONVERSE_TOOL_CALLING_EXPECTED_TOOL_ATTRIBUTE,
+            {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
+        ),
     ],
 )
 def test_bedrock_autolog_converse_stream(
@@ -910,6 +1083,53 @@ def test_bedrock_autolog_converse_stream(
         assert span.llm_cost == expected_cost
 
 
+@pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
+def test_bedrock_autolog_converse_stream_with_redacted_reasoning():
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    request = {
+        "modelId": "us.openai.gpt-6-luna",
+        "messages": [{"role": "user", "content": [{"text": "Is 391 a prime number?"}]}],
+    }
+    # OpenAI GPT-6 models stream their reasoning only as redactedContent bytes
+    stream_events = [
+        {"messageStart": {"role": "assistant"}},
+        {
+            "contentBlockDelta": {
+                "delta": {"reasoningContent": {"redactedContent": b"rsn_abc"}},
+                "contentBlockIndex": 0,
+            }
+        },
+        {"contentBlockStop": {"contentBlockIndex": 0}},
+        {"contentBlockDelta": {"delta": {"text": "No."}, "contentBlockIndex": 1}},
+        {"contentBlockStop": {"contentBlockIndex": 1}},
+        {"messageStop": {"stopReason": "end_turn"}},
+        {
+            "metadata": {
+                "usage": {"inputTokens": 18, "outputTokens": 27, "totalTokens": 45},
+                "metrics": {"latencyMs": 550},
+            }
+        },
+    ]
+
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"stream": iter(stream_events)},
+    ):
+        response = client.converse_stream(**request)
+
+    assert list(response["stream"]) == stream_events
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert len(span.events) == len(stream_events)
+    assert span.outputs["output"]["message"]["content"] == [{"text": "No."}]
+    _assert_token_usage_matches(span, {"input_tokens": 18, "output_tokens": 27, "total_tokens": 45})
+
+
 def _event_stream(raw_response, chunk_size=10):
     """Split the raw response into chunks to simulate the event stream."""
     content = raw_response["output"]["message"]["content"]
@@ -930,7 +1150,9 @@ def _event_stream(raw_response, chunk_size=10):
 
 
 def _generate_tool_use_chunks_if_present(content, chunk_size=10):
-    if len(content) > 1 and (tool_content := content[1].get("toolUse")):
+    for block in content[1:]:
+        if not (tool_content := block.get("toolUse")):
+            continue
         yield {
             "contentBlockStart": {
                 "start": {
@@ -1030,6 +1252,82 @@ TOKEN_USAGE_EDGE_CASE_DATA = [
         "name": "string_token_values",
         "usage_data": {"inputTokens": "10", "outputTokens": "5"},
         "expected_usage": None,  # Should return None since values are strings
+    },
+    # 9. Prompt caching fields. Bedrock reports inputTokens excluding cache tokens, so
+    # input and total must be normalized to include them.
+    {
+        "name": "cache_token_fields",
+        "usage_data": {
+            "inputTokens": 500,
+            "outputTokens": 200,
+            "totalTokens": 700,
+            "cacheReadInputTokens": 10000,
+            "cacheWriteInputTokens": 300,
+        },
+        "expected_usage": {
+            "input_tokens": 10800,
+            "output_tokens": 200,
+            "cache_read_input_tokens": 10000,
+            "cache_creation_input_tokens": 300,
+            "total_tokens": 11000,
+        },
+    },
+    # 10. Zero cache fields keep the reported totals untouched
+    {
+        "name": "zero_cache_token_fields",
+        "usage_data": {
+            "inputTokens": 8,
+            "outputTokens": 12,
+            "totalTokens": 20,
+            "cacheReadInputTokens": 0,
+            "cacheWriteInputTokens": 0,
+        },
+        "expected_usage": {
+            "input_tokens": 8,
+            "output_tokens": 12,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "total_tokens": 20,
+        },
+    },
+    # 11. Converse API per-TTL breakdown of cache writes, with a 1-hour portion
+    {
+        "name": "converse_1h_cache_details",
+        "usage_data": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 1479,
+            "cacheReadInputTokens": 0,
+            "cacheWriteInputTokens": 1464,
+            "cacheDetails": [{"ttl": "1h", "inputTokens": 1000}, {"ttl": "5m", "inputTokens": 464}],
+        },
+        "expected_usage": {
+            "input_tokens": 1474,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 1464,
+            "cache_creation_input_tokens_above_1hr": 1000,
+            "total_tokens": 1479,
+        },
+    },
+    # 12. Anthropic-native per-TTL breakdown of cache writes, with a 1-hour portion
+    {
+        "name": "anthropic_1h_cache_creation",
+        "usage_data": {
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 1462,
+            "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 1462},
+        },
+        "expected_usage": {
+            "input_tokens": 1472,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 1462,
+            "cache_creation_input_tokens_above_1hr": 1462,
+            "total_tokens": 1477,
+        },
     },
 ]
 
@@ -1251,6 +1549,117 @@ STREAM_TOKEN_USAGE_EDGE_CASES = [
             {"type": "message_stop"},
         ],
         "expected_usage": {"input_tokens": 10, "output_tokens": 12, "total_tokens": 22},
+    },
+    # 7. Cache fields in message_start must survive buffering and be normalized into
+    # input exactly once at stream close
+    {
+        "name": "cache_fields_in_message_start",
+        "chunks": [
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [],
+                    "usage": {
+                        "input_tokens": 500,
+                        "output_tokens": 1,
+                        "cache_read_input_tokens": 10000,
+                        "cache_creation_input_tokens": 300,
+                    },
+                },
+            },
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "content_block": {"type": "text", "text": "Hello!"},
+            },
+            {
+                "type": "message_delta",
+                "delta": {},
+                "usage": {"output_tokens": 200},
+            },
+            {"type": "message_stop"},
+        ],
+        "expected_usage": {
+            "input_tokens": 10800,
+            "output_tokens": 200,
+            "cache_read_input_tokens": 10000,
+            "cache_creation_input_tokens": 300,
+            "total_tokens": 11000,
+        },
+    },
+    # 8. The 1-hour cache write breakdown in message_start must survive buffering
+    {
+        "name": "1h_cache_creation_in_message_start",
+        "chunks": [
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [],
+                    "usage": {
+                        "input_tokens": 10,
+                        "output_tokens": 1,
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 1464,
+                        "cache_creation": {
+                            "ephemeral_5m_input_tokens": 0,
+                            "ephemeral_1h_input_tokens": 1464,
+                        },
+                    },
+                },
+            },
+            {
+                "type": "message_delta",
+                "delta": {},
+                "usage": {"output_tokens": 5},
+            },
+            {"type": "message_stop"},
+        ],
+        "expected_usage": {
+            "input_tokens": 1474,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 1464,
+            "cache_creation_input_tokens_above_1hr": 1464,
+            "total_tokens": 1479,
+        },
+    },
+    # 9. Amazon Nova reports usage in the final chunk's metadata
+    {
+        "name": "nova_usage_in_metadata",
+        "chunks": [
+            {"contentBlockDelta": {"delta": {"text": "Hi there!"}, "contentBlockIndex": 0}},
+            {
+                "metadata": {
+                    "usage": {
+                        "inputTokens": 6,
+                        "outputTokens": 6,
+                        "cacheReadInputTokenCount": 0,
+                        "cacheWriteInputTokenCount": 0,
+                    },
+                    "metrics": {},
+                    "trace": {},
+                },
+                "amazon-bedrock-invocationMetrics": {
+                    "inputTokenCount": 0,
+                    "outputTokenCount": 0,
+                    "invocationLatency": 463,
+                    "firstByteLatency": 413,
+                },
+            },
+        ],
+        "expected_usage": {
+            "input_tokens": 6,
+            "output_tokens": 6,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "total_tokens": 12,
+        },
     },
 ]
 

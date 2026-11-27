@@ -3,7 +3,7 @@ import logging
 import threading
 from typing import Any
 
-from haystack.tracing import OpenTelemetryTracer, enable_tracing
+from haystack.tracing import enable_tracing
 from opentelemetry import trace
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -19,8 +19,13 @@ from opentelemetry.trace import (
 
 from mlflow.entities import LiveSpan, SpanType
 from mlflow.entities.span import create_mlflow_span
+from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.provider import (
+    _add_span_processor_first,
+    _get_tracer_for_span_end,
+    _get_tracer_for_span_start,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     _bypass_attribute_guard,
@@ -32,6 +37,21 @@ from mlflow.tracing.utils import (
 )
 
 _logger = logging.getLogger(__name__)
+
+
+def _get_opentelemetry_tracer_class():
+    try:
+        from haystack_integrations.tracing.opentelemetry import OpenTelemetryTracer
+    except ImportError:
+        try:
+            # In haystack < 3, `OpenTelemetryTracer` ships in the core package
+            from haystack.tracing import OpenTelemetryTracer
+        except ImportError as e:
+            raise MlflowException(
+                "MLflow haystack autologging requires the `opentelemetry-haystack` package "
+                "when using haystack >= 3. Please run `pip install opentelemetry-haystack`."
+            ) from e
+    return OpenTelemetryTracer
 
 
 def setup_haystack_tracing():
@@ -50,10 +70,10 @@ def setup_haystack_tracing():
             isinstance(p, HaystackSpanProcessor)
             for p in provider._active_span_processor._span_processors
         ):
-            provider.add_span_processor(hs_processor)
+            _add_span_processor_first(provider, hs_processor)
 
     tracer = trace.get_tracer(__name__)
-    enable_tracing(OpenTelemetryTracer(tracer))
+    enable_tracing(_get_opentelemetry_tracer_class()(tracer))
 
 
 def _infer_span_type_from_haystack(
@@ -110,7 +130,9 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
             return
         self._processing_local.in_on_start = True
         try:
-            tracer = _get_tracer(__name__)
+            tracer, should_forward = _get_tracer_for_span_start(self, __name__)
+            if not should_forward:
+                return
             tracer.span_processor.on_start(span, parent_context)
 
             trace_id = generate_trace_id_v3(span)
@@ -138,8 +160,9 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
                 elif span.name in ("haystack.component.run"):
                     self.set_component_info(mlflow_span, span)
 
-            tracer = _get_tracer(__name__)
-            tracer.span_processor.on_end(span)
+            tracer, should_forward = _get_tracer_for_span_end(self, __name__)
+            if should_forward:
+                tracer.span_processor.on_end(span)
         finally:
             self._processing_local.in_on_end = False
 

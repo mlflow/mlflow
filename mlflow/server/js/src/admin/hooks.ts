@@ -5,6 +5,8 @@ import { SETTINGS_RETURN_TO_PARAM } from '../settings/settingsSectionConstants';
 import { AccountQueryKeys } from '../account/hooks';
 import { AdminApi, scorerResourcePattern } from './api';
 import { isSyntheticUserRole } from '../account/types';
+import { formatSkillIdentity } from '../skill-registry/utils';
+import { useActiveWorkspace } from '../workspaces/utils/WorkspaceUtils';
 import type {
   AddPermissionRequest,
   CreateRoleRequest,
@@ -59,11 +61,14 @@ export const AdminQueryKeys = {
 };
 
 // User queries and mutations
-export const useUsersQuery = () => {
+// ``workspace`` pins the roster to a workspace (e.g. a role's) instead of the active one.
+export const useUsersQuery = (workspace?: string) => {
+  // The roster is workspace-scoped, so cache it per workspace.
+  const activeWorkspace = useActiveWorkspace();
   return useQuery({
-    queryKey: AdminQueryKeys.users,
+    queryKey: [...AdminQueryKeys.users, workspace ?? activeWorkspace ?? ''],
     queryFn: async () => {
-      const data = await AdminApi.listUsers();
+      const data = await AdminApi.listUsers(workspace ?? activeWorkspace ?? undefined);
       // Drop synthetic ``__user_<id>__`` roles from each user's roles
       // list. They're a backend implementation detail for direct grants
       // and shouldn't appear in human-facing user/role tables.
@@ -342,6 +347,13 @@ export const useResourceOptionsQuery = (resourceType: string, workspace?: string
     retry: false,
     refetchOnWindowFocus: false,
   });
+  const skills = useQuery({
+    queryKey: AdminQueryKeys.resourceOptions('skill', workspace),
+    queryFn: () => AdminApi.listSkillsLite(workspace),
+    enabled: resourceType === 'skill',
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
 
   let options: ResourceOption[] = [];
   let isLoading = false;
@@ -392,6 +404,16 @@ export const useResourceOptionsQuery = (resourceType: string, workspace?: string
       options = (prompts.data?.registered_models ?? []).map((p) => ({ id: p.name, name: p.name }));
       ({ isLoading, error } = prompts);
       break;
+    case 'skill': {
+      // Skill grants are keyed by ``name`` in the default organization and by
+      // ``@organization/name`` otherwise, the same form the Skill pages show.
+      options = (skills.data?.skills ?? []).map((s) => {
+        const identity = formatSkillIdentity(s.name, s.organization);
+        return { id: identity, name: identity };
+      });
+      ({ isLoading, error } = skills);
+      break;
+    }
   }
   // A resource literally named ``*`` would collide with the wildcard scope
   // (backend stores both as ``resource_pattern = '*'``), so drop it from the

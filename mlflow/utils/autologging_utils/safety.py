@@ -3,6 +3,7 @@ import functools
 import inspect
 import itertools
 import uuid
+from collections.abc import Mapping
 from contextlib import asynccontextmanager, contextmanager
 from typing import Any, Callable, NamedTuple
 
@@ -235,6 +236,7 @@ def safe_patch(
     patch_function,
     manage_run=False,
     extra_tags=None,
+    return_patch_result=False,
 ):
     """Patches the specified `function_name` on the specified `destination` class for autologging
     purposes, preceding its implementation with an error-safe copy of the specified patch
@@ -258,6 +260,9 @@ def safe_patch(
             does not apply the `with_managed_run` wrapper to the specified
             `patch_function`.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        return_patch_result: If `True`, returns the result of `patch_function` instead of the
+            original function. This is required when the patch wraps the original return value,
+            such as a generator for a streaming API.
     """
     from mlflow.tracking.fluent import active_run
     from mlflow.utils.autologging_utils import autologging_is_disabled, get_autologging_config
@@ -415,6 +420,7 @@ def safe_patch(
             patch_function_run_for_testing = None
             # The exception raised during executing patching function
             patch_error = None
+            patch_result = None
 
             with _AutologgingSessionManager.start_session(autologging_integration) as session:
                 event_logger = AutologgingEventLoggerWrapper(session, destination, function_name)
@@ -481,7 +487,7 @@ def safe_patch(
 
                     event_logger.log_patch_function_start(args, kwargs)
 
-                    patch_function(call_original, *args, **kwargs)
+                    patch_result = patch_function(call_original, *args, **kwargs)
 
                     session.state = "succeeded"
                     event_logger.log_patch_function_success(args, kwargs)
@@ -507,6 +513,8 @@ def safe_patch(
                         )
                 try:
                     if original_has_been_called:
+                        if return_patch_result and patch_error is None:
+                            return patch_result
                         return original_result
                     else:
                         return call_original_fn_with_event_logging(original, args, kwargs)
@@ -578,6 +586,7 @@ def safe_patch(
             failed_during_original = False
             patch_function_run_for_testing = None
             patch_error = None
+            patch_result = None
 
             async with _AutologgingSessionManager.astart_session(
                 autologging_integration
@@ -631,7 +640,7 @@ def safe_patch(
 
                     event_logger.log_patch_function_start(args, kwargs)
 
-                    await patch_function(call_original, *args, **kwargs)
+                    patch_result = await patch_function(call_original, *args, **kwargs)
 
                     session.state = "succeeded"
                     event_logger.log_patch_function_success(args, kwargs)
@@ -657,6 +666,8 @@ def safe_patch(
                         )
                 try:
                     if original_has_been_called:
+                        if return_patch_result and patch_error is None:
+                            return patch_result
                         return original_result
                     else:
                         return await call_original_fn_with_event_logging(original, args, kwargs)
@@ -938,11 +949,33 @@ _VALIDATION_EXEMPT_ARGUMENTS = [
     ValidationExemptArgument(
         "anthropic", "create", lambda x: isinstance(x, (dict, type(None))), None, "extra_headers"
     ),
+    # Mistral and Groq also forward the client span's traceparent to the gateway. The
+    # SDKs accept mapping-valued headers, and the injected value may differ from the user input.
+    ValidationExemptArgument(
+        "mistral", "complete", lambda x: x is None or isinstance(x, Mapping), None, "http_headers"
+    ),
+    ValidationExemptArgument(
+        "mistral",
+        "complete_async",
+        lambda x: x is None or isinstance(x, Mapping),
+        None,
+        "http_headers",
+    ),
+    ValidationExemptArgument(
+        "groq", "create", lambda x: x is None or isinstance(x, Mapping), None, "extra_headers"
+    ),
     # Gemini header injection goes through config.http_options.headers. Config can be
     # None, a dict, or a Pydantic-style object with an http_options attribute.
     ValidationExemptArgument(
         "gemini",
         "_generate_content",
+        lambda x: x is None or isinstance(x, dict) or hasattr(x, "http_options"),
+        None,
+        "config",
+    ),
+    ValidationExemptArgument(
+        "gemini",
+        "_generate_content_stream",
         lambda x: x is None or isinstance(x, dict) or hasattr(x, "http_options"),
         None,
         "config",

@@ -10,8 +10,15 @@ import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
+import { virtualizedRenderer } from './artifactTextVirtualizedRenderer';
 
 const LARGE_ARTIFACT_SIZE = 100 * 1024;
+export const VERY_LARGE_ARTIFACT_SIZE = 5 * 1024 * 1024;
+// react-syntax-highlighter's processLines() flattens its line array with [].concat(...lines), which
+// exceeds the JS engine's max-arguments limit (~130K) and crashes. Byte size is only a loose proxy for
+// line count, so a small-but-line-heavy file can crash below VERY_LARGE_ARTIFACT_SIZE. Gate on line
+// count too, well below the crash limit, so the virtualized renderer also catches those files.
+export const VERY_LARGE_ARTIFACT_LINE_COUNT = 50 * 1000;
 
 type Props = DesignSystemHocProps & {
   runUuid: string;
@@ -33,6 +40,12 @@ class ShowArtifactTextView extends Component<Props, State> {
     this.fetchArtifacts = this.fetchArtifacts.bind(this);
   }
 
+  private artifactRequestId = 0;
+
+  componentWillUnmount() {
+    this.artifactRequestId += 1;
+  }
+
   static defaultProps = {
     getArtifact: fetchArtifactUnified,
   };
@@ -49,7 +62,13 @@ class ShowArtifactTextView extends Component<Props, State> {
   }
 
   componentDidUpdate(prevProps: Props) {
-    if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
+    if (
+      this.props.path !== prevProps.path ||
+      this.props.runUuid !== prevProps.runUuid ||
+      this.props.artifactRootUri !== prevProps.artifactRootUri ||
+      this.props.isLoggedModelsMode !== prevProps.isLoggedModelsMode ||
+      this.props.loggedModelId !== prevProps.loggedModelId
+    ) {
       this.fetchArtifacts();
     }
   }
@@ -59,7 +78,7 @@ class ShowArtifactTextView extends Component<Props, State> {
       return <ArtifactViewSkeleton className="artifact-text-view-loading" />;
     }
     if (this.state.error) {
-      return <ArtifactViewErrorState className="artifact-text-view-error" />;
+      return <ArtifactViewErrorState error={this.state.error} className="artifact-text-view-error" />;
     } else {
       const isLargeFile = (this.props.size || 0) > LARGE_ARTIFACT_SIZE;
       const language = isLargeFile ? 'text' : getLanguage(this.props.path);
@@ -82,10 +101,19 @@ class ShowArtifactTextView extends Component<Props, State> {
 
       const syntaxStyle = theme.isDarkMode ? darkStyle : style;
 
+      const isVeryLargeFile =
+        (this.props.size || 0) > VERY_LARGE_ARTIFACT_SIZE ||
+        exceedsLineCount(renderedContent, VERY_LARGE_ARTIFACT_LINE_COUNT);
+
       return (
         <div className="mlflow-ShowArtifactPage">
           <div className="text-area-border-box">
-            <SyntaxHighlighter language={language} style={syntaxStyle} customStyle={overrideStyles}>
+            <SyntaxHighlighter
+              language={language}
+              style={syntaxStyle}
+              customStyle={overrideStyles}
+              renderer={isVeryLargeFile ? virtualizedRenderer : undefined}
+            >
               {renderedContent ?? ''}
             </SyntaxHighlighter>
           </div>
@@ -96,19 +124,42 @@ class ShowArtifactTextView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    this.setState({ loading: true });
-    const { isLoggedModelsMode, loggedModelId, path, runUuid, experimentId, entityTags } = this.props;
+    const requestId = ++this.artifactRequestId;
+    this.setState({ loading: true, error: undefined });
+    const { artifactRootUri, isLoggedModelsMode, loggedModelId, path, runUuid } = this.props;
 
     this.props
-      .getArtifact?.({ isLoggedModelsMode, loggedModelId, path, runUuid, experimentId, entityTags }, getArtifactContent)
+      .getArtifact?.({ artifactRootUri, isLoggedModelsMode, loggedModelId, path, runUuid }, getArtifactContent)
       .then((text: string) => {
-        this.setState({ text: text, loading: false });
+        if (requestId !== this.artifactRequestId) return;
+        this.setState({ text, error: undefined, loading: false });
       })
       .catch((error: Error) => {
+        if (requestId !== this.artifactRequestId) return;
         this.setState({ error: error, loading: false });
       });
     this.setState({ path: this.props.path });
   }
+}
+
+/**
+ * Returns true once `text` has more than `limit` lines. Stops scanning as soon as the limit is
+ * exceeded so extremely long content does not pay for a full traversal.
+ */
+function exceedsLineCount(text: string | undefined, limit: number) {
+  if (!text) {
+    return false;
+  }
+  let count = 1;
+  let index = text.indexOf('\n');
+  while (index !== -1) {
+    count += 1;
+    if (count > limit) {
+      return true;
+    }
+    index = text.indexOf('\n', index + 1);
+  }
+  return false;
 }
 
 export function prettifyArtifactText(language: string, rawText: string, path?: string) {

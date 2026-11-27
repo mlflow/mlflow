@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mlflow.entities._job_status import JobStatus
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.builtin_scorers import Completeness, RelevanceToQuery
@@ -19,8 +20,9 @@ from mlflow.genai.scorers.job import (
 )
 from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.server.jobs import get_job, submit_job
+from mlflow.server.jobs.utils import register_periodic_tasks
 
-from tests.server.jobs.helpers import _setup_job_runner, wait_job_finalize
+from tests.server.jobs.helpers import RecordingHuey, _setup_job_runner, wait_job_finalize
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -39,6 +41,59 @@ def make_online_scorer_dict(scorer: Scorer, sample_rate: float = 1.0) -> dict[st
             "filter_string": None,
         },
     }
+
+
+def _judge_json(inference_params: dict[str, Any]) -> str:
+    return json.dumps({
+        "name": "steered",
+        "instructions_judge_pydantic_data": {
+            "instructions": "Is {{ outputs }} good?",
+            "model": "openai:/gpt-4",
+            "inference_params": inference_params,
+        },
+    })
+
+
+def _third_party_json(kwargs: dict[str, Any]) -> str:
+    return json.dumps({
+        "name": "steered",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.trulens",
+            "class": "Groundedness",
+            "metric_name": "Groundedness",
+            "model": "openai:/gpt-4",
+            "kwargs": kwargs,
+        },
+    })
+
+
+# The stored scorer, the reason the skip warning gives, and the stored value it must leave out.
+_SCORERS_WITH_DESTINATION_OPTIONS = [
+    pytest.param(
+        _judge_json({"api_base": "http://127.0.0.1:9/"}),
+        "inference_params must not contain 'api_base'",
+        "http://127.0.0.1:9/",
+        id="judge_api_base",
+    ),
+    pytest.param(
+        _third_party_json({"base_url": "http://127.0.0.1:9/"}),
+        "kwargs must not contain 'base_url'",
+        "http://127.0.0.1:9/",
+        id="third_party_base_url",
+    ),
+    pytest.param(
+        _judge_json({"vertex_location": "us-east-1.example.com"}),
+        "inference_params 'vertex_location' must contain only",
+        "us-east-1.example.com",
+        id="judge_region",
+    ),
+    pytest.param(
+        _third_party_json({"aws_region_name": "us-east-1.example.com"}),
+        "kwargs 'aws_region_name' must contain only",
+        "us-east-1.example.com",
+        id="third_party_region",
+    ),
+]
 
 
 def test_run_online_trace_scorer_job_calls_processor():
@@ -61,6 +116,39 @@ def test_run_online_trace_scorer_job_calls_processor():
         assert scorers[0].name == "completeness"
         assert store is mock_tracking_store
         mock_processor.process_traces.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("serialized_scorer", "reason", "stored_value"), _SCORERS_WITH_DESTINATION_OPTIONS
+)
+def test_run_online_trace_scorer_job_skips_scorer_with_destination_options(
+    serialized_scorer: str, reason: str, stored_value: str
+):
+    steered = {
+        **make_online_scorer_dict(Completeness()),
+        "name": "steered",
+        "serialized_scorer": serialized_scorer,
+    }
+
+    with (
+        patch("mlflow.genai.scorers.job._get_tracking_store"),
+        patch(
+            "mlflow.genai.scorers.online.trace_processor.OnlineTraceScoringProcessor.create"
+        ) as mock_create,
+        patch("mlflow.genai.scorers.job._logger") as mock_logger,
+    ):
+        run_online_trace_scorer_job(
+            experiment_id="exp1",
+            online_scorers=[steered, make_online_scorer_dict(Completeness())],
+        )
+
+    _, scorers, _ = mock_create.call_args[0]
+    assert [s.name for s in scorers] == ["completeness"]
+    mock_logger.warning.assert_called_once()
+    message = mock_logger.warning.call_args[0][0]
+    assert "steered" in message
+    assert reason in message
+    assert stored_value not in message
 
 
 def test_run_online_trace_scorer_job_runs_exclusively_per_experiment(monkeypatch, tmp_path: Path):
@@ -275,3 +363,179 @@ def test_scheduler_skips_invalid_scorers():
         mock_logger.warning.assert_called_once()
         assert "invalid_scorer" in mock_logger.warning.call_args[0][0]
         assert mock_submit.call_count == 1  # Only valid scorer submitted
+
+
+@pytest.mark.parametrize(
+    ("serialized_scorer", "reason", "stored_value"), _SCORERS_WITH_DESTINATION_OPTIONS
+)
+def test_scheduler_skips_scorer_with_destination_options(
+    serialized_scorer: str, reason: str, stored_value: str
+):
+    def _online_scorer(name, serialized):
+        return OnlineScorer(
+            name=name,
+            serialized_scorer=serialized,
+            online_config=OnlineScoringConfig(
+                online_scoring_config_id=uuid.uuid4().hex,
+                scorer_id=uuid.uuid4().hex,
+                sample_rate=1.0,
+                experiment_id="exp1",
+                filter_string=None,
+            ),
+        )
+
+    mock_store = MagicMock()
+    mock_store.get_active_online_scorers.return_value = [
+        _online_scorer("steered", serialized_scorer),
+        _online_scorer("completeness", json.dumps(Completeness().model_dump())),
+    ]
+
+    with (
+        patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_store),
+        patch("mlflow.genai.scorers.job.submit_job") as mock_submit,
+        patch("mlflow.genai.scorers.job._logger") as mock_logger,
+    ):
+        run_online_scoring_scheduler()
+
+    mock_submit.assert_called_once()
+    job_fn, params = mock_submit.call_args.args
+    assert job_fn is run_online_trace_scorer_job
+    assert [s["name"] for s in params["online_scorers"]] == ["completeness"]
+    mock_logger.warning.assert_called_once()
+    message = mock_logger.warning.call_args[0][0]
+    assert "steered" in message
+    assert reason in message
+    assert stored_value not in message
+
+
+def test_scheduler_skips_disabled_custom_scorer_without_aborting(monkeypatch):
+    # In a server process a disabled custom scorer deserializes as non-executing metadata (no raise
+    # at classification), so it must be filtered before submit_job. Otherwise submit_job's
+    # custom-scorer rejection would raise and abort the whole scheduling pass, skipping the
+    # built-in scorers too.
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "test-boot")
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+
+    def _online_scorer(name, serialized):
+        return OnlineScorer(
+            name=name,
+            serialized_scorer=serialized,
+            online_config=OnlineScoringConfig(
+                online_scoring_config_id=uuid.uuid4().hex,
+                scorer_id=uuid.uuid4().hex,
+                sample_rate=1.0,
+                experiment_id="exp1",
+                filter_string=None,
+            ),
+        )
+
+    custom = _online_scorer(
+        "custom",
+        json.dumps({
+            "name": "custom",
+            "call_source": "return len(str(outputs))",
+            "call_signature": "(outputs)",
+            "original_func_name": "custom",
+        }),
+    )
+    builtin = _online_scorer("completeness", json.dumps(Completeness().model_dump()))
+
+    mock_tracking_store = MagicMock()
+    mock_tracking_store.get_active_online_scorers.return_value = [custom, builtin]
+
+    with (
+        patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_tracking_store),
+        patch("mlflow.genai.scorers.job.submit_job") as mock_submit_job,
+    ):
+        run_online_scoring_scheduler()
+
+    submitted = {
+        s["name"] for call in mock_submit_job.call_args_list for s in call.args[1]["online_scorers"]
+    }
+    assert "completeness" in submitted
+    assert "custom" not in submitted
+
+
+def test_scheduler_routes_enabled_session_level_custom_scorer_to_session_job(monkeypatch):
+    # In a server process an enabled custom scorer deserializes as non-executing metadata, which
+    # must still carry is_session_level_scorer so the scheduler submits it to the session job.
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "test-boot")
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+
+    session_custom = OnlineScorer(
+        name="session_custom",
+        serialized_scorer=json.dumps({
+            "name": "session_custom",
+            "is_session_level_scorer": True,
+            "call_source": "return len(session)",
+            "call_signature": "(session)",
+            "original_func_name": "session_custom",
+        }),
+        online_config=OnlineScoringConfig(
+            online_scoring_config_id=uuid.uuid4().hex,
+            scorer_id=uuid.uuid4().hex,
+            sample_rate=1.0,
+            experiment_id="exp1",
+            filter_string=None,
+        ),
+    )
+    mock_tracking_store = MagicMock()
+    mock_tracking_store.get_active_online_scorers.return_value = [session_custom]
+
+    with (
+        patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_tracking_store),
+        patch("mlflow.genai.scorers.job.submit_job") as mock_submit_job,
+    ):
+        run_online_scoring_scheduler()
+
+    mock_submit_job.assert_called_once()
+    job_fn, params = mock_submit_job.call_args.args
+    assert job_fn is run_online_session_scorer_job
+    assert [s["name"] for s in params["online_scorers"]] == ["session_custom"]
+
+
+def _online_scoring_scheduler_task():
+    huey = RecordingHuey()
+    register_periodic_tasks(huey)
+    return huey.tasks["online_scoring_scheduler"][1]
+
+
+class _DockerError(Exception):
+    def __init__(self):
+        # A message with a memory address that differs each time, like a wrapped exception's.
+        # The object is kept alive so that its address is not reused.
+        self.cause = object()
+        super().__init__(f"cannot reach the Docker daemon: <object at {hex(id(self.cause))}>")
+
+
+def test_online_scoring_scheduler_logs_a_repeated_failure_once(caplog):
+    other = MlflowException("The tracking store is unavailable")
+    errors = [_DockerError(), _DockerError(), _DockerError(), None, None, _DockerError(), other]
+    task = _online_scoring_scheduler_task()
+
+    with (
+        patch("mlflow.genai.scorers.job.run_online_scoring_scheduler", side_effect=errors),
+        caplog.at_level("DEBUG", logger="mlflow.server.jobs.utils"),
+    ):
+        for _ in errors:
+            task()
+
+    docker_errors = [e for e in errors if isinstance(e, _DockerError)]
+    assert len({str(e) for e in docker_errors}) == len(docker_errors)
+    records = [r for r in caplog.records if "Online scoring scheduler" in r.getMessage()]
+    levels = [(r.levelname, "Docker" in r.getMessage()) for r in records]
+    # Logged when the outage starts, at debug while it repeats, once when it recovers, again
+    # when it starts again, and for a new error.
+    assert levels == [
+        ("ERROR", True),
+        ("DEBUG", True),
+        ("DEBUG", True),
+        ("INFO", True),
+        ("ERROR", True),
+        ("ERROR", False),
+    ]
+    assert all(r.exc_info for r in records if r.levelname == "ERROR")
+    assert "is not logged again while it repeats" in records[0].getMessage()
+    assert "recovered" in records[3].getMessage()

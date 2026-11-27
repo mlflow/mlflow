@@ -228,6 +228,7 @@ export const useMlflowTracesTableMetadata = ({
   networkFilters,
   filterByAssessmentSourceRun = false,
   showConsolidatedResultColumn = false,
+  scorerDescriptionsByName,
 }: {
   locations: ModelTraceSearchLocation[];
   runUuid?: string;
@@ -259,6 +260,13 @@ export const useMlflowTracesTableMetadata = ({
    * trace's assertions pass) used by the regression-test view.
    */
   showConsolidatedResultColumn?: boolean;
+  /**
+   * Optional map from scorer name to description string. When provided, custom scorers
+   * (source_type === 'CODE') will display their description in the column header tooltip
+   * instead of the generic "This assessment is produced by a custom metric." message.
+   * Populate by parsing the serialized_scorer.description field from the listScorers API.
+   */
+  scorerDescriptionsByName?: Record<string, string>;
 }) => {
   const intl = useIntl();
   const filter = createMlflowSearchFilter(runUuid, timeRange, networkFilters, filterByLoggedModelId);
@@ -322,8 +330,8 @@ export const useMlflowTracesTableMetadata = ({
   }, [filteredOtherTraces, isOtherInnerLoading, otherError, otherRunUuid, showConsolidatedResultColumn]);
 
   const assessmentInfos = useMemo(() => {
-    return getAssessmentInfos(intl, evaluatedTraces || [], otherEvaluatedTraces || []);
-  }, [intl, evaluatedTraces, otherEvaluatedTraces]);
+    return getAssessmentInfos(intl, evaluatedTraces || [], otherEvaluatedTraces || [], scorerDescriptionsByName);
+  }, [intl, evaluatedTraces, otherEvaluatedTraces, scorerDescriptionsByName]);
 
   const tableFilterOptions = useMemo(() => {
     // Add source options

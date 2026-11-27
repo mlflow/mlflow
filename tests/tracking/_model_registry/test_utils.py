@@ -6,10 +6,12 @@ import pytest
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store._unity_catalog.registry.uc_native_rest_store import UcNativeModelRegistryStore
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._model_registry.utils import (
+    _get_databricks_uc_rest_store,
     _get_store,
     _resolve_registry_uri,
     get_registry_uri,
@@ -328,6 +330,20 @@ def test_get_store_caches_on_store_uri(tmp_path):
 @pytest.mark.parametrize("store_uri", ["databricks-uc", "databricks-uc://profile"])
 def test_get_store_uc_registry_uri(store_uri):
     assert isinstance(_get_store(store_uri), UcModelRegistryStore)
+
+
+def test_databricks_uc_store_defaults_to_legacy(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY", raising=False)
+    store = _get_databricks_uc_rest_store("databricks-uc", "databricks-uc")
+    assert type(store) is UcModelRegistryStore
+
+
+def test_databricks_uc_store_selects_native_when_enabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_UC_NATIVE_MODEL_REGISTRY", "true")
+    store = _get_databricks_uc_rest_store("databricks-uc", "databricks-uc")
+    assert type(store) is UcNativeModelRegistryStore
+    # The native store is a subclass of the legacy store (shared prompt / helper behavior).
+    assert isinstance(store, UcModelRegistryStore)
 
 
 def test_store_object_can_be_serialized_by_pickle():

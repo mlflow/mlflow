@@ -49,6 +49,12 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
 
   const [name, setName] = useState('');
   const [workspace, setWorkspace] = useState(DEFAULT_WORKSPACE_NAME);
+  // In single-tenant mode there is no workspace dimension — pass ``undefined``
+  // to the resource picker so the ``X-MLFLOW-WORKSPACE`` header is omitted
+  // (the server rejects any workspace header, including ``default``, when
+  // workspaces are disabled). The create request keeps the explicit
+  // ``workspace`` body field, which the backend requires in both modes.
+  const resourcePickerWorkspace = workspacesEnabled ? workspace : undefined;
   const [description, setDescription] = useState('');
   const [permissions, setPermissions] = useState<StagedRolePermission[]>([]);
   const [usernames, setUsernames] = useState<string[]>([]);
@@ -262,7 +268,7 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
           key={String(open)}
           value={permissions}
           onChange={setPermissions}
-          workspace={workspace}
+          workspace={resourcePickerWorkspace}
           disabled={submitting}
           onUnsavedDraftChange={setHasUnsavedDraft}
         />
@@ -271,7 +277,12 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
         <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
           Assign one or more users to this role. You can assign more later from the role detail page.
         </Typography.Text>
-        <RoleUsersSection value={usernames} onChange={setUsernames} disabled={submitting} />
+        <RoleUsersSection
+          value={usernames}
+          onChange={setUsernames}
+          disabled={submitting}
+          workspace={resourcePickerWorkspace}
+        />
       </LongFormSection>
       {/* Discard-confirm gate: only intercepts when ``hasUnsavedDraft`` is
           true (any field touched in the permission picker without a

@@ -11,7 +11,14 @@ if [ "${CI:-}" != "true" ]; then
 fi
 
 DOWNLOAD_URL="https://downloads.claude.ai/claude-code-releases"
-PLATFORM="linux-x64"
+case "$(uname -m)" in
+  x86_64) PLATFORM="linux-x64" ;;
+  aarch64 | arm64) PLATFORM="linux-arm64" ;;
+  *)
+    echo "Error: unsupported architecture $(uname -m)" >&2
+    exit 1
+    ;;
+esac
 
 VERSION="$(curl -fsSL --retry 3 --retry-delay 2 "$DOWNLOAD_URL/latest")"
 CHECKSUM="$(curl -fsSL --retry 3 --retry-delay 2 "$DOWNLOAD_URL/$VERSION/manifest.json" \

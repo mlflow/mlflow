@@ -10,6 +10,8 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from time import sleep
+from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 
@@ -32,8 +34,21 @@ def get_tracked_python_files() -> list[Path]:
 
 def get_mlflow_release_dates() -> dict[str, datetime]:
     """Fetch MLflow release dates from PyPI API."""
-    with urlopen("https://pypi.org/pypi/mlflow/json") as response:
-        data = json.loads(response.read().decode())
+    for attempt in range(3):
+        try:
+            with urlopen("https://pypi.org/pypi/mlflow/json", timeout=10) as response:
+                payload = response.read()
+            break
+        except HTTPError as exc:
+            if exc.code != 429 and not 500 <= exc.code < 600:
+                raise
+            if attempt == 2:
+                raise
+        except (URLError, TimeoutError, ConnectionError):
+            if attempt == 2:
+                raise
+        sleep(2**attempt)
+    data = json.loads(payload.decode())
 
     release_dates: dict[str, datetime] = {}
     for version, releases in data["releases"].items():

@@ -1,6 +1,7 @@
 import inspect
 import json
 import logging
+from contextlib import contextmanager
 from functools import singledispatchmethod
 from typing import Any, Generator
 
@@ -41,7 +42,31 @@ from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_tools
 
+try:
+    from llama_index.core.instrumentation.span import active_span_id
+except ImportError:
+    # Older LlamaIndex releases do not expose the instrumentation context variable.
+    active_span_id = None
+
 _logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _stream_span_context(span: LiveSpan, llama_span_id: str | None):
+    mlflow_token = set_span_in_context(span)
+    try:
+        llama_token = (
+            active_span_id.set(llama_span_id)
+            if active_span_id and llama_span_id is not None
+            else None
+        )
+        try:
+            yield
+        finally:
+            if llama_token:
+                active_span_id.reset(llama_token)
+    finally:
+        detach_span_from_context(mlflow_token)
 
 
 def _get_llama_index_version() -> Version:
@@ -173,7 +198,10 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         return "MlflowSpanHandler"
 
     def get_span_for_event(self, event: BaseEvent) -> LiveSpan:
-        llama_span = self.open_spans.get(event.span_id) or self._pending_spans.get(event.span_id)
+        with self.lock:
+            llama_span = self.open_spans.get(event.span_id) or self._pending_spans.get(
+                event.span_id
+            )
         return llama_span._mlflow_span if llama_span else None
 
     def new_span(
@@ -185,7 +213,11 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         **kwargs: Any,
     ) -> _LlamaSpan:
         with self.lock:
-            parent = self.open_spans.get(parent_span_id) if parent_span_id else None
+            parent = (
+                self.open_spans.get(parent_span_id) or self._pending_spans.get(parent_span_id)
+                if parent_span_id
+                else None
+            )
 
         parent_span = parent._mlflow_span if parent else mlflow.get_current_active_span()
 
@@ -241,17 +273,27 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                     detach_span_from_context(token)
                 return None  # Keep the span in open_spans
             elif self._stream_resolver.is_streaming_result(result):
-                # If the result is a generator, we keep the span in progress for streaming
-                # and end it when the generator is exhausted.
-                is_pended = self._stream_resolver.register_stream_span(span, result)
-                if is_pended:
-                    self._pending_spans[id_] = llama_span
-                    # We still need to detach the span from the context, otherwise it will
-                    # be considered as "active"
-                    detach_span_from_context(token)
-                else:
-                    # If the span is not pended successfully, end it immediately
-                    _end_span(span=span, outputs=result, token=token)
+                # In llama-index-core >= 0.14.17 a descendant LLM stream may be resolved
+                # before this ancestor span exits. If so, its resolution was already recorded
+                # and we close it here instead of pending it (which would leave it open and
+                # the trace stuck in IN_PROGRESS).
+                if not self._stream_resolver.resolve_pending_parent(
+                    span, token=token, open_span_ids=self._open_mlflow_span_ids()
+                ):
+                    # If the result is a generator, we keep the span in progress for streaming
+                    # and end it when the generator is exhausted.
+                    is_pended = self._stream_resolver.register_stream_span(
+                        span, result, llama_span_id=id_
+                    )
+                    if is_pended:
+                        with self.lock:
+                            self._pending_spans[id_] = llama_span
+                        # We still need to detach the span from the context, otherwise it will
+                        # be considered as "active"
+                        detach_span_from_context(token)
+                    else:
+                        # If the span is not pended successfully, end it immediately
+                        _end_span(span=span, outputs=result, token=token)
             else:
                 _end_span(span=span, outputs=result, token=token)
 
@@ -283,8 +325,18 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
 
     def resolve_pending_stream_span(self, span: LiveSpan, event: Any):
         """End the pending streaming span(s)"""
-        self._stream_resolver.resolve(span, event)
-        self._pending_spans.pop(event.span_id, None)
+        self._stream_resolver.resolve(span, event, open_span_ids=self._open_mlflow_span_ids())
+        with self.lock:
+            self._pending_spans.pop(event.span_id, None)
+
+    def _open_mlflow_span_ids(self) -> set[str]:
+        """MLflow span IDs of the currently open (still executing) LlamaIndex spans."""
+        with self.lock:
+            return {
+                llama_span._mlflow_span.span_id
+                for llama_span in self.open_spans.values()
+                if llama_span is not None and llama_span._mlflow_span is not None
+            }
 
     def prepare_to_drop_span(self, id_: str, err: Exception | None, **kwargs) -> _LlamaSpan:
         """Logic for handling errors during the model execution."""
@@ -567,7 +619,13 @@ class StreamResolver:
     """
 
     def __init__(self):
-        self._span_id_to_span_and_gen: dict[str, tuple[LiveSpan, Generator]] = {}
+        self._span_id_to_span_and_gen: dict[str, tuple[LiveSpan, Generator, str | None]] = {}
+        # Maps a span_id -> (status, output_text) for ancestor spans whose descendant
+        # stream was resolved before the ancestor exited and registered as a pending
+        # stream. In llama-index-core >= 0.14.17, the LLM stream end event can fire and
+        # resolve the stream before the enclosing query-engine spans exit. Such ancestors
+        # are closed immediately when they register instead of being left open forever.
+        self._pending_parent_resolutions: dict[str, tuple[SpanStatusCode, str | None]] = {}
 
     def is_streaming_result(self, result: Any) -> bool:
         return (
@@ -580,13 +638,17 @@ class StreamResolver:
             )
         )
 
-    def register_stream_span(self, span: LiveSpan, result: Any) -> bool:
+    def register_stream_span(
+        self, span: LiveSpan, result: Any, llama_span_id: str | None = None
+    ) -> bool:
         """
         Register the pending streaming span with the associated generator.
 
         Args:
             span: The span that has a streaming output.
             result: The streaming result that is being processed.
+            llama_span_id: The corresponding LlamaIndex span ID, used to restore its
+                context while a deferred response generator runs.
 
         Returns:
             True if the span is registered successfully, False otherwise.
@@ -613,15 +675,121 @@ class StreamResolver:
             if inspect.getgeneratorstate(stream) == inspect.GEN_CLOSED:
                 return False
 
-        self._span_id_to_span_and_gen[span.span_id] = (span, stream)
+        if isinstance(result, (StreamingResponse, AsyncStreamingResponse)):
+            # A response synthesizer can return a generator that was created by an
+            # already-pending child span. LlamaIndex resumes that generator after it
+            # has reset its span context, so work performed while streaming would
+            # otherwise start a new MLflow trace. Restore the innermost pending
+            # span's context only while advancing the generator.
+            parent_span, parent_llama_span_id = next(
+                (
+                    (pending_span, pending_llama_span_id)
+                    for pending_span, pending_stream, pending_llama_span_id in (
+                        self._span_id_to_span_and_gen.values()
+                    )
+                    if pending_stream is stream
+                ),
+                (span, llama_span_id),
+            )
+            stream = self._with_span_context(stream, parent_span, parent_llama_span_id)
+            result.response_gen = stream
+        self._span_id_to_span_and_gen[span.span_id] = (span, stream, llama_span_id)
         return True
 
-    def resolve(self, span: LiveSpan, event: _StreamEndEvent):
+    @staticmethod
+    def _with_span_context(
+        stream: Generator, span: LiveSpan, llama_span_id: str | None
+    ) -> Generator:
+        if inspect.isasyncgen(stream):
+
+            async def async_generator():
+                while True:
+                    try:
+                        with _stream_span_context(span, llama_span_id):
+                            chunk = await stream.__anext__()
+                    except StopAsyncIteration:
+                        return
+                    yield chunk
+
+            return async_generator()
+
+        def generator():
+            while True:
+                try:
+                    with _stream_span_context(span, llama_span_id):
+                        chunk = next(stream)
+                except StopIteration:
+                    return
+                yield chunk
+
+        return generator()
+
+    def _record_pending_resolution(
+        self,
+        parent_id: str | None,
+        resolution: tuple[SpanStatusCode, str | None],
+        open_span_ids: set[str] | None,
+    ) -> None:
+        """
+        Record a resolution for an ancestor span that has not registered as a pending
+        stream yet, so it is closed immediately when it exits (see resolve_pending_parent).
+
+        Only record when the parent genuinely still needs resolving, i.e. it is still open
+        (executing) and awaiting resolution. A parent that is absent (root, parent_id is
+        None) or already closed does not need resolving through this mechanism, and
+        recording for it would leave a stale entry that could later close an unrelated span.
+        """
+        if parent_id is None:
+            return
+        if open_span_ids is not None and parent_id not in open_span_ids:
+            return
+        self._pending_parent_resolutions[parent_id] = resolution
+
+    def resolve_pending_parent(
+        self,
+        span: LiveSpan,
+        token: Any | None = None,
+        open_span_ids: set[str] | None = None,
+    ) -> bool:
+        """
+        Close a span whose descendant stream was already resolved out-of-order.
+
+        In llama-index-core >= 0.14.17 the LLM stream end event can fire before the
+        enclosing query-engine spans exit. When that happens, `resolve()` records the
+        resolution for the not-yet-registered ancestor. This method is called when such
+        an ancestor finally exits: it closes the span immediately (detaching its OTel
+        token) instead of pending it, and propagates the resolution to the next ancestor
+        so the whole chain is finalized as each span exits.
+
+        Args:
+            span: The span that is about to be pended as a stream.
+            token: The OTel context token for the span, detached when the span is closed.
+            open_span_ids: MLflow span IDs of the currently open spans, used to decide
+                whether the next ancestor still needs a recorded resolution.
+
+        Returns:
+            True if a recorded resolution was found and the span was closed, False otherwise.
+        """
+        resolution = self._pending_parent_resolutions.pop(span.span_id, None)
+        if resolution is None:
+            return False
+
+        status, output_text = resolution
+        # The span was never pended, so it still holds an active OTel token. End it once
+        # here (passing the token so it is detached) and do not register/pend it again.
+        _end_span(span=span, status=status, outputs=output_text, token=token)
+
+        self._record_pending_resolution(span.parent_id, resolution, open_span_ids)
+        return True
+
+    def resolve(
+        self, span: LiveSpan, event: _StreamEndEvent, open_span_ids: set[str] | None = None
+    ):
         """
         Finish the streaming span and recursively resolve the parent spans that
         returns the same (or derived) stream.
         """
-        _, stream = self._span_id_to_span_and_gen.pop(span.span_id, (None, None))
+        _, stream, _ = self._span_id_to_span_and_gen.pop(span.span_id, (None, None, None))
         if not stream:
             return
 
@@ -649,8 +817,18 @@ class StreamResolver:
         # stream to be exhausted.
         while span.parent_id in self._span_id_to_span_and_gen:
             if span_and_stream := self._span_id_to_span_and_gen.pop(span.parent_id, None):
-                span, stream = span_and_stream
+                span, stream, _ = span_and_stream
                 # We reuse the same output text for parent spans. This may not be 100% correct
                 # as token stream can be modified by callers. However, it is technically
                 # challenging to track the modified stream across multiple spans.
                 _end_span(span=span, status=status, outputs=output_text)
+
+        # In llama-index-core >= 0.14.17 the LLM stream end event can fire before the
+        # enclosing query-engine spans exit and register as pending streams. Record the
+        # resolution for the first ancestor that has not registered yet so it can be
+        # closed immediately when it exits (see resolve_pending_parent). Without this, such
+        # ancestors would stay open and the trace would be stuck in the IN_PROGRESS state.
+        # On the fully-resolved path (all ancestors already closed by the loop above), the
+        # loop stops at the root or a non-streaming ancestor that no longer needs resolving,
+        # so _record_pending_resolution skips it.
+        self._record_pending_resolution(span.parent_id, (status, output_text), open_span_ids)

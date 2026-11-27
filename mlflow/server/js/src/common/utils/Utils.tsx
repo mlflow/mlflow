@@ -14,6 +14,7 @@ import { ErrorCodes, SupportPageUrl } from '../constants';
 import type { IntlShape } from 'react-intl';
 import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
+import { NetworkRequestError } from '@databricks/web-shared/errors';
 import type { RunInfoEntity } from '../../experiment-tracking/types';
 import type { KeyValueEntity } from '../types';
 import { NOTE_CONTENT_TAG } from '../../experiment-tracking/utils/NoteUtils';
@@ -320,7 +321,7 @@ class Utils {
         url += `/tree/${branchName}/${fileDir}`;
       }
     }
-    return url;
+    return url && Utils.isValidHttpUrl(url) ? url : null;
   }
 
   static getGitCommitUrl(sourceName: any, sourceVersion: any) {
@@ -345,7 +346,7 @@ class Utils {
       const [, baseUrl, repoDir, fileDir] = gitMatch;
       url = `${baseUrl.replace(/git@/, 'https://')}/${repoDir.replace(/.git/, '')}/tree/${sourceVersion}/${fileDir}`;
     }
-    return url;
+    return url && Utils.isValidHttpUrl(url) ? url : null;
   }
 
   static getQueryParams = () => {
@@ -1012,6 +1013,8 @@ class Utils {
     } else if (e instanceof ErrorWrapper) {
       // not all error is wrapped by ErrorWrapper
       Utils.displayGlobalErrorNotification(e.renderHttpError(), duration);
+    } else if (e instanceof NetworkRequestError) {
+      Utils.displayGlobalErrorNotification(e.displayMessage, duration);
       // eslint-disable-next-line no-empty
     } else {
     }

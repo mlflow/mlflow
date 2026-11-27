@@ -3,6 +3,7 @@ import {
   INVALID_SPANID,
   INVALID_TRACEID,
   SpanStatusCode as OTelSpanStatusCode,
+  TraceFlags,
 } from '@opentelemetry/api';
 import type { Span as OTelSpan } from '@opentelemetry/sdk-trace-base';
 import {
@@ -11,9 +12,12 @@ import {
   SpanType,
   toSpanLogLevel,
   NO_OP_SPAN_TRACE_ID,
+  TRACE_ID_PREFIX,
 } from '../constants';
 import { defaultLogLevelForSpanType } from '../log_level';
+import { parseTraceIdV4 } from '../utils/trace_id';
 import { SpanEvent } from './span_event';
+import { SpanLink, SerializedSpanLink } from './span_link';
 import { SpanStatus, SpanStatusCode } from './span_status';
 import {
   convertHrTimeToNanoSeconds,
@@ -70,6 +74,11 @@ export interface ISpan {
   get events(): SpanEvent[];
 
   /**
+   * Get links from the span
+   */
+  get links(): SpanLink[];
+
+  /**
    * Convert this span to JSON format
    * @returns JSON object representation of the span
    */
@@ -82,6 +91,7 @@ export interface ISpan {
 export class Span implements ISpan {
   readonly _span: OTelSpan;
   readonly _attributesRegistry: SpanAttributesRegistry;
+  _links: SpanLink[] = [];
 
   // Internal only flag to allow mutating the ended span. This is used to set the custom attributes
   // from span processor's onEnd hook. The hook is invoked after the span is ended and OpenTelemetry
@@ -100,6 +110,17 @@ export class Span implements ISpan {
       this._attributesRegistry = new SpanAttributesRegistry(span);
     } else {
       this._attributesRegistry = new CachedSpanAttributesRegistry(span);
+    }
+
+    if (span.links?.length) {
+      this._links = span.links.map(
+        (link) =>
+          new SpanLink({
+            traceId: link.context.traceId,
+            spanId: link.context.spanId,
+            attributes: (link.attributes as Record<string, any>) ?? {},
+          }),
+      );
     }
   }
 
@@ -127,7 +148,12 @@ export class Span implements ISpan {
    * Get the parent span ID
    */
   get parentId(): string | null {
-    return this._span.parentSpanContext?.spanId ?? null;
+    const parent = this._span.parentSpanContext;
+    // A remote parent belongs to the caller's process, so it is not part of this MLflow trace
+    if (!parent?.spanId || parent.isRemote) {
+      return null;
+    }
+    return parent.spanId;
   }
 
   get name(): string {
@@ -175,6 +201,17 @@ export class Span implements ISpan {
     });
   }
 
+  get links(): SpanLink[] {
+    return this._links.map(
+      (link) =>
+        new SpanLink({
+          traceId: link.traceId,
+          spanId: link.spanId,
+          attributes: JSON.parse(JSON.stringify(link.attributes)),
+        }),
+    );
+  }
+
   /**
    * Convert this span to JSON format (OpenTelemetry format)
    * @returns JSON object representation of the span
@@ -198,6 +235,7 @@ export class Span implements ISpan {
         time_unix_nano: event.timestamp,
         attributes: event.attributes || {},
       })),
+      links: this._links.map((link) => link.toJson()),
     };
   }
 
@@ -245,7 +283,13 @@ export class Span implements ISpan {
     };
 
     // Create a span that behaves like our Span class but from downloaded data
-    return new Span(otelSpanData as OTelSpan, false); // false = immutable
+    const span = new Span(otelSpanData as OTelSpan, false); // false = immutable
+
+    if (json.links) {
+      span._links = json.links.map((link) => SpanLink.fromJson(link));
+    }
+
+    return span;
   }
 }
 
@@ -366,6 +410,37 @@ export class LiveSpan extends Span {
   }
 
   /**
+   * Add a link to another span
+   * @param link SpanLink object describing the linked span
+   */
+  addLink(link: SpanLink): void {
+    if (!this._span.isRecording()) {
+      return;
+    }
+
+    const copiedLink = new SpanLink({
+      traceId: link.traceId,
+      spanId: link.spanId,
+      attributes: JSON.parse(JSON.stringify(link.attributes)),
+    });
+    this._links.push(copiedLink);
+
+    const [, rawId] = parseTraceIdV4(copiedLink.traceId);
+    const hexTraceId = rawId?.startsWith(TRACE_ID_PREFIX)
+      ? rawId.slice(TRACE_ID_PREFIX.length)
+      : (rawId ?? copiedLink.traceId);
+
+    this._span.addLink({
+      context: {
+        traceId: hexTraceId,
+        spanId: copiedLink.spanId,
+        traceFlags: TraceFlags.SAMPLED,
+      },
+      attributes: copiedLink.attributes,
+    });
+  }
+
+  /**
    * Record an exception event to the span
    * @param error Error object
    */
@@ -453,6 +528,7 @@ export class LiveSpan extends Span {
 export class NoOpSpan implements ISpan {
   readonly _span: any; // Use any for NoOp span to avoid type conflicts
   readonly _attributesRegistry: SpanAttributesRegistry;
+  _links: SpanLink[] = [];
 
   allowMutatingEndedSpan: boolean = false;
 
@@ -519,6 +595,7 @@ export class NoOpSpan implements ISpan {
   setAttributes(_attributes: Record<string, any>): void {}
   setStatus(_status: SpanStatus | SpanStatusCode | string, _description?: string): void {}
   addEvent(_event: SpanEvent): void {}
+  addLink(_link: SpanLink): void {}
   recordException(_error: Error): void {}
   end(
     _outputs?: any,
@@ -528,6 +605,10 @@ export class NoOpSpan implements ISpan {
   ): void {}
 
   get events(): SpanEvent[] {
+    return [];
+  }
+
+  get links(): SpanLink[] {
     return [];
   }
 
@@ -542,6 +623,7 @@ export class NoOpSpan implements ISpan {
       status: { code: 'UNSET', message: '' },
       attributes: {},
       events: [],
+      links: [],
     };
   }
 }
@@ -564,6 +646,7 @@ export interface SerializedSpan {
     time_unix_nano: bigint;
     attributes: Record<string, any>;
   }[];
+  links?: SerializedSpanLink[];
 }
 
 /**

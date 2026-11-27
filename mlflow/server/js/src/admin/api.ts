@@ -149,10 +149,11 @@ export const AdminApi = {
   },
 
   // User CRUD (admin-only)
-  listUsers: () => {
+  listUsers: (workspace?: string) => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/2.0/mlflow/users/list',
       error: defaultErrorHandler,
+      ...workspaceHeader(workspace),
     }) as Promise<ListUsersResponse>;
   },
 
@@ -298,12 +299,22 @@ export const AdminApi = {
       ...workspaceHeader(workspace),
     }) as Promise<{ registered_models?: { name: string }[] }>;
   },
+
+  // The server only returns skills the caller can read, filtered before
+  // pagination, so the picker never offers a skill the admin can't see.
+  listSkillsLite: (workspace?: string) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/skills?max_results=1000',
+      error: defaultErrorHandler,
+      ...workspaceHeader(workspace),
+    }) as Promise<{ skills?: { name: string; organization?: string }[] }>;
+  },
 };
 
 // Override ``X-MLFLOW-WORKSPACE`` per request; ``fetchEndpoint`` merges
 // ``headerOptions`` after the defaults. ``!== undefined`` (not truthy) so a
 // bogus ``''`` surfaces as a 4xx instead of inheriting the session workspace.
-const workspaceHeader = (workspace?: string): { headerOptions?: Record<string, string> } =>
+export const workspaceHeader = (workspace?: string): { headerOptions?: Record<string, string> } =>
   workspace !== undefined ? { headerOptions: { 'X-MLFLOW-WORKSPACE': workspace } } : {};
 
 /** Shape of one scorer row from the generic ``ListScorers`` response. */

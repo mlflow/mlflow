@@ -1,6 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 import { buildInstrumentPrompt, buildInstrumentAssistantPrompt } from '../traces/quickstart/tracesAgentPrompt';
 import {
+  buildAnalyzeEvaluationRunAssistantPrompt,
   buildEvaluatePrompt,
   buildEvaluateAssistantPrompt,
 } from '../../pages/experiment-evaluation-runs/evalRunsAgentPrompt';
@@ -47,6 +48,12 @@ describe('assistant prompt builders', () => {
     expect(out).toContain('Target experiment ID: 42.');
     expect(out).toContain('mlflow skills list');
     expect(out).toContain('Ask');
+  });
+
+  it('build_analyze_evaluation_run_assistant_prompt interpolates the run ID', () => {
+    expect(buildAnalyzeEvaluationRunAssistantPrompt('run-123')).toBe(
+      'Analyze evaluation run run-123 and provide insights on the results',
+    );
   });
 
   it('build_create_prompt_assistant_prompt walks the 6 steps and points to mlflow skills list', () => {

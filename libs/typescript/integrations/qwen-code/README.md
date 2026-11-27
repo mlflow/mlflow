@@ -1,6 +1,6 @@
 # MLflow Typescript SDK - Qwen Code
 
-Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with [Qwen Code](https://github.com/QwenLM/qwen-code) to automatically trace your Qwen Code coding-agent conversations, including user prompts, assistant responses, tool usage, and token consumption.
+Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/master/libs/typescript) with [Qwen Code](https://github.com/QwenLM/qwen-code) to automatically trace your Qwen Code coding-agent conversations, including user prompts, assistant responses, tool usage, and token consumption.
 
 | Package                 | NPM                                                                                                                                     | Description                                     |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
@@ -23,7 +23,7 @@ pip install mlflow
 mlflow server --port 5000
 ```
 
-Self-hosting MLflow server requires Python 3.10 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
+Self-hosting MLflow server requires Python 3.11 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
 
 Run the interactive setup. It registers a Qwen Code `Stop` hook and writes your tracking URI / experiment ID into Qwen Code's config directory:
 

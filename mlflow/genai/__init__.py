@@ -1,3 +1,13 @@
+from mlflow.entities import (
+    GitSource,
+    MlflowSource,
+    OCISource,
+    Skill,
+    SkillSourceType,
+    SkillStatus,
+    SkillVersion,
+    ZipSource,
+)
 from mlflow.genai import (
     datasets,
     judges,
@@ -5,6 +15,7 @@ from mlflow.genai import (
 )
 from mlflow.genai.agent_tester import test_agent
 from mlflow.genai.datasets import (
+    EvaluationDatasetVersion,
     create_dataset,
     delete_dataset,
     delete_dataset_tag,
@@ -12,8 +23,14 @@ from mlflow.genai.datasets import (
     search_datasets,
     set_dataset_tags,
 )
-from mlflow.genai.evaluation import evaluate, to_predict_fn
+from mlflow.genai.evaluation import compare_evaluations, evaluate, to_predict_fn
 from mlflow.genai.git_versioning import disable_git_model_versioning, enable_git_model_versioning
+from mlflow.genai.issues import (
+    create_issue,
+    get_issue,
+    search_issues,
+    update_issue,
+)
 from mlflow.genai.judges import make_judge
 from mlflow.genai.labeling import (
     Agent,
@@ -24,6 +41,32 @@ from mlflow.genai.labeling import (
     get_labeling_session,
     get_labeling_sessions,
     get_review_app,
+)
+from mlflow.genai.mcp_servers import (
+    create_mcp_access_endpoint,
+    delete_mcp_access_endpoint,
+    delete_mcp_server,
+    delete_mcp_server_alias,
+    delete_mcp_server_tag,
+    delete_mcp_server_version,
+    delete_mcp_server_version_tag,
+    get_latest_mcp_server_version,
+    get_mcp_access_endpoint,
+    get_mcp_server,
+    get_mcp_server_version,
+    get_mcp_server_version_by_alias,
+    refresh_mcp_server_version_tools,
+    register_mcp_server,
+    register_mcp_server_from_url,
+    search_mcp_access_endpoints,
+    search_mcp_server_versions,
+    search_mcp_servers,
+    set_mcp_server_alias,
+    set_mcp_server_tag,
+    set_mcp_server_version_tag,
+    update_mcp_access_endpoint,
+    update_mcp_server,
+    update_mcp_server_version,
 )
 from mlflow.genai.optimize import optimize_prompt, optimize_prompts
 from mlflow.genai.prompts import (
@@ -43,22 +86,43 @@ from mlflow.genai.prompts import (
 from mlflow.genai.scheduled_scorers import (
     ScorerScheduleConfig,
 )
-from mlflow.genai.scorers import Scorer, delete_scorer, get_scorer, list_scorers, scorer
+from mlflow.genai.scorers import (
+    Scorer,
+    delete_scorer,
+    get_scorer,
+    list_scorers,
+    make_scorer_ensemble,
+    scorer,
+)
 from mlflow.genai.simulators import ConversationSimulator
+from mlflow.genai.skills import import_skills, pull, register_skill, search_skills
+from mlflow.tracing.utils.session_hierarchy import set_session_hierarchy
 
 __all__ = [
+    "import_skills",
+    "pull",
+    "register_skill",
+    "search_skills",
     "datasets",
     "test_agent",
     "evaluate",
+    "compare_evaluations",
+    "create_issue",
+    "get_issue",
+    "update_issue",
+    "search_issues",
     "to_predict_fn",
     "Scorer",
     "scorer",
+    "make_scorer_ensemble",
     "get_scorer",
     "list_scorers",
     "delete_scorer",
     "judges",
     "make_judge",
     "scorers",
+    "set_session_hierarchy",
+    "EvaluationDatasetVersion",
     "create_dataset",
     "delete_dataset",
     "delete_dataset_tag",
@@ -93,4 +157,38 @@ __all__ = [
     "enable_git_model_versioning",
     # conversation simulation
     "ConversationSimulator",
+    # MCP server registry
+    "register_mcp_server",
+    "register_mcp_server_from_url",
+    "get_mcp_server",
+    "search_mcp_servers",
+    "update_mcp_server",
+    "delete_mcp_server",
+    "get_mcp_server_version",
+    "get_mcp_server_version_by_alias",
+    "get_latest_mcp_server_version",
+    "search_mcp_server_versions",
+    "update_mcp_server_version",
+    "refresh_mcp_server_version_tools",
+    "delete_mcp_server_version",
+    "create_mcp_access_endpoint",
+    "get_mcp_access_endpoint",
+    "search_mcp_access_endpoints",
+    "update_mcp_access_endpoint",
+    "delete_mcp_access_endpoint",
+    "set_mcp_server_tag",
+    "delete_mcp_server_tag",
+    "set_mcp_server_version_tag",
+    "delete_mcp_server_version_tag",
+    "set_mcp_server_alias",
+    "delete_mcp_server_alias",
+    # skill registry entities
+    "Skill",
+    "SkillVersion",
+    "SkillStatus",
+    "SkillSourceType",
+    "GitSource",
+    "MlflowSource",
+    "OCISource",
+    "ZipSource",
 ]

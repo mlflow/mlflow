@@ -43,7 +43,7 @@ import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
 import { FallbackToLoggedModelArtifactsInfo } from './artifact-view-components/FallbackToLoggedModelArtifactsInfo';
 import {
-  getArtifactBlob,
+  getArtifactDownloadBlob,
   getArtifactLocationUrl,
   getLoggedModelArtifactLocationUrl,
 } from '../../common/utils/ArtifactUtils';
@@ -56,11 +56,10 @@ import { Checkbox } from '@databricks/design-system';
 import { getLoggedTablesFromTags } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import { CopyButton } from '../../shared/building_blocks/CopyButton';
 import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
-import { MlflowService } from '../sdk/MlflowService';
 import type { KeyValueEntity } from '../../common/types';
+import { fetchArtifactPreferPresigned, resolveArtifactDownload } from '../utils/PresignedArtifactUtils';
 
 const { Text } = Typography;
-
 type ArtifactViewImplProps = DesignSystemHocProps & {
   experimentId: string;
   runUuid: string;
@@ -77,6 +76,7 @@ type ArtifactViewImplProps = DesignSystemHocProps & {
   intl: IntlShape;
   getCredentialsForArtifactReadApi: (...args: any[]) => any;
   entityTags?: Partial<KeyValueEntity>[];
+  multipartDownloadsEnabled?: boolean;
 
   /**
    * If true, the artifact browser will try to use all available height
@@ -221,6 +221,28 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     );
   }
 
+  async downloadArtifactViaBlob(blobPromise: Promise<Blob>, artifactPath: string) {
+    try {
+      const blob = await blobPromise;
+      const blobUrl = URL.createObjectURL(blob);
+      try {
+        const anchor = document.createElement('a');
+        anchor.href = blobUrl;
+        anchor.download = getBasename(artifactPath);
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+      } finally {
+        URL.revokeObjectURL(blobUrl);
+      }
+    } catch (e) {
+      // Surface proxied-download failures (e.g. a genuinely missing artifact reached via
+      // the presigned 404 fallback) instead of leaving an unhandled rejection with no
+      // user-visible feedback.
+      Utils.logErrorAndNotifyUser(e);
+    }
+  }
+
   async onDownloadClick(
     // comment for copybara formatting
     runUuid: any,
@@ -228,24 +250,54 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     loggedModelId?: string,
     isFallbackToLoggedModelArtifacts?: boolean,
   ) {
-    let url: string;
-    if (runUuid && !isFallbackToLoggedModelArtifacts) {
-      url = getArtifactLocationUrl(artifactPath, runUuid);
-    } else if (loggedModelId) {
-      url = getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId);
-    } else {
-      return;
-    }
+    const isLoggedModelsMode = Boolean(
+      this.props.isLoggedModelsMode || isFallbackToLoggedModelArtifacts || (!runUuid && loggedModelId),
+    );
+    try {
+      const params = {
+        runUuid,
+        path: artifactPath,
+        artifactRootUri: this.props.artifactRootUri,
+        isLoggedModelsMode,
+        loggedModelId,
+        multipartDownloadsEnabled: this.props.multipartDownloadsEnabled,
+      };
+      const legacyArtifactLocation =
+        isLoggedModelsMode && loggedModelId
+          ? getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId)
+          : getArtifactLocationUrl(artifactPath, runUuid);
+      const { presigned, proxyUrl } = await resolveArtifactDownload(params);
+      if (presigned) {
+        if (Object.keys(presigned.headers).length === 0) {
+          window.location.assign(presigned.url);
+        } else {
+          await this.downloadArtifactViaBlob(
+            fetchArtifactPreferPresigned(
+              params,
+              legacyArtifactLocation,
+              (url, options) => getArtifactDownloadBlob(url, options),
+              { ...presigned, proxyUrl },
+            ),
+            artifactPath,
+          );
+        }
+        return;
+      }
 
-    const blob = await getArtifactBlob(url);
-    const blobUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = blobUrl;
-    anchor.download = getBasename(artifactPath);
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(blobUrl);
+      if (!isLoggedModelsMode && runUuid) {
+        await this.downloadArtifactViaBlob(
+          getArtifactDownloadBlob(proxyUrl ?? legacyArtifactLocation, undefined),
+          artifactPath,
+        );
+      } else if (loggedModelId) {
+        await this.downloadArtifactViaBlob(
+          getArtifactDownloadBlob(proxyUrl ?? legacyArtifactLocation, undefined),
+          artifactPath,
+        );
+      }
+    } catch (error) {
+      Utils.logErrorAndNotifyUser(error);
+    }
   }
 
   renderControls() {
@@ -542,7 +594,6 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           )}
           {this.state.activeNodeId ? this.renderArtifactInfo() : null}
           <ShowArtifactPage
-            experimentId={this.props.experimentId}
             runUuid={this.props.runUuid}
             path={this.state.activeNodeId}
             isDirectory={this.activeNodeIsDirectory()}
@@ -553,7 +604,6 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             showArtifactLoggedTableView={this.state.viewAsTable && this.shouldShowViewAsTableCheckbox}
             loggedModelId={loggedModelId}
             isLoggedModelsMode={isLoggedModelsMode}
-            entityTags={this.props.entityTags}
           />
         </div>
       </div>
@@ -566,7 +616,9 @@ const mapStateToProps = (state: any, ownProps: any) => {
   const { apis } = state;
   const artifactNode =
     isLoggedModelsMode && loggedModelId ? getArtifacts(loggedModelId, state) : getArtifacts(runUuid, state);
-  const artifactRootUri = ownProps?.artifactRootUri ?? getArtifactRootUri(runUuid, state);
+  const artifactRootUri =
+    ownProps?.artifactRootUri ??
+    (isLoggedModelsMode || ownProps?.isFallbackToLoggedModelArtifacts ? undefined : getArtifactRootUri(runUuid, state));
   const modelVersions = getAllModelVersions(state);
   const modelVersionsWithNormalizedSource = flatMap(modelVersions, (version) => {
     // @ts-expect-error TS(2698): Spread types may only be created from object types... Remove this comment to see the full error message

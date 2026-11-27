@@ -3,9 +3,11 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Generator, Literal
 
 import yaml
@@ -14,6 +16,10 @@ from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store._unity_catalog.registry.serving_staging import (
+    VOLUME_ARTIFACTS_PATH_METADATA_KEY,
+    get_volume_artifacts_path,
+)
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion, get_databricks_runtime_version
 from mlflow.utils.environment import _REQUIREMENTS_FILE_NAME
 from mlflow.utils.logging_utils import eprint
@@ -138,6 +144,46 @@ def pack_env_for_databricks_model_serving(
         ...     # Use artifacts_dir here
         ...     pass
     """
+    # Lazy import to avoid a telemetry/model-utils import cycle.
+    from mlflow.telemetry.events import EnvPackEvent
+    from mlflow.telemetry.track import _record_event
+
+    start_time = time.time()
+    event_params = {"install_dependencies": bool(enforce_pip_requirements)}
+    packed = False
+    try:
+        with _pack_env_for_databricks_model_serving(
+            model_uri,
+            enforce_pip_requirements=enforce_pip_requirements,
+            local_model_path=local_model_path,
+        ) as packaged_model_dir:
+            # Record success before yielding so a caller error isn't misattributed to env_pack.
+            _record_event(
+                EnvPackEvent,
+                event_params,
+                success=True,
+                duration_ms=int((time.time() - start_time) * 1000),
+            )
+            packed = True
+            yield packaged_model_dir
+    except Exception:
+        if not packed:
+            _record_event(
+                EnvPackEvent,
+                event_params,
+                success=False,
+                duration_ms=int((time.time() - start_time) * 1000),
+            )
+        raise
+
+
+@contextmanager
+def _pack_env_for_databricks_model_serving(
+    model_uri: str,
+    *,
+    enforce_pip_requirements: bool = False,
+    local_model_path: str | None = None,
+) -> Generator[str, None, None]:
     dbr_version = DatabricksRuntimeVersion.parse()
     if not dbr_version.is_client_image:
         raise ValueError(
@@ -174,6 +220,18 @@ def pack_env_for_databricks_model_serving(
             raise MlflowException(
                 f"Source artifacts contain a '{_ARTIFACT_PATH}' directory and is not "
                 "eligible for use with env_pack.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        # Registering a model whose weights are in a volume already prepares it for serving, so
+        # this is checked before installing its requirements or packing its environment. A
+        # malformed volume path is rejected here too, as registration would reject it later.
+        if get_volume_artifacts_path(SimpleNamespace(metadata=model_dict.get("metadata"))):
+            raise MlflowException(
+                f"The model at '{model_uri}' keeps its weights in a Unity Catalog volume "
+                f"('{VOLUME_ARTIFACTS_PATH_METADATA_KEY}' in its metadata), and registering it "
+                "already prepares it for Databricks Model Serving, so `env_pack` can't be used "
+                "with it. Register the model again without `env_pack`.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

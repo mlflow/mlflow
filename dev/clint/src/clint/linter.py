@@ -6,9 +6,7 @@ import textwrap
 import tokenize
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Iterator, TypeAlias
-
-from typing_extensions import Self
+from typing import Any, Iterable, Iterator, Self, TypeAlias
 
 from clint import rules
 from clint.comments import Noqa, iter_comments
@@ -846,6 +844,9 @@ class Linter(ast.NodeVisitor):
 
         if rule := rules.PreferOsEnviron.check(node, self.resolver):
             self._check(Range.from_node(node), rule)
+
+        if rules.UnsafeVersionParse.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.UnsafeVersionParse())
 
         self.generic_visit(node)
 

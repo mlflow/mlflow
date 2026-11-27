@@ -251,14 +251,49 @@ def test_mimebundle_in_oss():
     }
 
 
-def test_notebook_trace_renderer_base_url_override(monkeypatch):
+@pytest.mark.parametrize(
+    ("base_url", "expected_src"),
+    [
+        (
+            "http://localhost:5000",
+            "http://localhost:5000/static-files/lib/notebook-trace-renderer/index.html",
+        ),
+        (
+            "http://localhost:5000/mlflow",
+            "http://localhost:5000/mlflow/static-files/lib/notebook-trace-renderer/index.html",
+        ),
+        (
+            "http://localhost:5000/mlflow/",
+            "http://localhost:5000/mlflow/static-files/lib/notebook-trace-renderer/index.html",
+        ),
+    ],
+)
+def test_notebook_trace_renderer_base_url_override(monkeypatch, base_url, expected_src):
     trace = create_trace("a")
     mlflow.set_tracking_uri("http://mlflow:5000")
-    monkeypatch.setenv("MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL", "http://localhost:5000")
+    monkeypatch.setenv("MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL", base_url)
 
     html = get_notebook_iframe_html([trace])
-    assert "http://localhost:5000/static-files/lib/notebook-trace-renderer/index.html" in html
+    assert expected_src in html
     assert "http://mlflow:5000/static-files/lib/notebook-trace-renderer/index.html" not in html
+
+
+@pytest.mark.parametrize(
+    "tracking_uri",
+    [
+        "https://example.com/mlflow/",
+        "https://example.com/mlflow",
+    ],
+)
+def test_notebook_trace_renderer_preserves_tracking_uri_path_prefix(tracking_uri):
+    # Tracking URI is restored by the autouse reset_tracking_uri fixture in
+    # tests/tracing/conftest.py.
+    trace = create_trace("a")
+    mlflow.set_tracking_uri(tracking_uri)
+
+    html = get_notebook_iframe_html([trace])
+    assert "https://example.com/mlflow/static-files/lib/notebook-trace-renderer/index.html" in html
+    assert "https://example.com/static-files/lib/notebook-trace-renderer/index.html" not in html
 
 
 def test_notebook_iframe_includes_workspace_query_param(monkeypatch):

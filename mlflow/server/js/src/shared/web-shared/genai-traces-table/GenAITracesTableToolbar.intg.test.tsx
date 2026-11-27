@@ -27,6 +27,7 @@ jest.mock('../global-settings/getUser', () => ({
 
 jest.mock('../hooks/useLocalStorage', () => {
   return {
+    ...jest.requireActual<typeof import('../hooks/useLocalStorage')>('../hooks/useLocalStorage'),
     getLocalStorageItemByParams: jest.fn().mockReturnValue({ hiddenColumns: undefined }),
     useLocalStorage: jest.fn().mockReturnValue([{}, jest.fn()]),
   };

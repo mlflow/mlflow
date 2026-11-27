@@ -19,6 +19,7 @@ const MLFLOW_DOCS_URI = 'https://mlflow.org/docs/latest/llms/tracing/index.html?
 const getMlflowUILinkForTrace = (traceId: string, experimentId: string) => {
   const queryParams = new URLSearchParams();
   queryParams.append('selectedEvaluationId', traceId);
+  queryParams.append('traceId', traceId);
   queryParams.append('compareRunsMode', 'TRACES');
   const workspace = getActiveWorkspace();
   if (workspace) {

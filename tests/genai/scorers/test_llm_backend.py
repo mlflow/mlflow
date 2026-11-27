@@ -4,7 +4,9 @@ import pydantic
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.genai.scorers.llm_backend import ScorerLLMClient
+from mlflow.genai.utils.gateway_utils import gateway_caller
 
 
 def test_databricks_route():
@@ -135,9 +137,13 @@ def test_complete_with_pydantic_response_format(monkeypatch):
         )
 
     mock_call.assert_called_once()
-    call_kwargs = mock_call.call_args
-    assert call_kwargs.kwargs["response_format"] is not None
-    assert isinstance(call_kwargs.kwargs["response_format"], dict)
+    response_format = mock_call.call_args.kwargs["response_format"]
+    assert isinstance(response_format, dict)
+    # The MLflow AI Gateway (and openai/azure providers) reject a json_schema response
+    # format unless it is strict and every object declares additionalProperties=False.
+    assert response_format["type"] == "json_schema"
+    assert response_format["json_schema"]["strict"] is True
+    assert response_format["json_schema"]["schema"]["additionalProperties"] is False
 
 
 def test_complete_with_dict_response_format(monkeypatch):
@@ -238,3 +244,20 @@ def test_complete_databricks_extracts_system_prompt():
     mock_call.assert_called_once_with(
         user_prompt="Hi", system_prompt="You are helpful", model="databricks"
     )
+
+
+def test_complete_gateway_attributes_calls_to_judges_by_default(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_URI", "http://localhost:5000")
+
+    with patch(
+        "mlflow.genai.scorers.llm_backend._call_llm_provider_api", return_value="gateway response"
+    ) as mock_call:
+        backend = ScorerLLMClient("gateway:/my-endpoint")
+        backend.complete([{"role": "user", "content": "Hi"}])
+        with gateway_caller(GatewayCaller.SIMULATOR):
+            backend.complete([{"role": "user", "content": "Hi"}])
+
+    assert [call.kwargs["extra_headers"] for call in mock_call.call_args_list] == [
+        {MLFLOW_GATEWAY_CALLER_HEADER: "judge"},
+        {MLFLOW_GATEWAY_CALLER_HEADER: "simulator"},
+    ]

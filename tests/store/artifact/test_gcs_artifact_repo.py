@@ -8,6 +8,7 @@ from google.auth.exceptions import DefaultCredentialsError
 from google.cloud.storage import client as gcs_client
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository, GCSMPUArguments
 
@@ -295,8 +296,8 @@ def test_download_artifacts_downloads_expected_content(mock_client, tmp_path):
 
 
 def test_delete_artifacts(mock_client):
-    experiment_root_path = "/experiment_id/"
-    repo = GCSArtifactRepository("gs://test_bucket" + experiment_root_path, client=mock_client)
+    experiment_root_path = "experiment_id"
+    repo = GCSArtifactRepository(f"gs://test_bucket/{experiment_root_path}", client=mock_client)
 
     def delete_file():
         del obj_mock.name
@@ -304,7 +305,7 @@ def test_delete_artifacts(mock_client):
         return obj_mock
 
     obj_mock = mock.Mock()
-    run_id_path = experiment_root_path + "run_id/"
+    run_id_path = experiment_root_path + "/run_id/"
     file_path = "file"
     attrs = {"name": run_id_path + file_path, "size": 1, "delete.side_effect": delete_file}
     obj_mock.configure_mock(**attrs)
@@ -341,6 +342,31 @@ def test_delete_artifacts(mock_client):
     repo.delete_artifacts()
     artifact_file_names = [obj.path for obj in repo.list_artifacts()]
     assert not artifact_file_names
+
+
+@pytest.mark.parametrize("artifact_path", ["foo", "foo/"])
+def test_delete_artifacts_preserves_prefix_siblings(mock_client, artifact_path):
+    repo = GCSArtifactRepository("gs://test_bucket/root", client=mock_client)
+    target = mock.Mock(name="target")
+    target.name = "root/foo/file.txt"
+    sibling_dir = mock.Mock(name="sibling_dir")
+    sibling_dir.name = "root/foobar/keep.txt"
+    sibling_file = mock.Mock(name="sibling_file")
+    sibling_file.name = "root/foo_baz.txt"
+    mock_client.bucket.return_value.list_blobs.return_value = [
+        target,
+        sibling_dir,
+        sibling_file,
+    ]
+
+    repo.delete_artifacts(artifact_path)
+
+    mock_client.bucket.return_value.list_blobs.assert_called_once_with(
+        prefix=posixpath.join("root", artifact_path)
+    )
+    target.delete.assert_called_once_with()
+    sibling_dir.delete.assert_not_called()
+    sibling_file.delete.assert_not_called()
 
 
 def test_gcs_mpu_arguments():
@@ -406,6 +432,34 @@ def test_create_multipart_upload(mock_client):
         assert len(create.credentials) == 5
         assert create.upload_id == upload_id
         assert kwargs["data"] is None
+
+
+@pytest.mark.parametrize("num_parts", [0, 10_001])
+def test_create_multipart_upload_rejects_out_of_range_num_parts(mock_client, num_parts):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    with (
+        mock.patch.object(GCSArtifactRepository, "_validate_support_mpu"),
+        pytest.raises(MlflowException, match="num_parts must be between 1 and 10000") as exc,
+    ):
+        repo.create_multipart_upload("file.txt", num_parts=num_parts)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    mock_client.bucket.assert_not_called()
+
+
+def test_create_multipart_upload_reports_unsupported_mpu_before_num_parts(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    with (
+        mock.patch(
+            "mlflow.store.artifact.gcs_artifact_repo.get_installed_version", return_value=None
+        ),
+        pytest.raises(
+            _UnsupportedMultipartUploadException,
+            match=_UnsupportedMultipartUploadException.MESSAGE,
+        ) as exc,
+    ):
+        repo.create_multipart_upload("file.txt", num_parts=10_001)
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
+    mock_client.bucket.assert_not_called()
 
 
 def test_complete_multipart_upload(mock_client):

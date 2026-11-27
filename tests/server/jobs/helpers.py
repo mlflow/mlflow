@@ -55,6 +55,8 @@ def _setup_job_runner(
     default_artifact_root = str(tmp_path / "artifacts")
     try:
         monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+        monkeypatch.setenv("MLFLOW_BACKEND_STORE_URI", backend_store_uri)
+        monkeypatch.setenv("MLFLOW_DEFAULT_ARTIFACT_ROOT", default_artifact_root)
         monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, backend_store_uri)
         monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, default_artifact_root)
         monkeypatch.setenv(HUEY_STORAGE_PATH_ENV_VAR, str(huey_store_path))
@@ -102,3 +104,25 @@ def wait_job_finalize(job_id, timeout=60):
             return
         time.sleep(0.5)
     raise TimeoutError("The job is not finalized within the timeout.")
+
+
+class RecordingHuey:
+    """A stand-in for a huey instance that records the periodic tasks registered on it."""
+
+    def __init__(self):
+        self.tasks = {}
+        self.locks = {}
+
+    def periodic_task(self, validation):
+        def decorator(fn):
+            self.tasks[fn.__name__] = (validation, fn)
+            return fn
+
+        return decorator
+
+    def lock_task(self, lock_name):
+        def decorator(fn):
+            self.locks[fn.__name__] = lock_name
+            return fn
+
+        return decorator

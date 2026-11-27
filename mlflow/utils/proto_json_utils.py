@@ -2,6 +2,7 @@ import base64
 import datetime
 import importlib
 import json
+import logging
 import os
 from collections import defaultdict
 from copy import deepcopy
@@ -10,9 +11,10 @@ from json import JSONEncoder
 from typing import Any
 
 import pydantic
+from google.protobuf import json_format
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.duration_pb2 import Duration
-from google.protobuf.json_format import MessageToJson, ParseDict
+from google.protobuf.json_format import MessageToDict, ParseDict
 from google.protobuf.struct_pb2 import NULL_VALUE, Value
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -27,6 +29,9 @@ _PROTOBUF_INT64_FIELDS = [
 ]
 
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
+
+_logger = logging.getLogger(__name__)
+_USE_INT64_NUMBER_JSON_PRINTER = True
 
 
 def _mark_int64_fields_for_proto_maps(proto_map, value_field_type):
@@ -109,24 +114,87 @@ def _merge_json_dicts(from_dict, to_dict):
     return to_dict
 
 
-def message_to_json(message):
-    """Converts a message to JSON, using snake_case for field names."""
+class _Int64NumberJsonPrinter(json_format._Printer):
+    _convert_int64_to_number = True
 
-    # Google's MessageToJson API converts int64 proto fields to JSON strings.
-    # For more info, see https://github.com/protocolbuffers/protobuf/issues/2954
-    json_dict_with_int64_as_str = json.loads(
-        MessageToJson(message, preserving_proto_field_name=True)
+    def _RegularMessageToJsonObject(self, message, js):
+        js = super()._RegularMessageToJsonObject(message, js)
+        if self._convert_int64_to_number and message.DESCRIPTOR.extension_ranges:
+            for field, _ in message.ListFields():
+                # Older protobuf versions use unbracketed keys for repeated extensions,
+                # allowing the original merge to convert their int64 fields.
+                if field.is_extension and field.name in js:
+                    return _merge_json_dicts(_mark_int64_fields(message), js)
+        return js
+
+    def _FieldToJsonObject(self, field, value):
+        if field.is_extension:
+            # Extension conversion depends on the JSON key used by the protobuf version.
+            convert_int64_to_number = self._convert_int64_to_number
+            self._convert_int64_to_number = False
+            try:
+                return super()._FieldToJsonObject(field, value)
+            finally:
+                self._convert_int64_to_number = convert_int64_to_number
+
+        # Wrappers retained ProtoJSON's string encoding in the previous path.
+        if (
+            self._convert_int64_to_number
+            and field.type in _PROTOBUF_INT64_FIELDS
+            and field.containing_type.file.name != "google/protobuf/wrappers.proto"
+        ):
+            return int(value)
+        return super()._FieldToJsonObject(field, value)
+
+    def _AnyMessageToJsonObject(self, message):
+        # Keep packed Any messages in ProtoJSON's standard int64 representation.
+        convert_int64_to_number = self._convert_int64_to_number
+        self._convert_int64_to_number = False
+        try:
+            return super()._AnyMessageToJsonObject(message)
+        finally:
+            self._convert_int64_to_number = convert_int64_to_number
+
+
+def _message_to_dict_with_int64_numbers(message):
+    global _USE_INT64_NUMBER_JSON_PRINTER
+
+    if _USE_INT64_NUMBER_JSON_PRINTER:
+        try:
+            return _Int64NumberJsonPrinter(preserving_proto_field_name=True)._MessageToJsonObject(
+                message
+            )
+        except Exception:
+            _USE_INT64_NUMBER_JSON_PRINTER = False
+            _logger.exception(
+                "Optimized protobuf JSON serialization failed. Switching to public protobuf "
+                "APIs for subsequent calls."
+            )
+
+    # Retain the original two-pass conversion if protobuf's private printer API changes.
+    json_dict = MessageToDict(message, preserving_proto_field_name=True)
+    return _merge_json_dicts(_mark_int64_fields(message), json_dict)
+
+
+def message_to_json(
+    message,
+    *,
+    pretty: bool = True,
+    convert_int64_to_number: bool = True,
+):
+    """Converts a message to JSON, using snake_case for field names.
+
+    If the optimized private protobuf printer fails, subsequent calls use public APIs.
+    """
+    json_dict = (
+        _message_to_dict_with_int64_numbers(message)
+        if convert_int64_to_number
+        else MessageToDict(message, preserving_proto_field_name=True)
     )
-    # We convert this proto message into a JSON dict where only int64 proto fields
-    # are preserved, and they are treated as JSON numbers, not strings.
-    json_dict_with_int64_fields_only = _mark_int64_fields(message)
-    # By merging these two JSON dicts, we end up with a JSON dict where int64 proto fields are not
-    # converted to JSON strings. Int64 keys in proto maps will always be converted to JSON strings
-    # because JSON doesn't support non-string keys.
-    json_dict_with_int64_as_numbers = _merge_json_dicts(
-        json_dict_with_int64_fields_only, json_dict_with_int64_as_str
-    )
-    return json.dumps(json_dict_with_int64_as_numbers, indent=2)
+
+    if pretty:
+        return json.dumps(json_dict, indent=2)
+    return json.dumps(json_dict, separators=(",", ":"))
 
 
 def proto_timestamp_to_milliseconds(timestamp: str) -> int:
@@ -325,8 +393,22 @@ def cast_df_types_according_to_schema(pdf, schema):
                     )
                 elif isinstance(col_type_spec, AnyType):
                     pass
+                elif col_type_spec == DataType.boolean and pdf[col_name].isna().any():
+                    # `astype(bool)` turns None into False and NaN into True. Convert
+                    # non-missing values only and keep missing values for schema enforcement.
+                    pdf[col_name] = pdf[col_name].where(
+                        pdf[col_name].isna(), pdf[col_name].astype(bool)
+                    )
                 elif isinstance(col_type_spec, DataType) and col_type_spec == DataType.datetime:
-                    pdf[col_name] = pd.to_datetime(pdf[col_name])
+                    parsed = pd.to_datetime(pdf[col_name])
+                    # pandas 3 parses to microseconds by default, but `DataType.datetime` is
+                    # nanoseconds. `.dt.unit` is absent before pandas 2, which is always
+                    # nanoseconds.
+                    if pd.api.types.is_datetime64_any_dtype(parsed) and (
+                        getattr(parsed.dt, "unit", "ns") != "ns"
+                    ):
+                        parsed = parsed.dt.as_unit("ns")
+                    pdf[col_name] = parsed
                 else:
                     # In pandas 3.0+, string columns with NaN are inferred as StringDtype
                     # instead of object. Skip casting StringDtype to object/numpy str as they
@@ -472,6 +554,17 @@ def convert_data_type(data, spec):
             return np.array(data, dtype=spec.type)
         if isinstance(spec, ColSpec):
             if isinstance(spec.type, DataType):
+                # numpy turns None into False for booleans and into "None" for strings and
+                # bytes. Keep missing values as is and let schema enforcement handle them.
+                if spec.type in (DataType.boolean, DataType.string, DataType.binary):
+                    if data is None:
+                        return None
+                    if isinstance(data, list) and any(x is None for x in data):
+                        if all(np.isscalar(x) for x in data if x is not None):
+                            return np.array(
+                                [x if x is None else convert_data_type(x, spec) for x in data],
+                                dtype=object,
+                            )
                 return (
                     np.array(data, spec.type.to_numpy())
                     if isinstance(data, (list, np.ndarray))
@@ -703,7 +796,7 @@ def dump_input_data(data, inputs_key="inputs", params: dict[str, Any] | None = N
     if isinstance(data, pd.DataFrame):
         post_data = {"dataframe_split": data.to_dict(orient="split")}
     elif isinstance(data, dict):
-        post_data = {inputs_key: {k: get_jsonable_input(k, v) for k, v in data}}
+        post_data = {inputs_key: {k: get_jsonable_input(k, v) for k, v in data.items()}}
     elif isinstance(data, np.ndarray):
         post_data = {inputs_key: data.tolist()}
     elif isinstance(data, list):

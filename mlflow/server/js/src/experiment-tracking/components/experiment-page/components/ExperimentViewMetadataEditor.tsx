@@ -12,7 +12,8 @@ import {
   Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useResizeObserver } from '@databricks/web-shared/hooks';
 import { useDispatch, useSelector } from 'react-redux';
 import { getExperiments, getExperimentTags } from '../../../reducers/Reducers';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
@@ -43,6 +44,7 @@ import {
   type TraceArchivalRetentionUnit,
 } from '../../../../common/utils/traceArchival';
 import { MlflowService } from '../../../sdk/MlflowService';
+import { shouldEnableExperimentSettingsPage } from '../../../../common/utils/FeatureUtils';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
   Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value;
@@ -143,12 +145,15 @@ export const ExperimentViewMetadataEditor = ({
   setEditing,
   onNoteUpdated,
   defaultValue,
+  collapseToSingleLine = false,
 }: {
   experiment: ExperimentEntity;
   editing: boolean;
   setEditing: (editing: boolean) => void;
   onNoteUpdated?: () => void;
   defaultValue?: string;
+  // Shows exactly one line while collapsed, instead of the fixed collapsed height.
+  collapseToSingleLine?: boolean;
 }) => {
   const storedNote = useSelector((state) => {
     const tags = getExperimentTags(experiment.experimentId, state);
@@ -191,6 +196,11 @@ export const ExperimentViewMetadataEditor = ({
   const canEditMetadata = canModifyExperiment(experiment);
   const canRename = canRenameExperiment(experiment);
   const traceArchivalEnabled = useTraceArchivalEnabled();
+  // With the Settings page, the name and trace archival retention are edited there and this only edits
+  // the description.
+  const descriptionOnly = shouldEnableExperimentSettingsPage();
+  const editsName = canRename && !descriptionOnly;
+  const editsRetention = canEditMetadata && !descriptionOnly;
 
   const updateTmpRetention = useCallback(
     ({
@@ -226,15 +236,15 @@ export const ExperimentViewMetadataEditor = ({
       const currentNote = effectiveNote ?? '';
       const updatedNoteValue = updatedNote ?? '';
       const hasNoteChanged = canEditMetadata && updatedNoteValue !== currentNote;
-      const shouldRename = canRename && trimmedName !== experiment.name;
+      const shouldRename = editsName && trimmedName !== experiment.name;
       const trimmedRetention = formatTraceArchivalRetention(updatedRetentionAmount ?? '', updatedRetentionUnit);
-      const hasRetentionChanged = canEditMetadata && trimmedRetention !== currentTraceArchivalRetention;
+      const hasRetentionChanged = editsRetention && trimmedRetention !== currentTraceArchivalRetention;
       const retentionValidationError = getTraceArchivalRetentionValidationError(
         updatedRetentionAmount ?? '',
         updatedRetentionUnit,
         intl,
       );
-      if (canRename && !trimmedName) {
+      if (editsName && !trimmedName) {
         setNameError(
           intl.formatMessage({
             defaultMessage: 'Please input a new name for the experiment.',
@@ -243,7 +253,7 @@ export const ExperimentViewMetadataEditor = ({
         );
         return;
       }
-      if (canEditMetadata && retentionValidationError) {
+      if (editsRetention && retentionValidationError) {
         setRetentionError(retentionValidationError);
         return;
       }
@@ -326,6 +336,7 @@ export const ExperimentViewMetadataEditor = ({
             hasRetentionChanged,
             intl,
           }) ||
+            e?.renderHttpError?.() ||
             e?.message ||
             intl.formatMessage({
               defaultMessage: 'Failed to update experiment. Please try again.',
@@ -348,12 +359,24 @@ export const ExperimentViewMetadataEditor = ({
       setEditing,
       validateExperimentName,
       canEditMetadata,
-      canRename,
+      editsName,
+      editsRetention,
     ],
   );
 
   const sanitizedContent = getSanitizedHtmlContent(effectiveNote);
   const hasContent = sanitizedContent && sanitizedContent.trim().length > 0;
+
+  // With the one-line preview, the expand button only shows when the line actually cuts off text.
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentOverflows, setContentOverflows] = useState(false);
+  const contentWidth = useResizeObserver({ ref: contentRef })?.width;
+  useLayoutEffect(() => {
+    const element = contentRef.current;
+    if (!collapseToSingleLine || !element || isExpanded) return;
+    setContentOverflows(element.scrollHeight > element.clientHeight + 1);
+  }, [collapseToSingleLine, sanitizedContent, isExpanded, contentWidth]);
+  const showExpandToggle = !collapseToSingleLine || isExpanded || contentOverflows;
   const getIcon = useCallback(
     (name: string) => {
       return (
@@ -403,7 +426,7 @@ export const ExperimentViewMetadataEditor = ({
               overflow: 'hidden',
               overflowWrap: isExpanded ? 'break-word' : undefined,
               padding: `${theme.spacing.sm}px ${PADDING_HORIZONTAL}px`,
-              maxHeight: isExpanded ? 'none' : COLLAPSE_MAX_HEIGHT + 'px',
+              maxHeight: isExpanded || collapseToSingleLine ? 'none' : COLLAPSE_MAX_HEIGHT + 'px',
               wordBreak: 'break-word',
               '&>:first-child': {
                 marginBlockStart: 0,
@@ -415,9 +438,22 @@ export const ExperimentViewMetadataEditor = ({
                       WebkitBoxOrient: 'vertical',
                     }),
               },
+              ...(collapseToSingleLine &&
+                !isExpanded && {
+                  '&>:first-child': {
+                    marginBlockStart: 0,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 1,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  },
+                  // One line of preview text, so headings render at text size instead of overflowing it.
+                  '&>:first-child > *': { marginBlock: 0, fontSize: 'inherit', lineHeight: 'inherit' },
+                }),
             }}
           >
             <div
+              ref={contentRef}
               // eslint-disable-next-line react/no-danger
               dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             />
@@ -431,7 +467,7 @@ export const ExperimentViewMetadataEditor = ({
               style={{ padding: `0px ${theme.spacing.sm}px` }}
             />
           )}
-          {isExpanded ? (
+          {!showExpandToggle ? null : isExpanded ? (
             <Button
               componentId="mlflow.experiment.metadata_editor.collapse_button"
               icon={<ChevronUpIcon />}
@@ -451,10 +487,17 @@ export const ExperimentViewMetadataEditor = ({
       <Modal
         componentId="mlflow.experiment.metadata_editor.modal"
         title={
-          <FormattedMessage
-            defaultMessage="Edit experiment"
-            description="experiment page > edit experiment modal > title"
-          />
+          descriptionOnly ? (
+            <FormattedMessage
+              defaultMessage="Edit description"
+              description="experiment page > edit description modal > title"
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="Edit experiment"
+              description="experiment page > edit experiment modal > title"
+            />
+          )
         }
         visible={editing}
         okButtonProps={{ loading: isSaving }}
@@ -489,7 +532,7 @@ export const ExperimentViewMetadataEditor = ({
               type="error"
             />
           )}
-          {canRename && (
+          {editsName && (
             <div>
               <FormUI.Label htmlFor="mlflow.experiment.edit.name">
                 <FormattedMessage
@@ -545,7 +588,7 @@ export const ExperimentViewMetadataEditor = ({
               />
             </div>
           )}
-          {canEditMetadata && traceArchivalEnabled && (
+          {editsRetention && traceArchivalEnabled && (
             <div>
               <FormUI.Label htmlFor="mlflow.experiment.edit.trace-archival-retention-amount">
                 <FormattedMessage

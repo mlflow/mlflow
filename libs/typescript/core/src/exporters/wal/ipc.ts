@@ -20,6 +20,7 @@
  */
 
 import { createConnection, Socket } from 'node:net';
+import { MAX_OTLP_REQUEST_BYTES } from '../../core/constants';
 import { JSONBig } from '../../core/utils/json';
 import { BatchingWriter } from './batching_writer';
 import { getLockSocketPath } from './paths';
@@ -40,7 +41,7 @@ const CONNECT_RETRY_DELAYS_MS = Array.from(
 
 const DAEMON_NO_RESPONSE_CODE = 'EDAEMONNORESPONSE';
 
-export const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
+export const MAX_REQUEST_BYTES = MAX_OTLP_REQUEST_BYTES;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

@@ -19,6 +19,7 @@ import {
   ALL_RESOURCE_PATTERN_LABEL,
   PERMISSIONS,
   RESOURCE_TYPES,
+  isWildcardOnlyResourceType,
   getGrantablePermissions,
   getResourceTypeLabel,
 } from '../types';
@@ -100,6 +101,9 @@ export const RolePermissionForm = ({
     );
   }, [resourceOptions, resourceSearch]);
 
+  // Wildcard-only types have no per-row grain, so the specific-resource scope is
+  // not offered and the id picker is never reachable for them.
+  const wildcardOnly = isWildcardOnlyResourceType(value.resourceType);
   const selectedOption = resourceOptions.find((o) => o.id === value.resourceId);
   const renderOption = (o: { id: string; name: string }) => (o.name === o.id ? o.name : `${o.name} (${o.id})`);
 
@@ -164,9 +168,16 @@ export const RolePermissionForm = ({
               }
               layout="vertical"
             >
-              <Radio value="specific">Specific {typeLabel.toLowerCase()}</Radio>
+              <Radio value="specific" disabled={wildcardOnly}>
+                Specific {typeLabel.toLowerCase()}
+              </Radio>
               <Radio value="all">All {typeLabel.toLowerCase()}s</Radio>
             </Radio.Group>
+            {wildcardOnly && (
+              <Typography.Text color="secondary" size="sm">
+                {typeLabel} grants are workspace-wide — they cannot target one {typeLabel.toLowerCase()}.
+              </Typography.Text>
+            )}
           </div>
           {value.scope === 'specific' && (
             <div>
@@ -260,6 +271,7 @@ export const RolePermissionForm = ({
 /** True when the draft is ready to be added to the staged list. */
 export const isRolePermissionDraftFillable = (draft: RolePermissionDraft): boolean => {
   if (draft.resourceType === 'workspace') return true;
+  if (isWildcardOnlyResourceType(draft.resourceType)) return true;
   return draft.scope === 'all' || (draft.scope === 'specific' && draft.resourceId.trim().length > 0);
 };
 
@@ -271,5 +283,6 @@ export const isRolePermissionDraftFillable = (draft: RolePermissionDraft): boole
  */
 export const draftToResourcePattern = (draft: RolePermissionDraft): string => {
   if (draft.resourceType === 'workspace') return ALL_RESOURCE_PATTERN_LABEL;
+  if (isWildcardOnlyResourceType(draft.resourceType)) return ALL_RESOURCE_PATTERN_LABEL;
   return draft.scope === 'all' ? ALL_RESOURCE_PATTERN_LABEL : draft.resourceId.trim();
 };

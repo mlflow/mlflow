@@ -16,7 +16,8 @@ ARTIFACT_URI = "artifact_folder"
 
 
 @pytest.fixture
-def write_db_uri(tmp_path: Path) -> str:
+def write_db_uri(tmp_path: Path, cached_db: Path) -> str:
+    shutil.copy(cached_db, tmp_path / "write.db")
     return f"sqlite:///{tmp_path / 'write.db'}"
 
 
@@ -271,16 +272,15 @@ def test_initialize_backend_stores_sets_env_var():
         )  # clint: disable=os-environ-delete-in-test
 
 
-def test_get_sqlalchemy_store_reads_env_var(tmp_path, monkeypatch):
+def test_get_sqlalchemy_store_reads_env_var(tmp_path, cached_db: Path, monkeypatch):
     from mlflow.server.constants import READ_REPLICA_BACKEND_STORE_URI_ENV_VAR
     from mlflow.server.handlers import TrackingStoreRegistryWrapper
 
     write_uri = f"sqlite:///{tmp_path / 'write.db'}"
     read_uri = f"sqlite:///{tmp_path / 'read.db'}"
 
-    init_store = SqlAlchemyStore(write_uri, str(tmp_path / "artifacts"))
-    init_store.engine.dispose()
-    shutil.copy(tmp_path / "write.db", tmp_path / "read.db")
+    shutil.copy(cached_db, tmp_path / "write.db")
+    shutil.copy(cached_db, tmp_path / "read.db")
 
     monkeypatch.setenv(READ_REPLICA_BACKEND_STORE_URI_ENV_VAR, read_uri)
     store = TrackingStoreRegistryWrapper._get_sqlalchemy_store(

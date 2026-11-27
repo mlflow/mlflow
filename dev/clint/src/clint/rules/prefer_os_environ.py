@@ -1,7 +1,5 @@
 import ast
-from typing import Literal
-
-from typing_extensions import Self
+from typing import Literal, Self
 
 from clint.resolver import Resolver
 from clint.rules.base import Rule

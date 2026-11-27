@@ -12,6 +12,7 @@ from mlflow.gateway.providers.base import (
     BaseProvider,
     PassthroughAction,
     _client_provides_auth,
+    _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
 from mlflow.gateway.providers.utils import (
@@ -70,6 +71,10 @@ class OpenAIAdapter(OpenAICompatibleAdapter):
 
     @classmethod
     def chat_to_model(cls, payload, config):
+        # NB: `chat.RequestPayload` fills in `n=1` when the client omits `n`. `n=1` is also
+        # OpenAI's default, and some OpenAI models (e.g., `gpt-6.2-sol`) reject any request
+        # that carries `n`, so the default is not forwarded.
+        payload = {k: v for k, v in payload.items() if (k, v) != ("n", 1)}
         return cls._add_model_to_payload_if_necessary(payload, config)
 
     @classmethod
@@ -249,6 +254,9 @@ class OpenAIProvider(BaseProvider):
                 # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
                 result_headers.pop("authorization", None)
                 result_headers.pop("api-key", None)
+            else:
+                # Never forward client auth headers to the upstream provider.
+                client_headers = _drop_client_auth_headers(client_headers)
             result_headers = client_headers | result_headers
 
         return result_headers

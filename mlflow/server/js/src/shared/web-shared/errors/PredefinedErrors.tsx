@@ -244,7 +244,7 @@ export class UnauthorizedError extends NetworkRequestError {
   );
 
   constructor(details: NetworkRequestErrorDetails, cause?: CausableError) {
-    const message = 'This request exceeds the maximum queries per second limit. Please wait and try again.';
+    const message = 'User is not authorized.';
 
     super(message, details, cause);
   }

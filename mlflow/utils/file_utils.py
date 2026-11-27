@@ -216,8 +216,7 @@ def make_containing_dirs(path):
     directories.
     """
     dir_name = os.path.dirname(path)
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
+    os.makedirs(dir_name, exist_ok=True)
 
 
 class TempDir:
@@ -439,9 +438,14 @@ def path_to_local_sqlite_uri(path):
     """
     Convert local filesystem path to sqlite uri.
     """
-    path = posixpath.abspath(pathname2url(os.path.abspath(path)))
-    prefix = "sqlite://" if sys.platform == "win32" else "sqlite:///"
-    return prefix + path
+    posix_path = pathlib.Path(os.path.abspath(path)).as_posix()
+    if importlib.util.find_spec("sqlalchemy") is None:
+        return f"sqlite:///{posix_path}"
+    # Whether SQLAlchemy URL-decodes SQLite database paths (e.g. `%2B`) depends on its version
+    # (2.1+ does, 1.4/2.0 don't), so let the installed version escape the path.
+    from sqlalchemy.engine import URL
+
+    return URL.create("sqlite", database=posix_path).render_as_string()
 
 
 def local_file_uri_to_path(uri):
@@ -456,6 +460,9 @@ def local_file_uri_to_path(uri):
         # Fix for retaining server name in UNC path.
         if is_windows() and parsed_path.netloc:
             return urllib.request.url2pathname(rf"\\{parsed_path.netloc}{path}")
+    # Since Python 3.14, `url2pathname` discards everything after "?" or "#". Percent-encode
+    # them so they stay literal path characters, as on earlier Python versions.
+    path = path.replace("?", "%3F").replace("#", "%23")
     return urllib.request.url2pathname(path)
 
 
@@ -470,7 +477,9 @@ def get_local_path_or_none(path_or_uri):
         return None
 
 
-def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, headers=None):
+def download_file_using_http_uri(
+    http_uri, download_path, chunk_size=100000000, headers=None, verify=True
+):
     """
     Downloads a file specified using the `http_uri` to a local `download_path`. This function
     uses a `chunk_size` to ensure an OOM error is not raised a large file is downloaded.
@@ -480,7 +489,9 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
     """
     if headers is None:
         headers = {}
-    with cloud_storage_http_request("get", http_uri, stream=True, headers=headers) as response:
+    with cloud_storage_http_request(
+        "get", http_uri, stream=True, headers=headers, verify=verify
+    ) as response:
         augmented_raise_for_status(response)
         with open(download_path, "wb") as output_file:
             for chunk in response.iter_content(chunk_size=chunk_size):
@@ -809,13 +820,19 @@ def remove_on_error(path: os.PathLike, onerror=None):
         if onerror:
             onerror(e)
         if os.path.exists(path):
+            remover = None
             if os.path.isfile(path):
-                os.remove(path)
+                remover = os.remove
             elif os.path.isdir(path):
-                shutil.rmtree(path)
-        _logger.warning(
-            f"Failed to remove {path}" if os.path.exists(path) else f"Successfully removed {path}"
-        )
+                remover = shutil.rmtree
+            else:
+                _logger.warning(f"Not removing {path}: neither a regular file nor a directory")
+            if remover is not None:
+                try:
+                    remover(path)
+                    _logger.warning(f"Successfully removed {path}")
+                except Exception as remove_error:
+                    _logger.warning(f"Failed to remove {path}: {remove_error}")
         raise
 
 

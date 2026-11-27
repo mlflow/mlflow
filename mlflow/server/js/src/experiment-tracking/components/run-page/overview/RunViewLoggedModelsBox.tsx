@@ -46,6 +46,10 @@ export const RunViewLoggedModelsBox = ({
     return uniqueFlavors.size !== flavors.length;
   }, [loggedModels]);
 
+  if (loggedModels.length === 0 && loggedModelsV3.length === 0) {
+    return <Typography.Hint css={{ padding: `${theme.spacing.xs}px 0px` }}>—</Typography.Hint>;
+  }
+
   return (
     <Overflow>
       {loggedModels.map((model, index) => {

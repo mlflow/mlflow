@@ -22,6 +22,18 @@ jest.mock('../components/GatewayChartsPanel', () => ({
   ),
 }));
 
+const mockTracesV3Logs = jest.fn();
+jest.mock('../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs', () => ({
+  TracesV3Logs: (props: any) => {
+    mockTracesV3Logs(props);
+    return <div data-testid="traces-v3-logs" />;
+  },
+}));
+
+jest.mock('../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector', () => ({
+  TracesV3DateSelector: () => <div data-testid="traces-date-selector" />,
+}));
+
 // Mock useEndpointsQuery
 const mockUseEndpointsQuery = jest.fn();
 jest.mock('../hooks/useEndpointsQuery', () => ({
@@ -116,6 +128,24 @@ describe('GatewayUsagePage', () => {
 
       expect(screen.getByText('admin')).toBeInTheDocument();
       expect(screen.getByText('alice')).toBeInTheDocument();
+    });
+
+    test('filters logs by the selected user ID metadata', async () => {
+      renderWithDesignSystem(
+        <MemoryRouter initialEntries={['/?tab=logs']}>
+          <GatewayUsagePage />
+        </MemoryRouter>,
+      );
+
+      const selectors = screen.getAllByRole('combobox');
+      await userEvent.click(selectors[1]);
+      await userEvent.click(screen.getByText('alice'));
+
+      expect(mockTracesV3Logs).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          additionalFilters: [{ column: 'custom_metadata:mlflow.auth.userId', operator: '=', value: '2' }],
+        }),
+      );
     });
 
     test('renders time controls', () => {

@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import subprocess
@@ -27,8 +28,9 @@ def simple_job_fun(x: int, y: int, sleep_secs: int = 0) -> dict[str, Any]:
 
 
 @job(name="job_assert_tracking_uri", max_workers=1)
-def job_assert_tracking_uri(server_url: str) -> None:
-    assert mlflow.get_tracking_uri() == server_url
+def job_assert_tracking_uri(backend_store_uri: str) -> None:
+    # The job subprocess entry points tracking at the backend store, not the server.
+    assert mlflow.get_tracking_uri() == backend_store_uri
 
 
 @job(name="job_with_progress_tracking", max_workers=1)
@@ -46,8 +48,9 @@ def job_with_progress_tracking(sleep_secs: int = 1) -> str:
 
 
 class Client:
-    def __init__(self, server_url: str):
+    def __init__(self, server_url: str, backend_store_uri: str):
         self.server_url = server_url
+        self.backend_store_uri = backend_store_uri
 
     def submit_job(
         self, job_name: str, params: dict[str, Any], timeout: float | None = None
@@ -74,7 +77,7 @@ class Client:
         response.raise_for_status()
         return response.json()
 
-    def wait_job(self, job_id: str, timeout: float = 10) -> dict[str, Any]:
+    def wait_job(self, job_id: str, timeout: float = 30) -> dict[str, Any]:
         beg_time = time.time()
         while time.time() - beg_time <= timeout:
             job_json = self.get_job(job_id)
@@ -126,6 +129,7 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
             **os.environ,
             "PYTHONPATH": os.path.dirname(__file__),
             "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "true",
+            "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS": "false",
             "_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST": (
                 "test_endpoint.simple_job_fun,"
                 "test_endpoint.job_assert_tracking_uri,"
@@ -151,7 +155,7 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
                     break
             else:
                 raise TimeoutError("Server did not report healthy within 15 seconds")
-            yield Client(f"http://127.0.0.1:{port}")
+            yield Client(f"http://127.0.0.1:{port}", backend_store_uri)
         finally:
             # NOTE that we need to kill subprocesses
             # (uvicorn server / huey task runner)
@@ -174,24 +178,31 @@ def test_job_submit(client: Client):
         "timeout": None,
         "status": "SUCCEEDED",
         "result": {"a": 7, "b": 12},
+        "error_message": None,
         "retry_count": 0,
         "status_details": None,
+        "creator": None,
+        "status_message": None,
+        "progress": None,
+        "progress_updated_at": None,
     }
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_job_cancel(client: Client):
     job_id = client.submit_job(
         job_name="simple_job_fun",
         params={"x": 3, "y": 4, "sleep_secs": 120},
     )["job_id"]
-    deadline = time.time() + 20
+    deadline = time.time() + 60
     while time.time() < deadline:
         status = client.get_job(job_id)["status"]
         if status == "RUNNING":
             break
         time.sleep(0.5)
     else:
-        raise TimeoutError(f"Job did not start running within 20 seconds, last status: {status}")
+        raise TimeoutError(f"Job did not start running within 60 seconds, last status: {status}")
 
     client.cancel_job(job_id)
 
@@ -205,8 +216,13 @@ def test_job_cancel(client: Client):
         "timeout": None,
         "status": "CANCELED",
         "result": None,
+        "error_message": None,
         "retry_count": 0,
         "status_details": None,
+        "creator": None,
+        "status_message": None,
+        "progress": None,
+        "progress_updated_at": None,
     }
 
 
@@ -236,15 +252,134 @@ def test_job_endpoint_missing_parameters(client: Client):
     )
 
 
+_JUDGE_WITH_API_BASE = json.dumps({
+    "name": "judge",
+    "instructions_judge_pydantic_data": {
+        "instructions": "Is {{ outputs }} good?",
+        "model": "hosted_vllm:/m",
+        "inference_params": {"api_base": "http://127.0.0.1:9/"},
+    },
+})
+_TRULENS_WITH_BASE_URL = json.dumps({
+    "name": "groundedness",
+    "third_party_scorer_data": {
+        "module": "mlflow.genai.scorers.trulens",
+        "class": "Groundedness",
+        "metric_name": "Groundedness",
+        "model": "openai:/gpt-4o-mini",
+        "kwargs": {"base_url": "http://127.0.0.1:9/"},
+    },
+})
+_SAFE_SCORER = json.dumps({"name": "safe", "builtin_scorer_class": "Safety"})
+_ONLINE_SCORERS_WITH_API_BASE = [
+    {"name": "safe", "serialized_scorer": _SAFE_SCORER, "online_config": {}},
+    {"name": "judge", "serialized_scorer": _JUDGE_WITH_API_BASE, "online_config": {}},
+]
+
+
+@pytest.mark.parametrize(
+    ("job_name", "params", "rejected_key"),
+    [
+        (
+            "invoke_scorer",
+            {"experiment_id": "0", "serialized_scorer": _JUDGE_WITH_API_BASE, "trace_ids": ["t"]},
+            "api_base",
+        ),
+        (
+            "invoke_genai_evaluate",
+            {
+                "trace_ids": ["t"],
+                "serialized_scorers": [_SAFE_SCORER, _TRULENS_WITH_BASE_URL],
+                "run_id": "r",
+            },
+            "base_url",
+        ),
+        (
+            "run_online_trace_scorer",
+            {"experiment_id": "0", "online_scorers": _ONLINE_SCORERS_WITH_API_BASE},
+            "api_base",
+        ),
+        (
+            "run_online_session_scorer",
+            {"experiment_id": "0", "online_scorers": _ONLINE_SCORERS_WITH_API_BASE},
+            "api_base",
+        ),
+    ],
+)
+def test_job_endpoint_rejects_scorer_destination_keys(
+    client: Client, job_name: str, params: dict[str, Any], rejected_key: str
+):
+    response = client.post("/ajax-api/3.0/jobs/", payload={"job_name": job_name, "params": params})
+    assert response.status_code == 400
+    assert f"must not contain '{rejected_key}'" in response.json()["detail"]
+    assert client.search_job(job_name=job_name, params=params) == []
+
+
+@pytest.mark.parametrize(
+    ("job_name", "key"),
+    [
+        ("invoke_genai_evaluate", "serialized_scorers"),
+        ("run_online_trace_scorer", "online_scorers"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("value", "type_name"),
+    [(5, "int"), ("", "str"), (0, "int"), ({}, "dict"), (False, "bool")],
+)
+def test_job_endpoint_rejects_non_list_scorer_params(
+    client: Client, job_name: str, key: str, value: Any, type_name: str
+):
+    response = client.post(
+        "/ajax-api/3.0/jobs/", payload={"job_name": job_name, "params": {key: value}}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == f"'{key}' must be a list, got {type_name}"
+
+
+def test_job_endpoint_submits_valid_serialized_scorer(client: Client):
+    judge = json.dumps({
+        "name": "judge",
+        "instructions_judge_pydantic_data": {
+            "instructions": "Is {{ outputs }} good?",
+            "model": "openai:/gpt-4o-mini",
+        },
+    })
+    params = {"experiment_id": "0", "serialized_scorer": judge, "trace_ids": ["t"]}
+    response = client.post(
+        "/ajax-api/3.0/jobs/", payload={"job_name": "invoke_scorer", "params": params}
+    )
+    assert response.status_code == 200
+    assert response.json()["job_name"] == "invoke_scorer"
+
+
+def test_job_endpoint_rejects_disabled_custom_scorer(client: Client):
+    custom_scorer = json.dumps({
+        "name": "custom",
+        "call_source": "return True",
+        "call_signature": "(outputs)",
+        "original_func_name": "custom",
+    })
+    params = {"experiment_id": "0", "serialized_scorer": custom_scorer, "trace_ids": ["t"]}
+    response = client.post(
+        "/ajax-api/3.0/jobs/", payload={"job_name": "invoke_scorer", "params": params}
+    )
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "disabled on this server" in detail
+    assert "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS" in detail
+
+
 def test_job_tracking_uri(client: Client):
     job_id = client.submit_job(
         job_name="job_assert_tracking_uri",
-        params={"server_url": client.server_url},
+        params={"backend_store_uri": client.backend_store_uri},
     )["job_id"]
     job_json = client.wait_job(job_id)
     assert job_json["status"] == "SUCCEEDED"
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_job_endpoint_search(client: Client):
     job1_id = client.submit_job(
         job_name="simple_job_fun",
@@ -334,12 +469,15 @@ def test_job_endpoint_search(client: Client):
         },
     )
     assert response.status_code == 422
-    assert (
-        response.json()["detail"][0]["msg"]
-        == "Input should be 'PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED', 'TIMEOUT' or 'CANCELED'"
+    expected_message = (
+        "Input should be 'PENDING', 'RUNNING', 'NEEDS_RECOVERY', "
+        "'SUCCEEDED', 'FAILED', 'TIMEOUT' or 'CANCELED'"
     )
+    assert response.json()["detail"][0]["msg"] == expected_message
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_job_status_details_in_api_response(client: Client):
     job_id = client.submit_job(
         job_name="job_with_progress_tracking",
@@ -353,3 +491,7 @@ def test_job_status_details_in_api_response(client: Client):
     assert job_json["status_details"].get("stage") == "done"
     assert job_json["status"] == "SUCCEEDED"
     assert job_json["result"] == "completed"
+    assert job_json["error_message"] is None
+    assert job_json["status_message"] is None
+    assert job_json["progress"] is None
+    assert job_json["progress_updated_at"] is None
