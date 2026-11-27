@@ -479,6 +479,16 @@ describe('useSearchMlflowTraces', () => {
           ],
           filters: [
             {
+              column: 'custom_metadata:my key',
+              operator: FilterOperator.EQUALS,
+              value: 'match',
+            },
+            {
+              column: 'custom_metadata:my-key',
+              operator: FilterOperator.CONTAINS,
+              value: 'needle',
+            },
+            {
               column: 'custom_metadata:user_id',
               operator: FilterOperator.EQUALS,
               value: 'user123',
@@ -507,7 +517,8 @@ describe('useSearchMlflowTraces', () => {
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
     expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
-      filter: `request_metadata.user_id = 'user123' AND request_metadata.environment = 'production' AND request_metadata.mlflow.trace.session ILIKE '%%'`,
+      filter:
+        "request_metadata.`my key` = 'match' AND request_metadata.`my-key` ILIKE '%needle%' AND request_metadata.user_id = 'user123' AND request_metadata.environment = 'production' AND request_metadata.mlflow.trace.session ILIKE '%%'",
       max_results: 10000,
     });
   });

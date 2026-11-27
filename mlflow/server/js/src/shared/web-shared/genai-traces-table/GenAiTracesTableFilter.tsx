@@ -11,12 +11,16 @@ import {
   XCircleFillIcon,
   Spinner,
   DangerIcon,
+  FormUI,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { TableFilterItem } from './components/filters/TableFilterItem';
 import type { AssessmentInfo, TableFilterFormState, TableFilter, TableFilterOptions, TracesTableColumn } from './types';
 import { FilterOperator } from './types';
+import { CUSTOM_METADATA_COLUMN_ID } from './hooks/useTableColumns';
+import { getCustomMetadataKeyFromColumnId } from './utils/TraceUtils';
+import { getMetadataFilterError } from './utils/metadataFilter';
 
 export const GenAiTracesTableFilter = ({
   filters,
@@ -171,12 +175,19 @@ const FilterForm = ({
   usesV4APIs?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
 
   const filterForm = useFilterForm(filters);
 
   const { setValue, watch } = filterForm;
 
   const localFilters = watch('filters');
+  const metadataError = getMetadataFilterError(
+    localFilters
+      .filter(({ column }) => column.startsWith(`${CUSTOM_METADATA_COLUMN_ID}:`))
+      .map(({ column }) => getCustomMetadataKeyFromColumnId(column) ?? ''),
+    intl,
+  );
 
   return (
     <FormProvider {...filterForm}>
@@ -221,6 +232,7 @@ const FilterForm = ({
             />
           ))}
         </div>
+        {metadataError && <FormUI.Message type="error" message={metadataError} />}
         <div>
           <Button
             componentId="mlflow.evaluations_review.table_ui.add_filter_button"
@@ -244,6 +256,7 @@ const FilterForm = ({
           <Button
             componentId="mlflow.evaluations_review.table_ui.apply_filters_button"
             type="primary"
+            disabled={Boolean(metadataError)}
             onClick={() => setFilters(localFilters)}
             css={{
               display: 'flex',

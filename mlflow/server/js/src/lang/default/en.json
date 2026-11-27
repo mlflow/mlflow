@@ -8783,6 +8783,10 @@
     "defaultMessage": "Restore",
     "description": "String for the restore button to undo the experiments that were deleted"
   },
+  "Pp5PpR": {
+    "defaultMessage": "Metadata keys cannot contain backticks, double quotes, backslashes, comments, semicolons, or control characters.",
+    "description": "Trace filter validation error for an unsupported metadata key"
+  },
   "PpP8du": {
     "defaultMessage": "Model configuration",
     "description": "Label for model configuration section"

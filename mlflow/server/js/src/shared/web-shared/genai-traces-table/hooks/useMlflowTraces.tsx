@@ -69,6 +69,7 @@ import {
   getCustomMetadataKeyFromColumnId,
 } from '../utils/TraceUtils';
 import { isV4TraceLocation } from '../utils/TraceLocationUtils';
+import { getMetadataFilterField } from '../utils/metadataFilter';
 
 interface SearchMlflowTracesRequest {
   locations?: ModelTraceSearchLocation[];
@@ -1101,7 +1102,8 @@ export const createMlflowSearchFilter = (
           break;
         default:
           if (networkFilter.column.startsWith(CUSTOM_METADATA_COLUMN_ID)) {
-            const columnKey = `request_metadata.${getCustomMetadataKeyFromColumnId(networkFilter.column)}`;
+            const columnKey = getMetadataFilterField(getCustomMetadataKeyFromColumnId(networkFilter.column) ?? '');
+            if (!columnKey) break;
             if (networkFilter.operator === HiddenFilterOperator.IS_NOT_NULL) {
               filter.push(`${columnKey} IS NOT NULL`);
             } else if (networkFilter.operator === FilterOperator.CONTAINS) {

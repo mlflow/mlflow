@@ -206,7 +206,14 @@ describe('validateComparisonFilters', () => {
     { id: 'duration', label: 'Duration', operators: [FilterOp.EQUALS], valueInput: 'number' },
     { id: 'input', label: 'Input', operators: [FilterOp.RLIKE], valueInput: 'text' },
     { id: 'tag', label: 'Tag', operators: [FilterOp.EQUALS], valueInput: 'text', requiresKey: true },
+    { id: 'metadata', label: 'Metadata', operators: [FilterOp.EQUALS], valueInput: 'text', requiresKey: true },
   ];
+  it.each(['my`key', 'my"key'])('keeps browser-only metadata key %j after serialization', (key) => {
+    const filters: FilterClause[] = JSON.parse(JSON.stringify([clause('metadata', 'match', FilterOp.EQUALS, key)]));
+    expect(validateComparisonFilters(filters, fields, intl)).toBeUndefined();
+    expect(matches(makeTrace('match', { trace_metadata: { [key]: 'match' } }), filters[0])).toBe(true);
+    expect(matches(makeTrace('other', { trace_metadata: { [key]: 'other' } }), filters[0])).toBe(false);
+  });
   it.each([
     clause('span_name', 'ignored'),
     clause('duration', 'Infinity'),

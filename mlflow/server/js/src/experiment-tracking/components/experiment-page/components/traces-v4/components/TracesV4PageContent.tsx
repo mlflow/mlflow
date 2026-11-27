@@ -45,6 +45,7 @@ import {
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
 import { isAssessmentColumnId } from '../utils/assessmentColumns';
 import { isCustomTraceColumnId } from '../utils/customColumns';
+import { validateMetadataFilters } from '../utils/filterModel';
 import { useTracesV4Controller } from '../hooks/useTracesV4Controller';
 import { useTracesV4Density } from '../hooks/useTracesV4Density';
 import { useTracesV4Notifications } from '../hooks/useTracesV4Notifications';
@@ -666,6 +667,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   });
 
   const toolbarSlots = useTracesV4ToolbarSlots({
+    validateFilters: (model) => validateMetadataFilters(model, intl),
     filterModel: unifiedSearchEnabled ? unifiedSearch.searchFilterModel : filterModel,
     onFilterChange: unifiedSearchEnabled ? unifiedSearch.setSearchFilters : controller.setFilterModel,
     hideFilterButton: unifiedSearchEnabled,
