@@ -1447,6 +1447,26 @@ class SqlAlchemyStore(
             value = metric_value
         return is_nan, value
 
+    def _insert_many(
+        self, session: Session, model: type, instances: Iterable[Any], fields: tuple[str, ...]
+    ) -> None:
+        instances = list(instances)
+        if not instances:
+            return
+        if (
+            self.db_type == POSTGRES
+            and self.engine.dialect.driver == "psycopg"
+            and self.engine.dialect.insert_executemany_returning
+        ):
+            # RETURNING enables multi-row inserts; Core preserves explicit NULL values.
+            table = model.__table__
+            session.execute(
+                table.insert().returning(next(iter(table.primary_key.columns))),
+                [{field: getattr(instance, field) for field in fields} for instance in instances],
+            ).close()
+        else:
+            session.add_all(instances)
+
     def _log_metrics(self, run_id, metrics):
         # Retry on DB deadlock: each attempt opens a fresh session in _log_metrics_once, so the
         # victim is redriven instead of surfacing an HTTP 503.
@@ -1485,7 +1505,12 @@ class SqlAlchemyStore(
             self._check_run_is_active(run)
 
             def _insert_metrics(metric_instances):
-                session.add_all(metric_instances)
+                self._insert_many(
+                    session,
+                    SqlMetric,
+                    metric_instances,
+                    ("key", "value", "timestamp", "step", "is_nan", "run_uuid"),
+                )
                 self._update_latest_metrics_if_necessary(metric_instances, session)
                 session.commit()
 
@@ -1637,7 +1662,23 @@ class SqlAlchemyStore(
             # so the dedup is retried a bounded number of times.
             for attempt in range(_LOGGED_MODEL_METRIC_MAX_INSERT_ATTEMPTS):
                 try:
-                    session.add_all(metric_instances)
+                    self._insert_many(
+                        session,
+                        SqlLoggedModelMetric,
+                        metric_instances,
+                        (
+                            "model_id",
+                            "metric_name",
+                            "metric_timestamp_ms",
+                            "metric_step",
+                            "metric_value",
+                            "experiment_id",
+                            "run_id",
+                            "dataset_uuid",
+                            "dataset_name",
+                            "dataset_digest",
+                        ),
+                    )
                     session.commit()
                     return
                 except sqlalchemy.exc.IntegrityError:
@@ -2593,10 +2634,9 @@ class SqlAlchemyStore(
                     existing_dataset.dataset_uuid
                 )
 
-            # collect all objects to write to DB in a single list
-            objs_to_write = []
-
-            # add datasets to objs_to_write
+            new_datasets = []
+            new_inputs = []
+            new_input_tags = []
             for dataset_input in dataset_inputs:
                 if (
                     dataset_input.dataset.name,
@@ -2606,7 +2646,7 @@ class SqlAlchemyStore(
                     dataset_uuids[(dataset_input.dataset.name, dataset_input.dataset.digest)] = (
                         new_dataset_uuid
                     )
-                    objs_to_write.append(
+                    new_datasets.append(
                         SqlDataset(
                             dataset_uuid=new_dataset_uuid,
                             experiment_id=experiment_id,
@@ -2636,7 +2676,6 @@ class SqlAlchemyStore(
                     existing_input.input_uuid
                 )
 
-            # add input edges to objs_to_write
             for dataset_input in dataset_inputs:
                 dataset_uuid = dataset_uuids[
                     (dataset_input.dataset.name, dataset_input.dataset.digest)
@@ -2646,7 +2685,7 @@ class SqlAlchemyStore(
                     input_uuids[(dataset_input.dataset.name, dataset_input.dataset.digest)] = (
                         new_input_uuid
                     )
-                    objs_to_write.append(
+                    new_inputs.append(
                         SqlInput(
                             input_uuid=new_input_uuid,
                             source_type="DATASET",
@@ -2655,8 +2694,7 @@ class SqlAlchemyStore(
                             destination_id=run_id,
                         )
                     )
-                    # add input tags to objs_to_write
-                    objs_to_write.extend(
+                    new_input_tags.extend(
                         SqlInputTag(
                             input_uuid=new_input_uuid,
                             name=input_tag.key,
@@ -2677,7 +2715,28 @@ class SqlAlchemyStore(
                         )
                     )
 
-            session.add_all(objs_to_write)
+            self._insert_many(
+                session,
+                SqlDataset,
+                new_datasets,
+                (
+                    "dataset_uuid",
+                    "experiment_id",
+                    "name",
+                    "digest",
+                    "dataset_source_type",
+                    "dataset_source",
+                    "dataset_schema",
+                    "dataset_profile",
+                ),
+            )
+            session.add_all(new_inputs)
+            if new_input_tags:
+                # Input tags reference inputs that may still be pending in the ORM session.
+                session.flush()
+                self._insert_many(
+                    session, SqlInputTag, new_input_tags, ("input_uuid", "name", "value")
+                )
 
     def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
         with self.ManagedSessionMaker(read_only=False) as session:
