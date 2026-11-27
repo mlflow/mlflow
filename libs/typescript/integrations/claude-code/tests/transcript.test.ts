@@ -1,4 +1,6 @@
 import { resolve } from 'node:path';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 import {
   readTranscript,
@@ -6,6 +8,7 @@ import {
   extractTextContent,
   findLastUserMessageIndex,
   findFinalAssistantResponse,
+  findStoppedTurn,
 } from '../src/transcript';
 
 import type { TranscriptEntry } from '../src/types';
@@ -22,6 +25,20 @@ describe('readTranscript', () => {
     expect(entries.length).toBe(5);
     expect(entries[0].type).toBe('user');
     expect(entries[1].type).toBe('assistant');
+  });
+
+  it('skips a last line that is still being written', () => {
+    const path = resolve(mkdtempSync(resolve(tmpdir(), 'cc-read-')), 'partial.jsonl');
+    writeFileSync(path, '{"type":"user","message":{"role":"user","content":"hi"}}\n{"type":"assis');
+    const entries = readTranscript(path);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].type).toBe('user');
+  });
+
+  it('still throws on an unparsable line before the last one', () => {
+    const path = resolve(mkdtempSync(resolve(tmpdir(), 'cc-read-')), 'broken.jsonl');
+    writeFileSync(path, '{"type":"us\n{"type":"user","message":{"role":"user","content":"hi"}}\n');
+    expect(() => readTranscript(path)).toThrow(SyntaxError);
   });
 });
 
@@ -235,5 +252,56 @@ describe('findFinalAssistantResponse', () => {
       },
     ];
     expect(findFinalAssistantResponse(transcript, 0)).toBeNull();
+  });
+});
+
+// ============================================================================
+// findStoppedTurn
+// ============================================================================
+
+describe('findStoppedTurn', () => {
+  const prompt = (text: string, promptId: string): TranscriptEntry => ({
+    type: 'user',
+    promptId,
+    message: { role: 'user', content: text },
+  });
+  const reply = (text: string, stopReason: string | null = 'end_turn'): TranscriptEntry => ({
+    type: 'assistant',
+    message: { role: 'assistant', content: [{ type: 'text', text }], stop_reason: stopReason },
+  });
+
+  it('ends the turn before a queued message that keeps the same promptId', () => {
+    const transcript = [
+      prompt('Fix the test', 'p1'),
+      reply('Done.'),
+      prompt('Another Claude session sent a message: ...', 'p1'),
+      reply('Answered the other session.'),
+    ];
+    expect(findStoppedTurn(transcript, 'Done.', 'p1')).toEqual({
+      finalIdx: 1,
+      endIdx: 2,
+      isComplete: true,
+    });
+  });
+
+  it('does not match the same reply of an earlier turn', () => {
+    const transcript = [prompt('First', 'p0'), reply('Done.'), prompt('Second', 'p1')];
+    expect(findStoppedTurn(transcript, 'Done.', 'p1')).toBeNull();
+  });
+
+  it('reports a final message without a final stop_reason as incomplete', () => {
+    const transcript = [prompt('Fix the test', 'p1'), reply('Done.', null)];
+    expect(findStoppedTurn(transcript, 'Done.', 'p1')?.isComplete).toBe(false);
+  });
+
+  it('works without promptId and ignores surrounding whitespace', () => {
+    const transcript = [prompt('Fix the test', 'p1'), reply('Done.\n')];
+    expect(findStoppedTurn(transcript, ' Done.')?.finalIdx).toBe(1);
+  });
+
+  it('returns null for an unknown promptId or an empty message', () => {
+    const transcript = [prompt('Fix the test', 'p1'), reply('Done.')];
+    expect(findStoppedTurn(transcript, 'Done.', 'p9')).toBeNull();
+    expect(findStoppedTurn(transcript, '  ', 'p1')).toBeNull();
   });
 });

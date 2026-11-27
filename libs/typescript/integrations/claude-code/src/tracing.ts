@@ -27,6 +27,7 @@ import {
   findLastUserMessageIndex,
   getNextTimestampNs,
   parseTimestampToNs,
+  findStoppedTurn,
   readTranscript,
 } from './transcript.js';
 import {
@@ -45,6 +46,11 @@ import {
 
 const NANOSECONDS_PER_MS = 1e6;
 const NANOSECONDS_PER_S = 1e9;
+
+// How long the Stop hook re-reads the transcript for the turn's final message,
+// which Claude Code can write shortly after the hook starts
+const TRANSCRIPT_WAIT_MS = 5000;
+const TRANSCRIPT_POLL_MS = 100;
 
 // ============================================================================
 // Tool result finding
@@ -528,15 +534,75 @@ function createLlmAndToolSpans(
 /**
  * Process a Claude conversation transcript and create an MLflow trace with spans.
  */
-export async function processTranscript(transcriptPath: string, sessionId?: string): Promise<void> {
-  try {
+/**
+ * What the Stop hook input says about the turn that just ended.
+ */
+export interface StopInfo {
+  /** `last_assistant_message` from the Stop hook input */
+  lastAssistantMessage?: string;
+  /** `prompt_id` from the Stop hook input */
+  promptId?: string;
+  /** Overrides for tests */
+  waitMs?: number;
+  pollMs?: number;
+}
+
+/**
+ * Read the transcript until the turn named by the Stop input is complete, or
+ * the wait runs out. Returns the transcript cut at the end of that turn, and
+ * whether its final message was found (only then are its LLM and tool spans
+ * built; otherwise the trace carries the response without usage).
+ */
+async function readStoppedTurn(
+  transcriptPath: string,
+  stop: StopInfo & { lastAssistantMessage: string },
+): Promise<{ transcript: TranscriptEntry[]; isFound: boolean }> {
+  const deadline = Date.now() + (stop.waitMs ?? TRANSCRIPT_WAIT_MS);
+  for (;;) {
     const transcript = readTranscript(transcriptPath);
+    const turn = findStoppedTurn(transcript, stop.lastAssistantMessage, stop.promptId);
+    if (turn && (turn.isComplete || Date.now() >= deadline)) {
+      return { transcript: transcript.slice(0, turn.endIdx), isFound: true };
+    }
+    if (Date.now() >= deadline) {
+      return { transcript, isFound: false };
+    }
+    await new Promise((r) => setTimeout(r, stop.pollMs ?? TRANSCRIPT_POLL_MS));
+  }
+}
+
+export async function processTranscript(
+  transcriptPath: string,
+  sessionId?: string,
+  stop?: StopInfo,
+): Promise<void> {
+  try {
+    let transcript: TranscriptEntry[];
+    let isTurnFound = true;
+    if (stop?.lastAssistantMessage) {
+      ({ transcript, isFound: isTurnFound } = await readStoppedTurn(transcriptPath, {
+        ...stop,
+        lastAssistantMessage: stop.lastAssistantMessage,
+      }));
+    } else {
+      transcript = readTranscript(transcriptPath);
+    }
     if (!transcript.length) {
       console.error('[mlflow] Empty transcript, skipping');
       return;
     }
 
-    const lastUserIdx = findLastUserMessageIndex(transcript);
+    // Without the final message the entries after the last user prompt may
+    // belong to another turn, so the prompt comes from `promptId` when given
+    let lastUserIdx = findLastUserMessageIndex(transcript);
+    if (!isTurnFound && stop?.promptId) {
+      const promptIdx = transcript.findIndex(
+        (entry) => entry.type === 'user' && entry.promptId === stop.promptId,
+      );
+      if (promptIdx !== -1) {
+        lastUserIdx = promptIdx;
+      }
+    }
     if (lastUserIdx == null) {
       console.error('[mlflow] No user message found in transcript');
       return;
@@ -564,10 +630,18 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
     });
 
     // Create spans for all assistant responses and tool uses
-    createLlmAndToolSpans(parentSpan, transcript, lastUserIdx + 1, transcriptPath);
+    if (isTurnFound) {
+      createLlmAndToolSpans(parentSpan, transcript, lastUserIdx + 1, transcriptPath);
+    } else {
+      console.error(
+        '[mlflow] Final assistant message not in the transcript yet; logging the trace without usage',
+      );
+    }
 
-    // Find final response for preview
-    const finalResponse = findFinalAssistantResponse(transcript, lastUserIdx + 1);
+    // Find final response for preview: the Stop input names it even when the
+    // transcript does not contain it yet
+    const finalResponse =
+      stop?.lastAssistantMessage || findFinalAssistantResponse(transcript, lastUserIdx + 1);
 
     // Set trace previews and metadata
     try {
