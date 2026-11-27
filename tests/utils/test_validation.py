@@ -1,8 +1,10 @@
 import copy
 import json
+import os
 import re
 import socket
 import time
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -1127,6 +1129,7 @@ def test_validate_gateway_vertex_credentials_rejects_untrusted_document(key, val
 
 
 def test_validate_gateway_vertex_credentials_reads_file_only_with_opt_in(tmp_path, monkeypatch):
+    monkeypatch.delenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", raising=False)
     path = tmp_path / "key.json"
     path.write_text(service_account_key(token_uri="http://127.0.0.1:8080/token"))
     with pytest.raises(MlflowException, match="must contain the service account key JSON"):
@@ -1137,6 +1140,26 @@ def test_validate_gateway_vertex_credentials_reads_file_only_with_opt_in(tmp_pat
         _validate_gateway_secret_value({"vertex_credentials": str(path)})
     path.write_text(service_account_key())
     _validate_gateway_secret_value({"vertex_credentials": str(path)})
+
+
+@pytest.mark.skipif(is_windows(), reason="FIFOs and /dev/zero are POSIX-only")
+@pytest.mark.parametrize("kind", ["fifo", "device", "oversized", "directory"])
+def test_validate_gateway_vertex_credentials_rejects_non_regular_or_large_files(
+    kind, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
+    path = tmp_path / "key.json"
+    match kind:
+        case "fifo":
+            os.mkfifo(path)
+        case "device":
+            path = Path("/dev/zero")
+        case "oversized":
+            path.write_text(service_account_key(padding="x" * 64 * 1024))
+        case "directory":
+            path.mkdir()
+    with pytest.raises(MlflowException, match="must be a service account key JSON or a path"):
+        _validate_gateway_secret_value({"vertex_credentials": str(path)})
 
 
 def _trulens_scorer(kwargs):

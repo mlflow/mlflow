@@ -276,6 +276,7 @@ def test_build_endpoint_config_rejects_untrusted_stored_vertex_credentials(provi
 def test_build_endpoint_config_reads_stored_vertex_credentials_file_only_with_opt_in(
     provider, key, tmp_path, monkeypatch
 ):
+    monkeypatch.delenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", raising=False)
     path = tmp_path / "key.json"
     path.write_text(service_account_key())
     model_config = _vertex_model_config(provider, key, str(path))

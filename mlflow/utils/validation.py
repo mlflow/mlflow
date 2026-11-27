@@ -6,13 +6,14 @@ import ipaddress
 import json
 import logging
 import numbers
+import os
 import posixpath
 import re
 import socket
+import stat
 import threading
 import urllib.parse
 from fnmatch import fnmatch
-from pathlib import Path
 from typing import Any, Iterator
 
 import requests
@@ -1284,6 +1285,27 @@ def _validate_vertex_service_account_info(info: Any, field_name: str) -> None:
             )
 
 
+# Service account keys are a few KiB.
+_MAX_VERTEX_CREDENTIALS_FILE_BYTES = 64 * 1024
+
+
+def _read_vertex_credentials_file(path: str) -> str:
+    # O_NONBLOCK keeps opening a FIFO from waiting for a writer. Only regular files are read,
+    # and only up to a bound, so a FIFO or a device such as /dev/zero can't stall the server
+    # or exhaust its memory.
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError("Not a regular file")
+        with os.fdopen(fd, "rb", closefd=False) as f:
+            data = f.read(_MAX_VERTEX_CREDENTIALS_FILE_BYTES + 1)
+    finally:
+        os.close(fd)
+    if len(data) > _MAX_VERTEX_CREDENTIALS_FILE_BYTES:
+        raise ValueError("File too large")
+    return data.decode("utf-8")
+
+
 def _load_gateway_vertex_credentials(value: Any, field_name: str) -> dict[str, Any]:
     """Parse and validate a Vertex AI service account key.
 
@@ -1305,7 +1327,7 @@ def _load_gateway_vertex_credentials(value: Any, field_name: str) -> dict[str, A
                     "file path"
                 ) from None
             try:
-                info = json.loads(Path(value).read_text())
+                info = json.loads(_read_vertex_credentials_file(value))
             except (OSError, ValueError, RecursionError):
                 raise MlflowException.invalid_parameter_value(
                     f"{field_name} must be a service account key JSON or a path to a JSON file"
