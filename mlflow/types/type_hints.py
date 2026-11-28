@@ -394,6 +394,7 @@ def _validate_data_against_type_hint(data: Any, type_hint: type[Any]) -> Any:
     Validate the data against provided type hint.
     The allowed conversions are:
         dictionary data with Pydantic model type hint -> Pydantic model instance
+        NumPy scalar (e.g. np.int64) -> equivalent Python scalar for builtin type hints
 
     Args:
         data: The data to validate
@@ -428,6 +429,15 @@ def _validate_data_against_type_hint(data: Any, type_hint: type[Any]) -> Any:
             data = _parse_data_for_datatype_hint(data=data, type_hint=type_hint)
         if isinstance(data, type_hint):
             return data
+        # NumPy scalars such as np.int64 or np.float32 are not instances of the builtin
+        # types (unlike np.float64, which subclasses float), so normalize them to the
+        # equivalent Python scalar and re-check before rejecting the input. This keeps
+        # in-process `predict` calls working with data originating from NumPy or pandas.
+        if np := _try_import_numpy():
+            if isinstance(data, (np.number, np.bool_)) and isinstance(
+                converted := data.item(), type_hint
+            ):
+                return converted
         raise MlflowException.invalid_parameter_value(
             f"Expected type {_type_hint_repr(type_hint)}, but got {type(data).__name__}"
         )
