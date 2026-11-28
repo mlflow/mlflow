@@ -3,7 +3,8 @@ Comprehensive MLflow Traces CLI for managing trace data, assessments, and metada
 
 This module provides a complete command-line interface for working with MLflow traces,
 including search, retrieval, deletion, tagging, and assessment management. It supports
-both table and JSON output formats with flexible field selection capabilities.
+table, JSON, and JSON Lines (JSONL) output formats with flexible field selection
+capabilities.
 
 AVAILABLE COMMANDS:
     search              Search traces with filtering, sorting, and field selection
@@ -34,6 +35,9 @@ EXAMPLE USAGE:
     mlflow traces search --experiment-ids 1 \
         --extract-fields "info.trace_id,info.tags.`mlflow.traceName`" \
         --output json
+
+    # Stream every matching trace as JSON Lines (one JSON object per line)
+    mlflow traces search --experiment-id 1 --output jsonl --all-pages
 
     # Get full trace details
     mlflow traces get --trace-id tr-1234567890abcdef
@@ -72,7 +76,7 @@ from typing import Literal
 
 import click
 
-from mlflow.entities import AssessmentSource, AssessmentSourceType
+from mlflow.entities import AssessmentSource, AssessmentSourceType, Trace
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.tracing.assessment import (
@@ -99,6 +103,24 @@ EXPERIMENT_ID = click.option(
     help="Experiment ID to search within. Can be set via MLFLOW_EXPERIMENT_ID env var.",
 )
 TRACE_ID = click.option("--trace-id", type=click.STRING, required=True)
+
+
+def _trace_to_jsonl_line(trace: Trace, field_list: list[str] | None) -> str:
+    """
+    Serialize a single trace as one JSON Lines record.
+
+    Args:
+        trace: The trace to serialize.
+        field_list: Field paths to keep, using the same dot notation as
+            ``--extract-fields``. When `None`, the full trace is serialized.
+
+    Returns:
+        A single-line JSON string representing the trace.
+    """
+    trace_dict = trace.to_dict()
+    if field_list is not None:
+        trace_dict = filter_json_by_fields(trace_dict, field_list)
+    return json.dumps(trace_dict)
 
 
 @click.group("traces")
@@ -224,9 +246,10 @@ Available fields:
 )
 @click.option(
     "--output",
-    type=click.Choice(["table", "json"]),
+    type=click.Choice(["table", "json", "jsonl"]),
     default="table",
-    help="Output format: 'table' for formatted table (default) or 'json' for JSON format",
+    help="Output format: 'table' for formatted table (default), 'json' for JSON format, "
+    "or 'jsonl' for JSON Lines (one JSON object per line)",
 )
 @click.option(
     "--extract-fields",
@@ -236,6 +259,12 @@ Available fields:
     'For field names with dots, use backticks: "info.tags.`mlflow.traceName`". '
     "Comma-separated for multiple fields. "
     "Defaults to standard columns for table mode, all fields for JSON mode.",
+)
+@click.option(
+    "--all-pages",
+    is_flag=True,
+    help="Follow pagination tokens automatically and stream every matching trace. "
+    "Each page fetches up to --max-results traces. Only supported with --output jsonl.",
 )
 @click.option(
     "--verbose",
@@ -254,6 +283,7 @@ def search_traces(
     sql_warehouse_id: str | None = None,
     output: str = "table",
     extract_fields: str | None = None,
+    all_pages: bool = False,
     verbose: bool = False,
 ) -> None:
     """
@@ -289,7 +319,14 @@ def search_traces(
     \b
     # Search without span data (faster for metadata-only queries)
     mlflow traces search --experiment-id 1 --no-include-spans
+
+    \b
+    # Stream all matching traces as JSON Lines (one JSON object per line)
+    mlflow traces search --experiment-id 1 --output jsonl --all-pages
     """
+    if all_pages and output != "jsonl":
+        raise click.UsageError("--all-pages requires --output jsonl")
+
     client = TracingClient()
     order_by_list = [o.strip() for o in order_by.split(",")] if order_by else None
 
@@ -302,16 +339,19 @@ def search_traces(
         )
         os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = sql_warehouse_id
 
-    traces = client.search_traces(
-        locations=[experiment_id],
-        filter_string=filter_string,
-        max_results=max_results,
-        order_by=order_by_list,
-        page_token=page_token,
-        run_id=run_id,
-        include_spans=include_spans,
-        model_id=model_id,
-    )
+    def search_page(token: str | None):
+        return client.search_traces(
+            locations=[experiment_id],
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by_list,
+            page_token=token,
+            run_id=run_id,
+            include_spans=include_spans,
+            model_id=model_id,
+        )
+
+    traces = search_page(page_token)
 
     # Determine which fields to show
     if extract_fields:
@@ -322,8 +362,8 @@ def search_traces(
                 validate_field_paths(field_list, traces[0].to_dict(), verbose=verbose)
             except ValueError as e:
                 raise click.UsageError(str(e))
-    elif output == "json":
-        # JSON mode defaults to all fields (full trace data)
+    elif output in ("json", "jsonl"):
+        # JSON and JSONL modes default to all fields (full trace data)
         field_list = None  # Will output full JSON
     else:
         # Table mode defaults to standard columns
@@ -336,7 +376,21 @@ def search_traces(
             "info.response_preview",
         ]
 
-    if output == "json":
+    if output == "jsonl":
+        for trace in traces:
+            click.echo(_trace_to_jsonl_line(trace, field_list))
+        if all_pages:
+            next_page_token = traces.token
+            while next_page_token:
+                page = search_page(next_page_token)
+                if not page:
+                    # An empty page means the result set is exhausted; stop instead of
+                    # following a token that would keep returning empty pages.
+                    break
+                for trace in page:
+                    click.echo(_trace_to_jsonl_line(trace, field_list))
+                next_page_token = page.token
+    elif output == "json":
         if field_list is None:
             # Full JSON output
             result = {
