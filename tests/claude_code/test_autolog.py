@@ -124,6 +124,65 @@ async def test_query_captures_async_generator_prompt():
 
 
 @pytest.mark.asyncio
+async def test_receive_response_builds_one_trace_per_turn():
+    mock_self = MagicMock()
+
+    async def fake_query(prompt, *args, **kwargs):
+        pass
+
+    mock_self.query = fake_query
+
+    turns = [
+        [
+            AssistantMessage(content=[TextBlock(text="4")], model="claude-sonnet-4-20250514"),
+            ResultMessage(
+                subtype="success",
+                duration_ms=1000,
+                duration_api_ms=800,
+                is_error=False,
+                num_turns=1,
+                session_id="s",
+                usage={"input_tokens": 100, "output_tokens": 5},
+            ),
+        ],
+        [
+            AssistantMessage(content=[TextBlock(text="6")], model="claude-sonnet-4-20250514"),
+            ResultMessage(
+                subtype="success",
+                duration_ms=1000,
+                duration_api_ms=800,
+                is_error=False,
+                num_turns=1,
+                session_id="s",
+                usage={"input_tokens": 150, "output_tokens": 7},
+            ),
+        ],
+    ]
+
+    async def fake_receive_response():
+        for msg in turns.pop(0):
+            yield msg
+
+    mock_self.receive_response = fake_receive_response
+    patched_claude_sdk_init(MagicMock(), mock_self)
+
+    with (
+        patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
+        patch("mlflow.claude_code.tracing.process_sdk_messages") as mock_process,
+    ):
+        await mock_self.query("What is 2 + 2?")
+        [msg async for msg in mock_self.receive_response()]
+        await mock_self.query("And 3 + 3?")
+        [msg async for msg in mock_self.receive_response()]
+
+    assert mock_process.call_count == 2
+    second_turn = mock_process.call_args_list[1][0][0]
+    assert len(second_turn) == 3
+    assert second_turn[0].content == "And 3 + 3?"
+    assert second_turn[2].usage == {"input_tokens": 150, "output_tokens": 7}
+
+
+@pytest.mark.asyncio
 async def test_receive_response_skips_when_autologging_disabled():
     mock_self = MagicMock()
     _patch_sdk_init(mock_self, ["msg1", "msg2"])

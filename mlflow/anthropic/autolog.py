@@ -55,13 +55,17 @@ def patched_claude_sdk_init(original, self, options=None):
             async for msg in original_receive_response(*args, **kwargs):
                 messages.append(msg)
                 yield msg
+            # Each receive_response() ends one turn, so the next query() starts a new trace
+            # instead of one that repeats the earlier turns.
+            turn_messages = list(messages)
+            messages.clear()
             try:
                 from mlflow.utils.autologging_utils import autologging_is_disabled
 
                 if not autologging_is_disabled("anthropic"):
                     from mlflow.claude_code.tracing import process_sdk_messages
 
-                    process_sdk_messages(list(messages))
+                    process_sdk_messages(turn_messages)
             except Exception as e:
                 _logger.debug("Error building SDK trace: %s", e, exc_info=True)
 
