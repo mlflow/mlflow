@@ -166,3 +166,49 @@ def test_get_logged_model_artifact_repo_uses_models_uri():
             tracking_uri="http://test-tracking-server:5000",
             registry_uri="sqlite:///mlflow.db",
         )
+
+
+def test_download_artifacts_chains_run_repo_exception():
+    with mock.patch(
+        "mlflow.tracking.artifact_utils.get_artifact_uri",
+        return_value="s3://test-bucket/some-run-id/artifacts",
+    ):
+        runs_repo = RunsArtifactRepository(artifact_uri="runs:/some-run-id")
+
+    store_error = RuntimeError("S3 connection timed out")
+    runs_repo.repo = Mock()
+    runs_repo.repo.download_artifacts.side_effect = store_error
+
+    with (
+        mock.patch.object(runs_repo, "_download_model_artifacts", return_value=None),
+        pytest.raises(
+            MlflowException,
+            match="Failed to download artifacts from path 'model'",
+        ) as exc_info,
+    ):
+        runs_repo.download_artifacts("model")
+
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    assert exc_info.value.__cause__ is store_error
+
+
+def test_download_artifacts_keeps_none_cause_when_run_repo_returns_none():
+    with mock.patch(
+        "mlflow.tracking.artifact_utils.get_artifact_uri",
+        return_value="s3://test-bucket/some-run-id/artifacts",
+    ):
+        runs_repo = RunsArtifactRepository(artifact_uri="runs:/some-run-id")
+
+    runs_repo.repo = Mock()
+    runs_repo.repo.download_artifacts.return_value = None
+
+    with (
+        mock.patch.object(
+            runs_repo, "_download_model_artifacts", side_effect=RuntimeError("model err")
+        ),
+        pytest.raises(MlflowException) as exc_info,
+    ):
+        runs_repo.download_artifacts("model")
+
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    assert exc_info.value.__cause__ is None
