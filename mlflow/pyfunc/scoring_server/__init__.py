@@ -196,7 +196,8 @@ def parse_csv_input(csv_input, schema: Schema = None):
     import pandas as pd
 
     try:
-        if schema is None:
+        # Tensor-based schemas have no pandas dtypes; schema enforcement converts the frame later
+        if schema is None or schema.is_tensor_spec():
             return pd.read_csv(csv_input)
         else:
             dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
@@ -541,10 +542,9 @@ def _predict(model_uri, input_path, output_path, content_type):
             params = parsed_json_input.params
             should_parse_as_unified_llm_input = parsed_json_input.is_unified_llm_input
         elif content_type == "csv":
-            df = (
-                parse_csv_input(input_path)
-                if input_path is not None
-                else parse_csv_input(sys.stdin)
+            df = parse_csv_input(
+                input_path if input_path is not None else sys.stdin,
+                schema=pyfunc_model.metadata.get_input_schema(),
             )
             params = None
         else:

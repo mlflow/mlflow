@@ -24,7 +24,7 @@ from mlflow.models import ModelSignature, infer_signature
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc import PythonModel
 from mlflow.pyfunc.scoring_server import _get_jsonable_obj, get_cmd
-from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema
+from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, Object, Property
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
@@ -602,6 +602,39 @@ def test_parse_csv_with_datetime_schema_rejects_invalid_values():
     with pytest.raises(MlflowException, match="Failed to parse input as a Pandas DataFrame") as e:
         pyfunc_scoring_server.parse_csv_input(StringIO("ts\nnot-a-date\n"), schema=schema)
     assert e.value.error_code == ErrorCode.Name(BAD_REQUEST)
+
+
+def test_parse_csv_with_tensor_schema_ignores_schema():
+    schema = Schema([TensorSpec(np.dtype("float64"), (-1, 2))])
+    df = pyfunc_scoring_server.parse_csv_input(StringIO("0,1\n1.0,0.0\n"), schema=schema)
+    pd.testing.assert_frame_equal(df, pd.DataFrame({"0": [1.0], "1": [0.0]}))
+
+
+@pytest.mark.parametrize(
+    ("x", "csv_str"),
+    [
+        (
+            pd.DataFrame({"x1": [0.5, 1.5, 2.5, 3.5], "x2": [1.0, 0.0, 1.0, 0.0]}),
+            "x1,x2\n1,0\n3,1\n",
+        ),
+        (
+            np.array([[0.5, 1.0], [1.5, 0.0], [2.5, 1.0], [3.5, 0.0]]),
+            "0,1\n1.0,0.0\n3.0,1.0\n",
+        ),
+    ],
+    ids=["column_schema", "tensor_schema"],
+)
+def test_predict_csv_applies_model_schema(tmp_path, x, csv_str):
+    model = logreg_module.LogisticRegression().fit(x, [0, 0, 1, 1])
+    model_path = tmp_path / "model"
+    mlflow.sklearn.save_model(model, model_path, signature=infer_signature(x, model.predict(x)))
+    input_path = tmp_path / "input.csv"
+    input_path.write_text(csv_str)
+    output_path = tmp_path / "output.json"
+
+    pyfunc_scoring_server._predict(str(model_path), str(input_path), str(output_path), "csv")
+
+    assert json.loads(output_path.read_text()) == {"predictions": [0, 1]}
 
 
 def test_parse_parquet_schema(pandas_df_with_all_types):
