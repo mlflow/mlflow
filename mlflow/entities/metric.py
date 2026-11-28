@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import numbers
+from decimal import Decimal
 from typing import Any, cast
 
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -7,6 +9,45 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
 from mlflow.protos.service_pb2 import MetricWithRunId as ProtoMetricWithRunId
+
+
+def _normalize_metric_field(name: str, value: Any) -> Any:
+    """
+    Normalize numeric timestamps/steps to plain ints so that the metric store can
+    always persist and read them back. Fractional values used to be accepted and
+    persisted verbatim, after which every read of the metric failed because the file
+    store parses them back with int(). Non-numeric values are left untouched; they are
+    rejected by ``_validate_metric`` at store write time.
+    """
+    # bool is an instance of numbers.Integral but is never a valid timestamp/step, and
+    # _validate_metric cannot catch it because bool is a numbers.Number
+    if isinstance(value, bool):
+        raise MlflowException(
+            f"Metric {name} must be an integer, but got {value!r} of type bool",
+            INVALID_PARAMETER_VALUE,
+        )
+    if isinstance(value, numbers.Integral):
+        return int(value)
+    # Decimal is a numbers.Number but not a numbers.Real, so it needs its own branch;
+    # str(Decimal("2.0")) cannot be parsed back by int()
+    if isinstance(value, Decimal):
+        if value.is_finite() and value == value.to_integral_value():
+            return int(value)
+        raise MlflowException(
+            f"Metric {name} must be an integer, but got {value!r} of type Decimal",
+            INVALID_PARAMETER_VALUE,
+        )
+    if isinstance(value, numbers.Real):
+        as_float = float(value)
+        # Integrations may emit integral floats (e.g. PyTorch Lightning logging epoch
+        # steps as floats); normalize them instead of rejecting the value
+        if as_float.is_integer():
+            return int(as_float)
+        raise MlflowException(
+            f"Metric {name} must be an integer, but got {value!r} of type {type(value).__name__}",
+            INVALID_PARAMETER_VALUE,
+        )
+    return value
 
 
 class Metric(_MlflowObject):
@@ -18,8 +59,8 @@ class Metric(_MlflowObject):
         self,
         key: str,
         value: float,
-        timestamp: int,
-        step: int,
+        timestamp: int | float | Decimal,
+        step: int | float | Decimal,
         model_id: str | None = None,
         dataset_name: str | None = None,
         dataset_digest: str | None = None,
@@ -33,8 +74,8 @@ class Metric(_MlflowObject):
 
         self._key = key
         self._value = value
-        self._timestamp = timestamp
-        self._step = step
+        self._timestamp: int = _normalize_metric_field("timestamp", timestamp)
+        self._step: int = _normalize_metric_field("step", step)
         self._model_id = model_id
         self._dataset_name = dataset_name
         self._dataset_digest = dataset_digest
