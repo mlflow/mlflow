@@ -427,6 +427,63 @@ def test_trace_llm_chat_stream():
     }
 
 
+def test_trace_llm_chat_token_usage_from_additional_kwargs():
+    # Mimics BedrockConverse, whose raw usage uses `inputTokens`/`outputTokens` while
+    # the OpenAI-style token counts are set in `additional_kwargs`
+    class MockLLM(OpenAI):
+        @llm_chat_callback()
+        def chat(self, *args, **kwargs):
+            return ChatResponse(
+                message=ChatMessage(role="assistant", content="hi"),
+                raw={"usage": {"inputTokens": 12, "outputTokens": 5, "totalTokens": 17}},
+                additional_kwargs={
+                    "prompt_tokens": 12,
+                    "completion_tokens": 5,
+                    "total_tokens": 17,
+                    "cache_read_input_tokens": 0,
+                },
+            )
+
+    MockLLM().chat([ChatMessage(role="user", content="hello")])
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.attributes["usage"] == {
+        "prompt_tokens": 12,
+        "completion_tokens": 5,
+        "total_tokens": 17,
+    }
+    expected_usage = {
+        TokenUsageKey.INPUT_TOKENS: 12,
+        TokenUsageKey.OUTPUT_TOKENS: 5,
+        TokenUsageKey.TOTAL_TOKENS: 17,
+    }
+    assert span.attributes[SpanAttributeKey.CHAT_USAGE] == expected_usage
+    assert traces[0].info.token_usage == expected_usage
+
+
+def test_trace_llm_chat_keeps_non_openai_raw_usage_without_additional_kwargs_counts():
+    raw_usage = {"input_tokens": 12, "output_tokens": 5}
+
+    class MockLLM(OpenAI):
+        @llm_chat_callback()
+        def chat(self, *args, **kwargs):
+            return ChatResponse(
+                message=ChatMessage(role="assistant", content="hi"),
+                raw={"usage": raw_usage},
+                additional_kwargs={"cache_read_input_tokens": 0},
+            )
+
+    MockLLM().chat([ChatMessage(role="user", content="hello")])
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.attributes["usage"] == raw_usage
+    assert span.attributes.get(SpanAttributeKey.CHAT_USAGE) is None
+
+
 @pytest.mark.parametrize("is_stream", [True, False])
 def test_trace_llm_error(monkeypatch, is_stream):
     # Disable callback as it doesn't handle error response well
