@@ -1,3 +1,4 @@
+import json
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -97,6 +98,58 @@ def test_run_simple_autolog(simple_agent):
     with patch.object(Claude, "get_client", return_value=mock_client):
         simple_agent.run("Again?")
     assert get_traces() == []
+
+
+@pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
+def test_run_does_not_record_model_api_key():
+    mlflow.agno.autolog()
+    agent = Agent(model=Claude(id="claude-sonnet-4-20250514", api_key="test-api-key"))
+
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = _create_message("Paris")
+    with patch.object(Claude, "get_client", return_value=mock_client) as mock_get_client:
+        agent.run("Capital of France?")
+    mock_get_client.assert_called()
+    mock_client.messages.create.assert_called_once()
+
+    spans = get_traces()[0].data.spans
+    assert spans[0].name == "Agent.run"
+    assert spans[0].attributes["model"]["id"] == "claude-sonnet-4-20250514"
+    for span in spans:
+        assert "test-api-key" not in json.dumps(span.to_dict())
+
+
+class _SearchClient:
+    def __init__(self, api_key):
+        self.api_key = api_key
+
+    def __repr__(self):
+        return f"_SearchClient(api_key={self.api_key!r})"
+
+    def search(self, query: str) -> str:
+        return query
+
+
+@pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
+def test_bound_method_tools_do_not_record_client_api_key():
+    mlflow.agno.autolog()
+    client = _SearchClient(api_key="test-api-key")
+    agent = Agent(model=Claude(id="claude-sonnet-4-20250514"), tools=[client.search])
+
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = _create_message("Paris")
+    with patch.object(Claude, "get_client", return_value=mock_client) as mock_get_client:
+        agent.run("Capital of France?")
+    mock_get_client.assert_called()
+    mock_client.messages.create.assert_called_once()
+    fc = FunctionCall(function=Function.from_callable(client.search), arguments={"query": "q"})
+    fc.execute()
+
+    traces = get_traces()
+    assert len(traces) == 2
+    for t in traces:
+        for span in t.data.spans:
+            assert "test-api-key" not in json.dumps(span.to_dict())
 
 
 @pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")

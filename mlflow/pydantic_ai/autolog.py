@@ -10,8 +10,10 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.pydantic_ai.utils import parse_usage as _parse_usage
 from mlflow.pydantic_ai.utils import serialize_output as _serialize_output
+from mlflow.pydantic_ai.utils import strip_credentials_from_inputs
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import with_active_span
+from mlflow.tracing.utils.redaction import strip_credentials
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -71,7 +73,7 @@ def _extract_safe_attributes(instance: Any) -> dict[str, Any]:
         safe_value = _safe_get_attribute(instance, key)
         if safe_value is not None:
             attrs[key] = safe_value
-    return attrs
+    return strip_credentials(attrs)
 
 
 def _set_span_attributes(span: LiveSpan, instance):
@@ -216,7 +218,7 @@ def _model_request_inputs(request_context) -> dict[str, Any]:
         "model_settings": getattr(request_context, "model_settings", None),
         "model_request_parameters": getattr(request_context, "model_request_parameters", None),
     }
-    return {k: v for k, v in inputs.items() if v is not None}
+    return strip_credentials_from_inputs({k: v for k, v in inputs.items() if v is not None})
 
 
 def patched_class_call(original, self, *args, **kwargs):
@@ -447,13 +449,19 @@ def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
         bound.pop("self", None)
         bound.pop("deps", None)
 
-        return {
+        inputs = {
             k: (v.__dict__ if hasattr(v, "__dict__") else v)
             for k, v in bound.items()
             if v is not None
         }
     except (ValueError, TypeError):
-        return kwargs
+        inputs = kwargs
+    # `MCPServer.call_tool` passes the tool arguments as `args`, which are conversation content
+    # (e.g. a `pageToken`) rather than configuration.
+    if getattr(func, "__name__", None) == "call_tool" and "args" in inputs:
+        tool_args = inputs.pop("args")
+        return {**strip_credentials_from_inputs(inputs), "args": tool_args}
+    return strip_credentials_from_inputs(inputs)
 
 
 def _get_agent_attributes(instance):

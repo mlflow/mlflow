@@ -23,10 +23,12 @@ from mlflow.pydantic_ai import (
     _tool_manager_uses_execute_tool_call,
 )
 from mlflow.pydantic_ai.autolog import (
+    _construct_full_inputs,
     _get_agent_attributes,
     _get_mcp_server_attributes,
     _get_model_attributes,
     _get_tool_attributes,
+    _model_request_inputs,
 )
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -433,6 +435,87 @@ def test_attribute_getter_excludes_private_attrs(
         assert attrs[key] == value
     for key in excluded_attrs:
         assert key not in attrs
+
+
+def test_construct_full_inputs_drops_credentials():
+    class Model:
+        def __init__(self):
+            self.model_name = "m"
+            self._api_key = "test-api-key"
+
+    def run_sync(self, user_prompt, *, model=None, deps=None):
+        pass
+
+    inputs = _construct_full_inputs(run_sync, object(), "hi", model=Model(), deps=object())
+
+    assert inputs == {"user_prompt": "hi", "model": {"model_name": "m"}}
+
+
+def test_construct_full_inputs_keeps_tool_call_arguments():
+    def call_tool(self, name, tool_args, run_context=None):
+        pass
+
+    inputs = _construct_full_inputs(
+        call_tool,
+        object(),
+        "list_files",
+        {"pageToken": "next"},
+        run_context={"model": {"api_key": "test-api-key"}},
+    )
+
+    assert inputs == {
+        "name": "list_files",
+        "tool_args": {"pageToken": "next"},
+        "run_context": {"model": {}},
+    }
+
+
+def test_construct_full_inputs_keeps_mcp_call_tool_args():
+    def call_tool(self, name, args, ctx=None):
+        pass
+
+    inputs = _construct_full_inputs(
+        call_tool,
+        object(),
+        "list_files",
+        {"pageToken": "next"},
+        ctx={"model": {"api_key": "test-api-key"}},
+    )
+
+    assert inputs == {
+        "name": "list_files",
+        "ctx": {"model": {}},
+        "args": {"pageToken": "next"},
+    }
+
+
+def test_get_model_attributes_drops_credentials():
+    class Model:
+        model_name = "gpt-4"
+        api_key = "test-api-key"
+        settings = {"api_key": "test-api-key", "max_tokens": 10}
+
+    attrs = _get_model_attributes(Model())
+
+    assert attrs["model_name"] == "gpt-4"
+    assert attrs["settings"] == {"max_tokens": 10}
+    assert "api_key" not in attrs
+
+
+def test_model_request_inputs_drops_credentials():
+    request_context = types.SimpleNamespace(
+        messages=["hi"],
+        model_settings={
+            "max_tokens": 10,
+            "extra_headers": {"Authorization": "Bearer test-api-key", "X-Trace": "1"},
+        },
+        model_request_parameters=None,
+    )
+
+    assert _model_request_inputs(request_context) == {
+        "messages": ["hi"],
+        "model_settings": {"max_tokens": 10, "extra_headers": {"X-Trace": "1"}},
+    }
 
 
 def test_autolog_auto_enables_instrument():

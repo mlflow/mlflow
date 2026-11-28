@@ -1,4 +1,10 @@
-from mlflow.pydantic_ai.utils import parse_usage
+from types import SimpleNamespace
+
+from mlflow.pydantic_ai.utils import (
+    extract_safe_attributes,
+    model_request_inputs,
+    parse_usage,
+)
 from mlflow.tracing.constant import TokenUsageKey
 
 
@@ -66,4 +72,30 @@ def test_parse_usage_skips_cache_keys_when_attrs_missing():
         TokenUsageKey.INPUT_TOKENS: 1500,
         TokenUsageKey.OUTPUT_TOKENS: 50,
         TokenUsageKey.TOTAL_TOKENS: 1550,
+    }
+
+
+def test_extract_safe_attributes_drops_credentials():
+    class Model:
+        model_name = "gpt-4"
+        api_key = "test-api-key"
+        settings = {"api_key": "test-api-key", "max_tokens": 10}
+
+    assert extract_safe_attributes(Model()) == {
+        "model_name": "gpt-4",
+        "settings": {"max_tokens": 10},
+    }
+
+
+def test_model_request_inputs_keeps_messages_and_drops_config_credentials():
+    messages = [{"parts": [{"tool_name": "list_files", "args": {"pageToken": "next"}}]}]
+    request_context = SimpleNamespace(
+        messages=messages,
+        model_settings={"max_tokens": 10, "extra_headers": {"Authorization": "Bearer secret"}},
+        model_request_parameters=None,
+    )
+
+    assert model_request_inputs(request_context) == {
+        "messages": messages,
+        "model_settings": {"max_tokens": 10, "extra_headers": {}},
     }
