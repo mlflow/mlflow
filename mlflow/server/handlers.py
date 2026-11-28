@@ -110,7 +110,7 @@ from mlflow.exceptions import (
     _UnsupportedPresignedUploadException,
 )
 from mlflow.gateway.budget import maybe_refresh_budget_policies
-from mlflow.gateway.budget_tracker import get_budget_tracker
+from mlflow.gateway.budget_tracker import get_budget_tracker, is_trackable_duration
 from mlflow.gateway.constants import GATEWAY_DISABLED_MESSAGE
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.discovery.checkpoint import MAX_SCHEDULED_SESSION_SAMPLE_SIZE
@@ -7718,6 +7718,9 @@ def _create_budget_policy():
             f"{request_message.duration.value}",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    _assert_trackable_budget_duration(
+        BudgetDuration(unit=duration_unit, value=request_message.duration.value)
+    )
     target_scope = BudgetTargetScope.from_proto(request_message.target_scope)
     if target_scope is None:
         raise MlflowException(
@@ -7803,6 +7806,7 @@ def _update_budget_policy():
                 error_code=INVALID_PARAMETER_VALUE,
             )
         duration = BudgetDuration(unit=duration_unit, value=request_message.duration.value)
+        _assert_trackable_budget_duration(duration)
     target_scope = None
     if request_message.HasField("target_scope"):
         target_scope = BudgetTargetScope.from_proto(request_message.target_scope)
@@ -7909,6 +7913,17 @@ def _get_request_workspace_for_budget_windows():
         )
 
     return workspace
+
+
+def _assert_trackable_budget_duration(duration: BudgetDuration) -> None:
+    # The tracker computes the window of every policy on each refresh, so a window that can't be
+    # computed would stop budget tracking for all policies, not only for this one.
+    if not is_trackable_duration(duration):
+        raise MlflowException(
+            message=f"duration is too long: a window of {duration.value} "
+            f"{duration.unit.value.lower()} would end after the year 9999",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 @catch_mlflow_exception

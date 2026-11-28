@@ -9979,6 +9979,42 @@ def test_budget_policy_accepts_minute_and_hour_durations(unit, value, action):
     assert response.json["budget_policy"]["duration"] == {"unit": unit.value, "value": value}
 
 
+@pytest.mark.parametrize(
+    ("unit", "value"),
+    [
+        (BudgetDurationUnit.MONTHS, 100_000),
+        (BudgetDurationUnit.WEEKS, 500_000),
+        (BudgetDurationUnit.DAYS, 3_000_000),
+        (BudgetDurationUnit.HOURS, 80_000_000),
+    ],
+)
+@pytest.mark.parametrize("action", ["create", "update"])
+def test_budget_policy_rejects_duration_whose_window_cannot_be_computed(unit, value, action):
+    store = mock.MagicMock()
+    body = {"duration": {"unit": unit.value, "value": value}}
+    if action == "create":
+        body |= {
+            "budget_unit": "USD",
+            "budget_amount": 10.0,
+            "target_scope": "GLOBAL",
+            "budget_action": "REJECT",
+        }
+    else:
+        body["budget_policy_id"] = "bp-1"
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.post(f"/ajax-api/3.0/mlflow/gateway/budgets/{action}", json=body)
+
+    assert response.status_code == 400
+    assert "would end after the year 9999" in response.json["message"]
+    getattr(store, f"{action}_budget_policy").assert_not_called()
+
+
 def test_create_budget_policy_endpoint_scope_missing_target_value_returns_400():
     store = mock.MagicMock()
     with (

@@ -16,6 +16,7 @@ from mlflow.gateway.budget_tracker import (
     _compute_window_end,
     _compute_window_start,
     _policy_applies,
+    is_trackable_duration,
 )
 from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
 
@@ -869,3 +870,49 @@ def test_user_scoped_exceeded_flips_once_then_keeps_accumulating():
     window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 200.0
     assert window.exceeded is True
+
+
+def test_compute_window_end_months_past_year_9999_fails_fast():
+    start = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    # A month-by-month loop would take minutes for this length.
+    with pytest.raises(ValueError, match="year"):
+        _compute_window_end(BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=2**31 - 1), start)
+
+
+@pytest.mark.parametrize(
+    ("unit", "value", "trackable"),
+    [
+        (BudgetDurationUnit.MINUTES, 2**31 - 1, True),
+        (BudgetDurationUnit.HOURS, 70_000_000, True),
+        (BudgetDurationUnit.HOURS, 80_000_000, False),
+        (BudgetDurationUnit.DAYS, 3_000_000, False),
+        (BudgetDurationUnit.WEEKS, 500_000, False),
+        (BudgetDurationUnit.MONTHS, 96_000, True),
+        (BudgetDurationUnit.MONTHS, 100_000, False),
+    ],
+)
+def test_is_trackable_duration(unit, value, trackable):
+    assert is_trackable_duration(BudgetDuration(unit=unit, value=value)) is trackable
+
+
+def test_refresh_policies_skips_policy_whose_window_cannot_be_computed(caplog):
+    tracker = InMemoryBudgetTracker()
+    bad = _make_policy(
+        budget_policy_id="bp-bad",
+        duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=100_000),
+    )
+    good = _make_policy(
+        budget_policy_id="bp-good",
+        budget_amount=3.0,
+        budget_action=BudgetAction.REJECT,
+        duration=BudgetDuration(unit=BudgetDurationUnit.HOURS, value=1),
+    )
+
+    tracker.refresh_policies([bad, good])
+
+    assert [w.policy.budget_policy_id for w in tracker.get_all_windows()] == ["bp-good"]
+    assert "Not tracking budget policy bp-bad" in caplog.text
+    tracker.record_cost(5.0)
+    exceeded, window = tracker.should_reject_request()
+    assert exceeded is True
+    assert window.policy.budget_policy_id == "bp-good"
