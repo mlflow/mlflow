@@ -233,6 +233,42 @@ def test_function_calling_creates_single_trace():
     assert tool_span.outputs == [{"json": 3}]
 
 
+def test_chat_span_inputs_include_assistant_messages():
+    mlflow.strands.autolog()
+
+    agent = Agent(model=ToolCallingModel("3"), tools=[tool], name="agent")
+    agent("add numbers 1 2")
+
+    spans = get_traces()[0].data.spans
+    # Select by output because spans that share a start timestamp can come back in any order.
+    final_chat_span = next(
+        span
+        for span in spans
+        if span.span_type == SpanType.CHAT_MODEL and span.outputs == [{"text": "3"}]
+    )
+    assert final_chat_span.inputs == [
+        {"role": "user", "content": [{"text": "add numbers 1 2"}]},
+        {
+            "role": "assistant",
+            "content": [
+                {"toolUse": {"toolUseId": "tool-1", "name": "sum", "input": {"a": 1, "b": 2}}}
+            ],
+        },
+        {
+            "role": "tool",
+            "content": [
+                {
+                    "toolResult": {
+                        "toolUseId": "tool-1",
+                        "status": "success",
+                        "content": [{"json": 3}],
+                    }
+                }
+            ],
+        },
+    ]
+
+
 def test_multiple_agents_single_trace():
     mlflow.strands.autolog()
 

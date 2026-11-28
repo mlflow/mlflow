@@ -41,6 +41,12 @@ _logger = logging.getLogger(__name__)
 
 _GENAI_TRANSLATOR = GenAiTranslator()
 
+_MESSAGE_EVENT_ROLES = {
+    "gen_ai.user.message": "user",
+    "gen_ai.assistant.message": "assistant",
+    "gen_ai.tool.message": "tool",
+}
+
 
 class StrandsSpanProcessor(SimpleSpanProcessor):
     def __init__(self):
@@ -157,9 +163,8 @@ def _set_inputs_outputs(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
         # CHAT_MODEL/AGENT spans: collect into conversation list
         inputs = []
         for event in span.events:
-            if event.name in ("gen_ai.user.message", "gen_ai.tool.message"):
+            if role := _MESSAGE_EVENT_ROLES.get(event.name):
                 content = _parse_json(event.attributes.get("content"))
-                role = "user" if event.name == "gen_ai.user.message" else "tool"
                 inputs.append({"role": role, "content": content})
             elif event.name == "gen_ai.choice":
                 message = _parse_json(event.attributes.get("message"))
