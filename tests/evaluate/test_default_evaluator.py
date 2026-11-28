@@ -1142,6 +1142,35 @@ def test_gen_binary_roc_curve_with_sample_weights():
     assert np.isclose(results.auc, 0.702, rtol=1e-3)
 
 
+def test_gen_binary_curves_pos_label_zero():
+    y = [0, 1, 0, 1, 0, 1, 0, 1, 1, 0]
+    y_prob = [0.1, 0.9, 0.8, 0.2, 0.7, 0.8, 0.3, 0.6, 0.65, 0.4]
+
+    pr_results = _gen_classifier_curve(
+        is_binomial=True,
+        y=y,
+        y_probs=y_prob,
+        labels=[0, 1],
+        pos_label=0,
+        curve_type="pr",
+        sample_weights=None,
+    )
+    assert pr_results.plot_fn_args["xlabel"] == "Recall (Positive label: 0)"
+    assert pr_results.plot_fn_args["ylabel"] == "Precision (Positive label: 0)"
+
+    roc_results = _gen_classifier_curve(
+        is_binomial=True,
+        y=y,
+        y_probs=y_prob,
+        labels=[0, 1],
+        pos_label=0,
+        curve_type="roc",
+        sample_weights=None,
+    )
+    assert roc_results.plot_fn_args["xlabel"] == "False Positive Rate (Positive label: 0)"
+    assert roc_results.plot_fn_args["ylabel"] == "True Positive Rate (Positive label: 0)"
+
+
 def test_gen_multiclass_precision_recall_curve_no_sample_weights():
     y = [0, 1, 2, 1, 2]
     y_probs = [
@@ -4642,6 +4671,27 @@ def test_classifier_evaluation_scenarios(
             MlflowException,
             "'pos_label' 2 must exist in 'label_list'",
             "invalid_pos_label",
+        ),
+        (
+            pd.DataFrame({"target": [1, 2, 1, 2], "prediction": [1, 2, 2, 1]}),
+            {"label_list": [1, 2], "pos_label": 0},
+            MlflowException,
+            "'pos_label' 0 must exist in 'label_list'",
+            "invalid_pos_label_zero_with_label_list",
+        ),
+        (
+            pd.DataFrame({"target": [0, 1, 0, 1], "prediction": [0, 1, 1, 0]}),
+            {"pos_label": 2},
+            MlflowException,
+            "'pos_label' 2 must exist in 'label_list'",
+            "invalid_pos_label_inferred_labels",
+        ),
+        (
+            pd.DataFrame({"target": [1, 2, 1, 2], "prediction": [1, 2, 2, 1]}),
+            {"pos_label": 0},
+            MlflowException,
+            "'pos_label' 0 must exist in 'label_list'",
+            "invalid_pos_label_zero_inferred_labels",
         ),
         # Single element label_list
         (
