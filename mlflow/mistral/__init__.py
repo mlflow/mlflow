@@ -1,4 +1,9 @@
-from mlflow.mistral.autolog import async_patched_class_call, patched_class_call
+from mlflow.mistral.autolog import (
+    async_patched_class_call,
+    async_patched_stream_call,
+    patched_class_call,
+    patched_stream_call,
+)
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -14,8 +19,7 @@ def autolog(
 ):
     """
     Enables (or disables) and configures autologging from Mistral AI to MLflow.
-    Only synchronous calls to the Text generation API are supported.
-    Asynchronous APIs and streaming are not recorded.
+    Synchronous, asynchronous, and streaming calls to the Chat Completion API are supported.
 
     Args:
         log_traces: If ``True``, traces are logged for Mistral AI models.
@@ -41,6 +45,20 @@ def autolog(
         Chat,
         "complete_async",
         async_patched_class_call,
+    )
+
+    safe_patch(
+        FLAVOR_NAME,
+        Chat,
+        "stream",
+        patched_stream_call,
+    )
+
+    safe_patch(
+        FLAVOR_NAME,
+        Chat,
+        "stream_async",
+        async_patched_stream_call,
     )
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}

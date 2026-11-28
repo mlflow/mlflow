@@ -84,11 +84,13 @@ MLflow supports automatic tracing for the following Mistral APIs:
 
 | Chat | Function Calling | Streaming |  Async   | Image | Embeddings | Agents |
 | :--: | :--------------: | :-------: | :------: | :---: | :--------: | :----: |
-|  ✅  |        ✅        |     -     | ✅ (\*1) |   -   |     -      |   -    |
+|  ✅  |        ✅        | ✅ (\*2) | ✅ (\*1) |   -   |     -      |   -    |
 
 <div style={{ fontSize: '0.9em', marginTop: '10px' }}>
 
 (\*1) Async support was added in MLflow 3.5.0.
+
+(\*2) Streaming support (`chat.stream` and `chat.stream_async`) was added in MLflow 3.19.0.
 
 </div>
 
