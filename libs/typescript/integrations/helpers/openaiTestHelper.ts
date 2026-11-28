@@ -138,6 +138,24 @@ export const openAIMockHandlers = [
   }),
   http.post('https://api.openai.com/v1/responses', async ({ request }) => {
     const body = (await request.json()) as ResponseCreateParams;
+    if ('stream' in body && body.stream) {
+      return new HttpResponse(
+        [
+          'data: {"type":"response.created","sequence_number":0,"response":{"id":"responses-stream","object":"response","created_at":123,"status":"in_progress","model":"gpt-4o","output":[]}}\n\n',
+          'data: {"type":"response.output_item.added","sequence_number":1,"output_index":0,"item":{"id":"msg_123","type":"message","status":"in_progress","role":"assistant","content":[]}}\n\n',
+          'data: {"type":"response.output_text.delta","sequence_number":2,"item_id":"msg_123","output_index":0,"content_index":0,"delta":"Test "}\n\n',
+          'data: {"type":"response.output_text.delta","sequence_number":3,"item_id":"msg_123","output_index":0,"content_index":0,"delta":"response"}\n\n',
+          'data: {"type":"response.output_item.done","sequence_number":4,"output_index":0,"item":{"id":"msg_123","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"Test response","annotations":[]}]}}\n\n',
+          'data: {"type":"response.output_item.added","sequence_number":5,"output_index":1,"item":{"id":"fc_123","type":"function_call","status":"in_progress","call_id":"call_123","name":"get_weather","arguments":""}}\n\n',
+          'data: {"type":"response.function_call_arguments.delta","sequence_number":6,"item_id":"fc_123","output_index":1,"delta":"{\\"city\\":"}\n\n',
+          'data: {"type":"response.function_call_arguments.delta","sequence_number":7,"item_id":"fc_123","output_index":1,"delta":"\\"Paris\\"}"}\n\n',
+          'data: {"type":"response.output_item.done","sequence_number":8,"output_index":1,"item":{"id":"fc_123","type":"function_call","status":"completed","call_id":"call_123","name":"get_weather","arguments":"{\\"city\\":\\"Paris\\"}"}}\n\n',
+          'data: {"type":"response.completed","sequence_number":9,"response":{"id":"responses-stream","object":"response","created_at":123,"status":"completed","model":"gpt-4o","output":[{"id":"msg_123","type":"message","status":"completed","role":"assistant","content":[{"type":"output_text","text":"Test response","annotations":[]}]},{"id":"fc_123","type":"function_call","status":"completed","call_id":"call_123","name":"get_weather","arguments":"{\\"city\\":\\"Paris\\"}"}],"usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30,"input_tokens_details":{"cached_tokens":0},"output_tokens_details":{"reasoning_tokens":0}},"output_text":"Test response"}}\n\n',
+          'data: [DONE]\n\n',
+        ].join(''),
+        { headers: { 'Content-Type': 'text/event-stream' } },
+      );
+    }
     return HttpResponse.json(createResponsesResponse(body));
   }),
   http.post('https://api.openai.com/v1/embeddings', async ({ request }) => {
