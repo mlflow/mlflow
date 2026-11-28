@@ -513,6 +513,62 @@ def test_bedrock_autolog_invoke_model_stream_openai_chat_chunks():
     _assert_token_usage_matches(span, {"input_tokens": 13, "output_tokens": 5, "total_tokens": 18})
 
 
+def test_bedrock_autolog_invoke_model_stream_llama_chunks():
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    model_id = "meta.llama3-8b-instruct-v1:0"
+    request_body = json.dumps({
+        "prompt": "Say hi in five words.",
+        "max_gen_len": 16,
+        "temperature": 0,
+    })
+
+    # Meta Llama streaming responses report prompt_token_count on the first chunk only
+    # (null on subsequent chunks) and report a cumulative generation_token_count at the root.
+    dummy_chunks = [
+        {
+            "generation": "Hello",
+            "prompt_token_count": 16,
+            "generation_token_count": 1,
+            "stop_reason": None,
+        },
+        {
+            "generation": " world",
+            "prompt_token_count": None,
+            "generation_token_count": 8,
+            "stop_reason": "stop",
+            "amazon-bedrock-invocationMetrics": {
+                "inputTokenCount": 16,
+                "outputTokenCount": 8,
+                "invocationLatency": 399,
+                "firstByteLatency": 335,
+            },
+        },
+    ]
+
+    def dummy_stream():
+        for chunk in dummy_chunks:
+            yield {"chunk": {"bytes": json.dumps(chunk).encode("utf-8")}}
+
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"body": dummy_stream()},
+    ):
+        response = client.invoke_model_with_response_stream(body=request_body, modelId=model_id)
+
+    events = list(response["body"])
+    assert len(events) == len(dummy_chunks)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert [event.name for event in span.events] == ["chunk"] * len(dummy_chunks)
+    assert [json.loads(event.attributes["json"]) for event in span.events] == dummy_chunks
+    _assert_token_usage_matches(span, {"input_tokens": 16, "output_tokens": 8, "total_tokens": 24})
+
+
 def test_capture_exception_does_not_raise_outside_tests(monkeypatch):
     monkeypatch.setenv("MLFLOW_TESTING", "false")
 
