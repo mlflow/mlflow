@@ -2337,6 +2337,114 @@ def test_secrets_are_workspace_scoped(gateway_workspace_store):
         assert secrets[0].provider == "openai"
 
 
+@pytest.fixture
+def gateway_workspace_secrets(gateway_workspace_store):
+    secrets = {}
+    for workspace in ["team-secret-a", "team-secret-b"]:
+        with WorkspaceContext(workspace):
+            secrets[workspace] = gateway_workspace_store.create_gateway_secret(
+                secret_name="my-secret",
+                secret_value={"api_key": f"{workspace}-key"},
+                provider="openai",
+                auth_config={"api_base": "https://provider.example/v1"},
+            )
+    return secrets
+
+
+@pytest.mark.parametrize(
+    ("auth_config", "secret_value"),
+    [
+        pytest.param({"api_base": "https://provider.example/v2"}, None, id="path"),
+        pytest.param({"api_base": "https://provider.example/v1/"}, None, id="trailing-slash"),
+        pytest.param({"api_base": "http://provider.example/v1"}, None, id="scheme"),
+        pytest.param({"api_base": "https://provider.example:8443/v1"}, None, id="port"),
+        pytest.param({"api_base": "https://PROVIDER.EXAMPLE/v1"}, None, id="hostname-case"),
+        pytest.param({"api_base": ""}, None, id="empty-api-base"),
+        pytest.param({}, None, id="clear-auth-config"),
+        pytest.param({"api_version": "2024-02-01"}, None, id="remove-api-base"),
+        pytest.param(
+            {"api_base": "https://new-provider.example/v1"},
+            {"api_key": "replacement-key"},
+            id="hostname-with-credentials",
+        ),
+    ],
+)
+def test_update_gateway_secret_allows_api_base_updates_in_workspace(
+    gateway_workspace_store, gateway_workspace_secrets, auth_config, secret_value
+):
+    with WorkspaceContext("team-secret-a"):
+        secret_a = gateway_workspace_secrets["team-secret-a"]
+        updated = gateway_workspace_store.update_gateway_secret(
+            secret_id=secret_a.secret_id,
+            auth_config=auth_config,
+            secret_value=secret_value,
+        )
+
+        assert updated.auth_config == (auth_config or None)
+        assert gateway_workspace_store._get_decrypted_secret(secret_a.secret_id) == (
+            secret_value or {"api_key": "team-secret-a-key"}
+        )
+
+    with WorkspaceContext("team-secret-b"):
+        secret_b = gateway_workspace_secrets["team-secret-b"]
+        assert gateway_workspace_store.get_secret_info(secret_id=secret_b.secret_id) == secret_b
+        assert gateway_workspace_store._get_decrypted_secret(secret_b.secret_id) == {
+            "api_key": "team-secret-b-key"
+        }
+
+
+@pytest.mark.parametrize("secret_value", [None, {}])
+def test_update_gateway_secret_rejects_api_base_hostname_change_in_workspace(
+    gateway_workspace_store, gateway_workspace_secrets, secret_value
+):
+    with WorkspaceContext("team-secret-a"):
+        secret_a = gateway_workspace_secrets["team-secret-a"]
+        with pytest.raises(
+            MlflowException,
+            match="Changing the API Base URL hostname requires providing secret_value",
+        ) as exc:
+            gateway_workspace_store.update_gateway_secret(
+                secret_id=secret_a.secret_id,
+                auth_config={"api_base": "https://new-provider.example/v1"},
+                secret_value=secret_value,
+            )
+
+        assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+        assert gateway_workspace_store.get_secret_info(secret_id=secret_a.secret_id) == secret_a
+        assert gateway_workspace_store._get_decrypted_secret(secret_a.secret_id) == {
+            "api_key": "team-secret-a-key"
+        }
+
+    with WorkspaceContext("team-secret-b"):
+        secret_b = gateway_workspace_secrets["team-secret-b"]
+        assert gateway_workspace_store.get_secret_info(secret_id=secret_b.secret_id) == secret_b
+        assert gateway_workspace_store._get_decrypted_secret(secret_b.secret_id) == {
+            "api_key": "team-secret-b-key"
+        }
+
+
+@pytest.mark.parametrize("secret_value", [None, {}, {"api_key": "replacement-key"}])
+def test_update_gateway_secret_api_base_change_rejects_other_workspace(
+    gateway_workspace_store, gateway_workspace_secrets, secret_value
+):
+    secret_a = gateway_workspace_secrets["team-secret-a"]
+    with WorkspaceContext("team-secret-b"):
+        with pytest.raises(MlflowException, match="not found") as exc:
+            gateway_workspace_store.update_gateway_secret(
+                secret_id=secret_a.secret_id,
+                auth_config={"api_base": "https://new-provider.example/v1"},
+                secret_value=secret_value,
+            )
+        assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+    for workspace, secret in gateway_workspace_secrets.items():
+        with WorkspaceContext(workspace):
+            assert gateway_workspace_store.get_secret_info(secret_id=secret.secret_id) == secret
+            assert gateway_workspace_store._get_decrypted_secret(secret.secret_id) == {
+                "api_key": f"{workspace}-key"
+            }
+
+
 def test_endpoints_are_workspace_scoped(gateway_workspace_store):
     with WorkspaceContext("team-endpoint-a"):
         secret_a = gateway_workspace_store.create_gateway_secret(

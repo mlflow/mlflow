@@ -13127,6 +13127,10 @@
     "defaultMessage": "Run name",
     "description": "Column label for run name"
   },
+  "dXZhnz": {
+    "defaultMessage": "Re-enter this credential when changing the API Base URL hostname.",
+    "description": "Validation message shown when changing the API Base URL hostname"
+  },
   "dY1g+4": {
     "defaultMessage": "Optional character limit for the free-form text. Leave blank for no limit.",
     "description": "Text max length hint"
