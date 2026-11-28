@@ -13,7 +13,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
 from mlflow.genai.scorers.base import ScorerKind, SerializedScorer
 from mlflow.genai.scorers.builtin_scorers import Guidelines
-from mlflow.genai.scorers.scorer_utils import THIRD_PARTY_SCORER_ALLOWED_MODULES
+from mlflow.genai.scorers.scorer_utils import THIRD_PARTY_SCORER_ALLOWED_MODULES, recreate_function
 
 
 @pytest.fixture(autouse=True)
@@ -1294,3 +1294,66 @@ def test_builtin_scorer_class_must_name_a_builtin_scorer(class_name):
     ):
         Scorer.model_validate(data)
     mock_invoke.assert_not_called()
+
+
+@scorer
+def indented_prompt(outputs) -> str:
+    return """Judge the answer.
+    Be strict.
+    Reply yes or no."""
+
+
+@scorer
+def indented_list_items(outputs) -> str:
+    return """Rules:
+        - one
+        - two"""
+
+
+@scorer
+def indented_fstring(outputs) -> str:
+    return f"""Answer:
+    {outputs}
+    done"""
+
+
+@scorer
+def column_zero_closing(outputs) -> str:
+    return f"""{outputs}
+"""
+
+
+@scorer
+def column_zero_fstring_line(outputs) -> str:
+    return f"""{outputs}
+    middle
+tail"""
+
+
+@scorer
+def blank_line_in_string(outputs) -> str:
+    return """a
+
+    b"""
+
+
+@pytest.mark.parametrize(
+    ("func", "outputs", "expected"),
+    [
+        (indented_prompt, "x", "Judge the answer.\n    Be strict.\n    Reply yes or no."),
+        (indented_list_items, "x", "Rules:\n        - one\n        - two"),
+        (indented_fstring, "x", "Answer:\n    x\n    done"),
+        (column_zero_closing, "abc", "abc\n"),
+        (column_zero_fstring_line, "abc", "abc\n    middle\ntail"),
+        (blank_line_in_string, "x", "a\n\n    b"),
+    ],
+)
+def test_multiline_string_scorer_behaves_the_same_after_reload(func, outputs, expected):
+    assert func(outputs=outputs) == expected
+    assert Scorer.model_validate(func.model_dump())(outputs=outputs) == expected
+
+
+@pytest.mark.parametrize("source", ["    x = 1\nelse:\n    pass", "    x = 1\ny = 2"])
+def test_recreate_function_rejects_a_column_zero_statement_as_before(source):
+    with pytest.raises(IndentationError, match="unindent does not match"):
+        recreate_function(source, "()", "f")

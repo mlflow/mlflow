@@ -7,6 +7,7 @@ import json
 import logging
 import threading
 from textwrap import dedent
+from types import CodeType
 from typing import TYPE_CHECKING, Any, Callable, Iterator, NamedTuple
 
 from pydantic import BaseModel
@@ -186,9 +187,30 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
     # Build the function definition with future annotations to defer type hint evaluation
     func_def = "from __future__ import annotations\n"
     func_def += f"def {func_name}({params_str}):\n"
-    # Indent the source code
-    indented_source = "\n".join(f"    {line}" for line in source.split("\n"))
-    func_def += indented_source
+    # Indent only non-empty lines so a blank line inside a string literal stays empty
+    code: str | CodeType = func_def + "\n".join(
+        f"    {line}" if line else line for line in source.split("\n")
+    )
+    try:
+        ast.parse(source)
+    except IndentationError:
+        # The body was stored with its original indentation because a string or comment line at
+        # column 0 kept `dedent` from stripping it. Re-indenting that text would shift the lines
+        # inside string literals, so attach the parsed body to the function instead. The leading
+        # newline keeps line numbers as in the text path; on any failure the text path runs.
+        try:
+            wrapped = ast.parse("\nif True:\n" + source).body
+        except SyntaxError:
+            wrapped = []
+        # A statement or `else` at column 0 would sit outside the `if` body and be dropped
+        if len(wrapped) == 1 and isinstance(wrapped[0], ast.If) and not wrapped[0].orelse:
+            module = ast.parse(func_def + "    pass")
+            func_node = module.body[1]
+            assert isinstance(func_node, ast.FunctionDef)
+            func_node.body = wrapped[0].body
+            code = compile(module, "<string>", "exec")
+    except SyntaxError:
+        pass  # Reported by `exec` below
 
     # Create a namespace with common MLflow imports that scorer functions might use
     # Include mlflow module so type hints like "mlflow.entities.Trace" can be resolved
@@ -224,7 +246,7 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
     local_namespace = {}
 
     # Execute the function definition with MLflow imports available
-    exec(func_def, import_namespace, local_namespace)  # noqa: S102
+    exec(code, import_namespace, local_namespace)  # noqa: S102
 
     # Return the recreated function
     return local_namespace[func_name]
