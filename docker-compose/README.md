@@ -237,3 +237,81 @@ docker compose up -d
 ---
 
 **You now have a fully local MLflow stack with persistent metadata and artifact storage—ideal for development and experimentation.**
+
+## OIDC Authentication
+
+[`docker-compose.oidc.yml`](docker-compose.oidc.yml) runs the official MLflow full
+image with the community-maintained
+[`mlflow-oidc-auth`](https://github.com/mlflow-oidc/mlflow-oidc-auth) plugin. This
+standalone example uses separate SQLite files for tracking and authentication,
+and local artifact storage in a named volume. It does not require the PostgreSQL
+or storage services in the default Compose file.
+
+### Configure an identity provider
+
+Register a confidential OIDC client with your identity provider. Set its redirect
+URI to `http://localhost:5000/callback`, allow the `openid`, `email`, and `profile`
+scopes, and include a `groups` claim in the ID token. Create an ordinary user in
+`example-users` and an administrator in `example-admins`, or change the group
+names in the environment file to match your provider.
+
+Copy the example configuration:
+
+```bash
+cp .env.oidc.example .env.oidc
+chmod 600 .env.oidc
+python -c 'import secrets; print(secrets.token_hex(32))'
+```
+
+Edit `.env.oidc`: set `OIDC_DISCOVERY_URL`, `OIDC_CLIENT_ID`, and
+`OIDC_CLIENT_SECRET` from the provider, and set `SECRET_KEY` to the generated
+value. Keep this key across restarts and keep the environment file out of version
+control. The discovery, token, and user information endpoints must be reachable
+from the container; `localhost` inside the container refers to the container
+itself. See the [SSO documentation](https://mlflow.org/docs/latest/self-hosting/security/sso/)
+for provider-specific setup.
+
+### Start and verify
+
+Run these commands from this directory:
+
+```bash
+docker compose --env-file .env.oidc -f docker-compose.oidc.yml config --quiet
+docker compose --env-file .env.oidc -f docker-compose.oidc.yml up -d
+docker compose --env-file .env.oidc -f docker-compose.oidc.yml logs -f mlflow
+```
+
+Open `http://localhost:5000` and sign in with the administrator account. Use the
+plugin's permission UI to grant an ordinary user access to the required
+experiments. Group membership permits sign-in; it does not by itself grant
+access to every experiment. Follow the [plugin's client authentication instructions](https://github.com/mlflow-oidc/mlflow-oidc-auth/blob/main/docs/programmatic-access.md)
+to configure SDK credentials. An HTTP health check only verifies server
+availability; also verify sign-in and access with both accounts.
+
+Permission changes can take up to the plugin's permission-cache TTL (30 seconds
+by default) to become visible across server workers.
+
+The plugin is installed at startup, so the container needs package-index access.
+The install pins MLflow to the image's version and fails if the selected plugin
+is incompatible, rather than silently upgrading MLflow. Review both version
+pins together before changing them.
+
+### Stop, restart, and upgrade
+
+```bash
+docker compose --env-file .env.oidc -f docker-compose.oidc.yml down
+docker compose --env-file .env.oidc -f docker-compose.oidc.yml up -d
+```
+
+The named volume preserves tracking data, authentication data, and artifacts.
+Do not add `--volumes` to `down` unless you intend to delete them. Back up the
+volume and stop all writers before upgrading. Follow the
+[MLflow database upgrade instructions](https://mlflow.org/docs/latest/self-hosting/migration/)
+and the plugin's upgrade instructions for their respective databases.
+
+This example binds only to the host's loopback interface and is intended for
+local evaluation. Before exposing it remotely, configure HTTPS, the public
+callback URL, allowed hosts, and trusted proxies using the
+[plugin configuration reference](https://github.com/mlflow-oidc/mlflow-oidc-auth/blob/main/docs/configuration.md).
+For external artifact storage, see the
+[artifact store documentation](https://mlflow.org/docs/latest/self-hosting/architecture/artifact-store/).
