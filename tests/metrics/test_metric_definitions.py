@@ -416,6 +416,46 @@ def test_retriever_metrics_reject_numpy_float_ids(metric):
     assert metric(2).eval_fn(predictions, targets) is None
 
 
+@pytest.mark.parametrize(
+    ("metric", "expected"),
+    [
+        (precision_at_k, 2 / 3),
+        (recall_at_k, 1.0),
+        (ndcg_at_k, 1.0),
+    ],
+)
+@pytest.mark.parametrize("ids", [["doc1", "doc2", "doc9"], [1, 2, 9]])
+def test_retriever_metrics_accept_object_arrays_of_ids(metric, expected, ids):
+    # pandas reads list columns from Parquet or Arrow data as object arrays
+    predictions = pd.Series([np.array(ids, dtype=object)])
+    targets = pd.Series([np.array(ids[:2], dtype=object)])
+
+    result = metric(3).eval_fn(predictions, targets)
+
+    assert result.scores == pytest.approx([expected])
+
+
+@pytest.mark.parametrize("metric", [precision_at_k, recall_at_k, ndcg_at_k])
+def test_retriever_metrics_accept_parquet_list_columns(metric):
+    df = pd.DataFrame({"retrieved": [["doc1", "doc2", "doc9"]], "relevant": [["doc1", "doc2"]]})
+    buf = io.BytesIO()
+    df.to_parquet(buf)
+    buf.seek(0)
+    loaded = pd.read_parquet(buf)
+
+    result = metric(3).eval_fn(loaded["retrieved"], loaded["relevant"])
+
+    assert result.scores == metric(3).eval_fn(df["retrieved"], df["relevant"]).scores
+
+
+@pytest.mark.parametrize("metric", [precision_at_k, recall_at_k, ndcg_at_k])
+def test_retriever_metrics_reject_object_arrays_of_non_ids(metric):
+    predictions = pd.Series([np.array(["doc1", 2.0], dtype=object)])
+    targets = pd.Series([np.array(["doc1"], dtype=object)])
+
+    assert metric(2).eval_fn(predictions, targets) is None
+
+
 def test_bleu():
     predictions = ["hello world", "this is a test"]
     targets = ["hello world", "this is a test sentence"]

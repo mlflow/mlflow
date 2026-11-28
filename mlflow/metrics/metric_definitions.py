@@ -55,6 +55,13 @@ def _validate_array_like_id_data(data, metric_name, col_specifier):
                 isinstance(value, np.ndarray)
                 and (np.issubdtype(value.dtype, np.str_) or np.issubdtype(value.dtype, np.integer))
             )
+            # pandas reads list columns from Parquet or Arrow data as object arrays
+            or (
+                isinstance(value, np.ndarray)
+                and value.dtype == object
+                and value.ndim == 1
+                and all(isinstance(val, (str, int)) for val in value)
+            )
         ):
             _logger.warning(
                 f"Cannot calculate metric '{metric_name}' for non-arraylike of string or int "
