@@ -22,8 +22,10 @@ export default definePluginEntry({
       ({ program }) => {
         registerMlflowCli({
           program: program as CommanderLike,
-          loadConfig: api.runtime.config.loadConfig,
-          writeConfigFile: api.runtime.config.writeConfigFile,
+          loadConfig: () => api.runtime.config.current(),
+          updateConfig: async (mutate) => {
+            await api.runtime.config.mutateConfigFile({ afterWrite: { mode: 'auto' }, mutate });
+          },
         });
       },
       { commands: ['mlflow'] },
