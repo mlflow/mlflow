@@ -108,6 +108,8 @@ export interface TracesTableViewProps {
   expandSearch?: boolean;
   searchMinimumWidth?: number;
   onSearchSubmit?: () => void;
+  /** Shows the built-in search as busy while the consumer's table search is in flight. */
+  isSearchPending?: boolean;
   leftControls?: React.ReactNode;
   rightControls?: React.ReactNode;
   /** Rendered between the toolbar and the table region (e.g. a refetch-error alert or status banner). */
@@ -307,6 +309,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
         expandSearch={expandSearch}
         searchMinimumWidth={searchMinimumWidth}
         onSearchSubmit={onSearchSubmit}
+        isSearchPending={props.isSearchPending}
         leftControls={leftControls}
         rightControls={rightControls}
       />

@@ -398,7 +398,7 @@ export const EvalRunTracesV4Table = ({
     onDensityChange: setDensity,
     selectionCount: bulk.selected.size,
     onBulkDelete: openDelete,
-    isRefreshing: page.isFetching && !page.isLoading,
+    isRefreshing: controller.isResultsPending && !page.isLoading,
     experimentId,
     actions,
     selectedTraceInfos,
@@ -409,14 +409,14 @@ export const EvalRunTracesV4Table = ({
 
   const hasRows = page.traces.length > 0;
   const showErrorAlert = Boolean(page.error) && hasRows;
-  const showFirstLoadError = Boolean(page.error) && !hasRows && !page.isFetching;
+  const showFirstLoadError = Boolean(page.error) && !hasRows && !controller.isResultsPending;
   const viewState: TracesTableViewState = showFirstLoadError
     ? 'error'
-    : !page.isFetching && flags.isEmptyPageBeyondFirst
+    : flags.isEmptyPageBeyondFirst
       ? 'no-more-results'
-      : !page.isFetching && flags.hasNoTracesAtAll
+      : flags.hasNoTracesAtAll
         ? 'empty'
-        : !page.isFetching && flags.hasNoSearchResults
+        : flags.hasNoSearchResults
           ? 'no-results'
           : 'ready';
   const getErrorDescription = useMemo(() => makeTracesV4ErrorDescription(intl), [intl]);
@@ -441,8 +441,8 @@ export const EvalRunTracesV4Table = ({
     columnOrder: tableColumnOrder,
     initialColumnSizing: evalRunColumnSizing,
     onColumnSizingSettled: columnSizing.setColumnSizing,
-    isLoading: page.isFetching,
-    isFetching: page.isFetching,
+    isLoading: controller.isResultsPending,
+    isFetching: controller.isResultsPending,
     skeletonRowCount: url.pageSize,
     onTraceSelected: handleTraceSelected,
     getTraceHref,
@@ -477,6 +477,7 @@ export const EvalRunTracesV4Table = ({
       traces: page.traces,
       inputRef: searchInputRef,
       resetKey: runUuid,
+      isSearchPending: controller.isResultsPending,
     }),
     leftControls: toolbarSlots.sessionViewSwitch,
     rightControls: toolbarSlots.rightControls,

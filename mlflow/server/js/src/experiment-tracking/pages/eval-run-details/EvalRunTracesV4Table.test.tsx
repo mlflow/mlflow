@@ -123,6 +123,33 @@ describe('EvalRunTracesV4Table', () => {
     expect(screen.queryByRole('button', { name: /last 7 days|all time|time range/i })).not.toBeInTheDocument();
   });
 
+  test('shows the unified search spinner while replacing results', async () => {
+    renderTable();
+    expect(await findTraceRow('tr-000')).toBeInTheDocument();
+
+    let resolveSearch: (() => void) | undefined;
+    server.use(
+      rest.post(SEARCH_ENDPOINT, async (req, res, ctx) => {
+        state.searchCalls.push((await req.json()) as SearchCall);
+        await new Promise<void>((resolve) => {
+          resolveSearch = resolve;
+        });
+        return res(ctx.json({ traces: [makeRunTrace('tr-001')], next_page_token: undefined }));
+      }),
+    );
+
+    const searchBox = screen.getByRole('combobox', { name: 'Type something to use full text search' });
+    fireEvent.change(searchBox, { target: { value: 'hello' } });
+    fireEvent.keyDown(searchBox, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+
+    const submit = screen.getByRole('button', { name: 'Search' });
+    await waitFor(() => expect(submit).toHaveAttribute('aria-busy', 'true'));
+    expect(submit.querySelector('.du-bois-light-spin')).toBeInTheDocument();
+
+    resolveSearch?.();
+    expect(await findTraceRow('tr-001')).toBeInTheDocument();
+  });
+
   test('describes an empty evaluation run', async () => {
     state.traces = [];
     renderTable();

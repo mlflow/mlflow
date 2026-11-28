@@ -44,6 +44,8 @@ export interface TracesV4SearchProps {
   onMinimumWidthChange?: (width: number) => void;
   inputRef?: RefObject<InputRef>;
   suffix?: React.ReactNode;
+  /** Shows the submit control as busy while the table search is in flight. */
+  isSearchPending?: boolean;
 }
 
 type RecentSearch = { text: string; clause?: FilterClause };
@@ -104,6 +106,7 @@ export const TracesV4Search = ({
   onApplyFilter,
   inputRef,
   suffix,
+  isSearchPending,
   filterModel = [],
   onRemoveFilter,
   onOpenFilter,
@@ -415,6 +418,7 @@ export const TracesV4Search = ({
       open={open}
       setOpen={setOpen}
       isAIMode={false}
+      isSearchPending={isSearchPending}
       placeholder={placeholder}
       ariaLabel={textSearchPlaceholder}
       submitDisabled={

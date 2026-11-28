@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import { Input, type InputRef, SearchIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { Input, type InputRef, SearchIcon, Spinner, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import { TRACES_TOOLBAR_COLLAPSE_QUERY, TRACES_TOOLBAR_CONTAINER_NAME } from './TracesToolbarResponsive';
 
@@ -26,6 +26,8 @@ export interface TracesTableToolbarProps {
   searchMinimumWidth?: number;
   /** Commit the current search (wired to the search `<Input>`'s `onPressEnter`); no-op when omitted. */
   onSearchSubmit?: () => void;
+  /** Shows a spinner while the consumer's search is in flight. */
+  isSearchPending?: boolean;
   /** Controls placed before the search box (e.g. a date-range selector). */
   leftControls?: React.ReactNode;
   /** Controls placed after the search box (e.g. filters, columns, a spacer, and trailing actions). */
@@ -48,6 +50,7 @@ export const TracesTableToolbar: React.FC<TracesTableToolbarProps> = ({
   expandSearch,
   searchMinimumWidth = 340,
   onSearchSubmit,
+  isSearchPending,
   leftControls,
   rightControls,
 }: TracesTableToolbarProps) => {
@@ -82,11 +85,13 @@ export const TracesTableToolbar: React.FC<TracesTableToolbarProps> = ({
       defaultMessage: 'Search traces by id, input, or output',
       description: 'Placeholder for the search input on the traces table toolbar',
     });
+  // `loading={false}` skips Du Bois' interaction hold; the spinner's CSS animation still runs.
   const searchInput = (
     <Input
       ref={searchInputRef}
       componentId={`${COMPONENT_ID}.search`}
-      prefix={<SearchIcon />}
+      prefix={isSearchPending ? <Spinner size="small" loading={false} /> : <SearchIcon />}
+      aria-busy={isSearchPending ? true : undefined}
       allowClear
       value={searchValue}
       placeholder={placeholder}

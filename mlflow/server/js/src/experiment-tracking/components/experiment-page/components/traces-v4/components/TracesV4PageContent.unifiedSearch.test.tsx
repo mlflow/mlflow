@@ -1,9 +1,20 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { rest } from 'msw';
 import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { makeFeedbackAssessment, makeTrace } from '../test-utils/mockTraces';
-import { renderPage, findTraceRow, state, env, URL } from '../test-utils/tracesV4PageContentTestBed';
+import {
+  renderPage,
+  findTraceRow,
+  queryTraceRow,
+  state,
+  env,
+  URL,
+  server,
+  SEARCH_ENDPOINT,
+  type SearchCall,
+} from '../test-utils/tracesV4PageContentTestBed';
 
 jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
@@ -102,5 +113,33 @@ describe('TracesV4PageContent unified search', () => {
     pressEnter();
 
     await waitFor(() => expect(new URLSearchParams(env.lastSearch).get('q')).toBe('hello'));
+  }, 20000);
+
+  test('shows the unified submit control as busy while replacing stale search results', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    renderPage();
+    await findTraceRow('tr-000');
+
+    let resolveSearch: (() => void) | undefined;
+    server.use(
+      rest.post(SEARCH_ENDPOINT, async (req, res, ctx) => {
+        state.searchCalls.push((await req.json()) as SearchCall);
+        await new Promise<void>((resolve) => {
+          resolveSearch = resolve;
+        });
+        return res(ctx.json({ traces: [makeTrace('tr-001')] }));
+      }),
+    );
+
+    typeQuery('hello');
+    pressEnter();
+
+    const submit = screen.getByRole('button', { name: 'Search' });
+    await waitFor(() => expect(submit).toHaveAttribute('aria-busy', 'true'));
+    expect(submit.querySelector('.du-bois-light-spin')).toBeInTheDocument();
+    expect(queryTraceRow('tr-000')).not.toBeInTheDocument();
+
+    resolveSearch?.();
+    expect(await findTraceRow('tr-001')).toBeInTheDocument();
   }, 20000);
 });

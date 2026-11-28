@@ -621,7 +621,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   const showErrorAlert = Boolean(page.error) && hasRows; // refetch failed but prior rows remain
   // A fetch in flight (first load OR a reload — keepPreviousData keeps isLoading false on reload)
   // renders the skeleton, so error/empty branches wait until the fetch settles.
-  const showFirstLoadError = Boolean(page.error) && !hasRows && !page.isFetching;
+  const showFirstLoadError = Boolean(page.error) && !hasRows && !controller.isResultsPending;
 
   const getErrorDescription = useMemo(() => makeTracesV4ErrorDescription(intl), [intl]);
 
@@ -686,7 +686,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     onDensityChange: setDensity,
     selectionCount: bulk.selected.size,
     onBulkDelete: openDelete,
-    isRefreshing: page.isFetching && !page.isLoading,
+    isRefreshing: controller.isResultsPending && !page.isLoading,
     experimentId,
     actions,
     selectedTraceInfos,
@@ -703,11 +703,11 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   // states, else the table. The no-warehouse case is handled via `customEmptyState` below.
   const viewState: TracesTableViewState = showFirstLoadError
     ? 'error'
-    : !page.isFetching && flags.isEmptyPageBeyondFirst
+    : flags.isEmptyPageBeyondFirst
       ? 'no-more-results'
-      : !page.isFetching && flags.hasNoTracesInRange
+      : flags.hasNoTracesInRange
         ? 'empty'
-        : !page.isFetching && flags.hasNoSearchResults
+        : flags.hasNoSearchResults
           ? 'no-results'
           : 'ready';
 
@@ -721,8 +721,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     columnOrder: columnOrder.columnOrder,
     initialColumnSizing: columnSizing.columnSizing,
     onColumnSizingSettled: columnSizing.setColumnSizing,
-    isLoading: page.isFetching,
-    isFetching: page.isFetching,
+    isLoading: controller.isResultsPending,
+    isFetching: controller.isResultsPending,
     skeletonRowCount: url.pageSize,
     onTraceSelected: handleTraceSelected,
     selectedTraceId: url.traceId,
@@ -754,6 +754,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     onSearchChange: searchInput.setInput,
     onSearchClear: searchInput.clear,
     onSearchSubmit: searchInput.submit,
+    isSearchPending: controller.isResultsPending,
     searchInputRef,
     ...(unifiedSearchEnabled
       ? {
@@ -764,6 +765,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             traces: page.traces,
             inputRef: searchInputRef,
             resetKey: experimentId,
+            isSearchPending: controller.isResultsPending,
           }),
         }
       : {}),
