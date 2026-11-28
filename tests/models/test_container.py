@@ -7,7 +7,7 @@ import yaml
 
 from mlflow.environment_variables import MLFLOW_ALLOW_MODEL_CODE_EXECUTION
 from mlflow.exceptions import MlflowException
-from mlflow.models.container import _install_model_dependencies_to_env
+from mlflow.models.container import _install_model_dependencies_to_env, _serve_pyfunc
 from mlflow.utils import env_manager as em
 
 
@@ -285,3 +285,37 @@ def test_unsupported_env_manager_raises(tmp_path, env_manager):
 
     with pytest.raises(MlflowException, match=r"Building a model container supports one of"):
         _install_model_dependencies_to_env(model_path, env_manager=env_manager)
+
+
+@pytest.mark.parametrize(
+    ("disable_nginx", "expected_args"),
+    [
+        ("false", "uvicorn --port 8000 --workers 1 "),
+        ("true", "uvicorn --host 0.0.0.0 --port 8080 --workers 1 "),
+    ],
+)
+def test_serve_pyfunc_inference_server_address(monkeypatch, disable_nginx, expected_args):
+    monkeypatch.setenv("DISABLE_NGINX", disable_nginx)
+    monkeypatch.setenv("MLFLOW_MODELS_WORKERS", "1")
+    model = mock.Mock(flavors={"python_function": {}})
+    with (
+        mock.patch("mlflow.models.container.Popen") as popen,
+        mock.patch("mlflow.models.container.check_call") as check_call,
+        mock.patch("mlflow.models.container.signal.signal") as signal,
+        mock.patch("mlflow.models.container._await_subprocess_exit_any") as await_exit,
+        mock.patch("mlflow.models.container._sigterm_handler") as sigterm_handler,
+    ):
+        _serve_pyfunc(model, em.LOCAL)
+
+    inference_server_cmd = popen.call_args_list[-1].args[0]
+    assert inference_server_cmd[:2] == ["/bin/bash", "-c"]
+    assert inference_server_cmd[2].startswith(expected_args)
+    if disable_nginx == "true":
+        popen.assert_called_once()
+        check_call.assert_not_called()
+    else:
+        assert popen.call_count == 2
+        assert check_call.call_count == 2
+    signal.assert_called_once()
+    await_exit.assert_called_once()
+    sigterm_handler.assert_called_once_with(await_exit.return_value)

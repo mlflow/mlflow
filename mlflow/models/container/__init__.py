@@ -218,9 +218,18 @@ def _serve_pyfunc(model, env_manager):
 
     cpu_count = multiprocessing.cpu_count()
     nworkers = int(os.environ.get("MLFLOW_MODELS_WORKERS", cpu_count))
-    port = DEFAULT_INFERENCE_SERVER_PORT
+    if start_nginx:
+        # nginx listens on DEFAULT_NGINX_SERVER_PORT and proxies to uvicorn on localhost.
+        host = None
+        port = DEFAULT_INFERENCE_SERVER_PORT
+    else:
+        # Without nginx, uvicorn must be reachable from outside the container.
+        host = "0.0.0.0"
+        port = DEFAULT_NGINX_SERVER_PORT
 
-    cmd, cmd_env = scoring_server.get_cmd(model_uri=MODEL_PATH, nworkers=nworkers, port=port)
+    cmd, cmd_env = scoring_server.get_cmd(
+        model_uri=MODEL_PATH, nworkers=nworkers, port=port, host=host
+    )
 
     bash_cmds.append(cmd)
     inference_server_process = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)
