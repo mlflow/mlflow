@@ -80,6 +80,9 @@ def build_docker(
             may find greater compatibility by building your image on top of the ubuntu images. In
             addition, you must install Java and virtualenv to have the image work properly.
     """
+    # Reject unsupported env managers before backend selection, which downloads the model.
+    if env_manager is not None:
+        _EnvManager.validate_for_container(env_manager)
     get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager).build_image(
         model_uri,
         name,

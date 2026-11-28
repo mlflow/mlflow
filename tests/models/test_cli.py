@@ -791,14 +791,25 @@ def test_docker_commands_reject_uv_env_manager(command, tmp_path):
         else ["--output-directory", str(tmp_path / "context")]
     )
     with (
-        mock.patch("mlflow.pyfunc.backend.docker_utils.generate_dockerfile") as generate,
-        mock.patch("mlflow.pyfunc.backend.docker_utils.build_image_from_context") as build,
+        mock.patch("mlflow.models.python_api.get_flavor_backend") as python_api_backend,
+        mock.patch("mlflow.models.cli.get_flavor_backend") as cli_backend,
+        pytest.raises(MlflowException, match=r"Building a model container supports one of"),
     ):
-        with pytest.raises(MlflowException, match=r"Building a model container supports one of"):
-            runner.invoke(command, [*args, "--env-manager", "uv"], catch_exceptions=False)
-    generate.assert_not_called()
-    build.assert_not_called()
+        runner.invoke(
+            command,
+            [*args, "--model-uri", "s3://bucket/model", "--env-manager", "uv"],
+            catch_exceptions=False,
+        )
+    python_api_backend.assert_not_called()
+    cli_backend.assert_not_called()
     assert not (tmp_path / "context").exists()
+
+
+def test_build_docker_python_api_rejects_uv_before_backend_selection():
+    with mock.patch("mlflow.models.python_api.get_flavor_backend") as get_backend:
+        with pytest.raises(MlflowException, match=r"Building a model container supports one of"):
+            mlflow.models.build_docker(model_uri="s3://bucket/model", env_manager="uv")
+    get_backend.assert_not_called()
 
 
 def test_host_invalid_value():

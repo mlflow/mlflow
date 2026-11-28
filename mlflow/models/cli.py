@@ -228,6 +228,8 @@ def generate_dockerfile(
         _logger.info("Generating Dockerfile for model %s", model_uri)
     else:
         _logger.info("Generating Dockerfile")
+    if env_manager is not None:
+        _EnvManager.validate_for_container(env_manager)
     backend = get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager)
     if backend.can_build_image():
         backend.generate_dockerfile(
