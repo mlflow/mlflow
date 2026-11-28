@@ -32,11 +32,17 @@ MLflow integration for [OpenClaw](https://github.com/openclaw/openclaw) for [obs
 
 ## Setup
 
+Requires OpenClaw 2026.4.26 or later. Check your version with `openclaw --version`.
+
 ### 1. Install the Plugin
 
+Install from npm:
+
 ```bash
-openclaw plugins install @mlflow/mlflow-openclaw
+openclaw plugins install npm:@mlflow/mlflow-openclaw
 ```
+
+OpenClaw 2026.8.1 and later ask you to confirm the npm source and the plugin's capabilities. To install without a terminal on those releases, add `--force --accept-capabilities`.
 
 ### 2. Start the MLflow Server
 
@@ -48,20 +54,23 @@ Start the MLflow server (self-hosting) following the [instructions](https://mlfl
 openclaw mlflow configure
 ```
 
-The plugin will prompt you for the MLflow tracking URI and experiment ID. You can [create an experiment](https://mlflow.org/docs/latest/genai/tracing/quickstart/#create-a-mlflow-experiment) from the MLflow UI.
+Enter the MLflow tracking URI and experiment ID. You can [create an experiment](https://mlflow.org/docs/latest/genai/tracing/quickstart/#create-a-mlflow-experiment) from the MLflow UI. If the plugin does not already have [conversation access](#conversation-access), choose **Yes** to let it export conversation content in traces. The default is **Yes**.
 
 ```
 ~$ openclaw mlflow configure
 
-🦞 OpenClaw 2026.3.13 (61d171a) — Automation with claws: minimal fuss, maximal pinch.
-
 ┌  MLflow Tracing configuration
 │
-◆  MLflow Tracking URI
+◇  MLflow Tracking URI
 │  http://localhost:5000
-└
+│
 ◇  Experiment ID
 │  2
+│
+◇  Allow MLflow to access conversation content and export it in traces?
+│  Yes
+│
+└  MLflow configuration saved. Conversation access is enabled. Restart the gateway to apply.
 ```
 
 ### 4. Check the Status
@@ -76,7 +85,7 @@ If the configuration is successful, you should see the effective configuration i
 
 ### 5. Talk to OpenClaw
 
-Run or restart the OpenClaw gateway to apply the configuration.
+Start the OpenClaw gateway, or restart it if it is already running. A running gateway reloads the plugin config on its own, but tracing picks up the new settings only after a restart.
 
 ```bash
 openclaw gateway run  # or openclaw gateway restart
@@ -99,6 +108,26 @@ Tracking URI and experiment ID can also be set through environment variables:
 export MLFLOW_TRACKING_URI=http://localhost:5000
 export MLFLOW_EXPERIMENT_ID=<your-experiment-id>
 ```
+
+### Conversation Access
+
+OpenClaw runs the `llm_input`, `llm_output`, and `agent_end` hooks of a community plugin only when its entry grants conversation access. Choosing **Yes** in `openclaw mlflow configure` grants access. Choosing **No** saves the tracking URI and experiment ID without granting access or changing an explicit denial. The command leaves an existing grant in place without prompting.
+
+To grant access manually, set the following in `openclaw.json`, including when you configure the tracking URI and experiment ID through environment variables:
+
+```
+{
+    "plugins": {
+        "entries": {
+            "mlflow-openclaw": {
+                "hooks": { "allowConversationAccess": true }
+            }
+        }
+    }
+}
+```
+
+Without it, the gateway blocks those hooks and exports no traces. `openclaw plugins doctor` lists the blocked hooks.
 
 ### Plugin Allowlist
 

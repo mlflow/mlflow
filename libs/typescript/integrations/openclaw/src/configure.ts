@@ -8,7 +8,7 @@ const PLUGIN_ID = 'mlflow-openclaw';
 
 type ConfigDeps = {
   loadConfig: () => OpenClawConfig;
-  writeConfigFile: (cfg: OpenClawConfig) => Promise<void>;
+  updateConfig: (mutate: (draft: OpenClawConfig) => void) => Promise<void>;
 };
 
 // Minimal structural type for the Commander.js `Command` object OpenClaw
@@ -20,7 +20,7 @@ export type CommanderLike = {
 type CommandLike = {
   description: (d: string) => CommandLike;
   command: (name: string) => CommandLike;
-  action: (fn: () => void) => CommandLike;
+  action: (fn: () => void | Promise<void>) => CommandLike;
 };
 
 type RegisterCliParams = {
@@ -32,6 +32,7 @@ type ClackPrompts = {
   outro: (msg: string) => void;
   cancel: (msg: string) => void;
   isCancel: (value: unknown) => boolean;
+  confirm: (options: { message: string; initialValue: boolean }) => Promise<boolean | symbol>;
   text: (options: {
     message: string;
     placeholder?: string;
@@ -53,6 +54,7 @@ function asString(value: unknown): string {
 
 function getPluginEntry(cfg: OpenClawConfig): {
   enabled?: boolean;
+  conversationAccess: boolean;
   config: Record<string, unknown>;
 } {
   const root = asObject(cfg);
@@ -62,22 +64,30 @@ function getPluginEntry(cfg: OpenClawConfig): {
   const config = asObject(entry.config);
   return {
     enabled: typeof entry.enabled === 'boolean' ? entry.enabled : undefined,
+    conversationAccess: asObject(entry.hooks).allowConversationAccess === true,
     config,
   };
 }
 
-function setPluginEntry(
-  cfg: OpenClawConfig,
+// Mutates `draft` in place: the host persists the draft it handed out.
+function mergePluginEntry(
+  draft: OpenClawConfig,
   config: Record<string, unknown>,
-  enabled = true,
-): OpenClawConfig {
-  const root = asObject(cfg);
-  const plugins = asObject(root.plugins);
+  grantConversationAccess: boolean,
+): void {
+  const plugins = asObject(draft.plugins);
   const entries = asObject(plugins.entries);
-  entries[PLUGIN_ID] = { ...asObject(entries[PLUGIN_ID]), enabled, config };
+  const entry = asObject(entries[PLUGIN_ID]);
+  entries[PLUGIN_ID] = {
+    ...entry,
+    enabled: true,
+    ...(grantConversationAccess && {
+      hooks: { ...asObject(entry.hooks), allowConversationAccess: true },
+    }),
+    config: { ...asObject(entry.config), ...config },
+  };
   plugins.entries = entries;
-  root.plugins = plugins;
-  return root as OpenClawConfig;
+  draft.plugins = plugins;
 }
 
 function showStatus(deps: ConfigDeps): void {
@@ -141,28 +151,49 @@ async function runConfigure(deps: ConfigDeps): Promise<void> {
     return;
   }
 
-  const updated = setPluginEntry(cfg, {
-    ...entry.config,
-    trackingUri: trackingUri as string,
-    experimentId: experimentId as string,
-  });
-  await deps.writeConfigFile(updated);
+  let grantConversationAccess = false;
+  if (!entry.conversationAccess) {
+    const answer = await p.confirm({
+      message: 'Allow MLflow to access conversation content and export it in traces?',
+      initialValue: true,
+    });
+    if (p.isCancel(answer)) {
+      p.cancel('Configuration cancelled');
+      return;
+    }
+    grantConversationAccess = answer === true;
+  }
 
-  p.outro('MLflow configuration saved. Restart the gateway to apply.');
+  let conversationAccess = false;
+  await deps.updateConfig((draft) => {
+    mergePluginEntry(
+      draft,
+      { trackingUri: trackingUri as string, experimentId: experimentId as string },
+      grantConversationAccess,
+    );
+    conversationAccess = getPluginEntry(draft).conversationAccess;
+  });
+
+  // A running gateway hot-reloads the plugin in the same process, but the
+  // second tracing init there cannot replace the global OpenTelemetry
+  // provider, so traces stop until the gateway restarts.
+  const accessMessage = conversationAccess
+    ? 'Conversation access is enabled.'
+    : 'Conversation access is not enabled. OpenClaw will block the hooks required for tracing.';
+  p.outro(`MLflow configuration saved. ${accessMessage} Restart the gateway to apply.`);
 }
 
 export function registerMlflowCli(params: RegisterCliParams): void {
-  const { program, loadConfig, writeConfigFile } = params;
-  const deps: ConfigDeps = { loadConfig, writeConfigFile };
+  const { program, loadConfig, updateConfig } = params;
+  const deps: ConfigDeps = { loadConfig, updateConfig };
 
   const root = program.command('mlflow').description('MLflow trace export integration');
 
   root
     .command('configure')
     .description('Interactive setup for MLflow trace export')
-    .action(() => {
-      void runConfigure(deps);
-    });
+    // Return the promise: the host tears the plugin down once the action settles.
+    .action(() => runConfigure(deps));
 
   root
     .command('status')

@@ -23,9 +23,10 @@ module.exports = {
       },
     ],
   },
-  // openclaw/plugin-sdk/* doesn't exist outside the gateway runtime —
-  // map to a trivial empty module so service.ts can load.
   moduleNameMapper: {
+    // OpenClaw supplies the plugin SDK at runtime.
     '^openclaw/plugin-sdk/.*$': '<rootDir>/tests/__mocks__/empty.ts',
+    // Resolve ESM-style imports to the TypeScript source in Jest.
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
 };

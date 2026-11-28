@@ -39,10 +39,10 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",
-    "@mlflow/core": ">=0.2.0 || >=0.3.0-rc.0"
+    "@mlflow/core": ">=0.3.0"
   },
   "peerDependencies": {
-    "openclaw": ">=2026.4.9"
+    "openclaw": ">=2026.4.26"
   },
   "peerDependenciesMeta": {
     "openclaw": {
@@ -61,7 +61,10 @@
   "openclaw": {
     "extensions": [
       "./dist/index.js"
-    ]
+    ],
+    "install": {
+      "minHostVersion": ">=2026.4.26"
+    }
   },
   "files": [
     "dist/",
