@@ -7,6 +7,7 @@ import type { RunsChartsUIConfigurationSetter } from '../../../components/runs-c
 import type { RunsChartsBarCardConfig, RunsChartsCardConfig } from '../../../components/runs-charts/runs-charts.types';
 import { RunsChartType } from '../../../components/runs-charts/runs-charts.types';
 import type { ExperimentRunsChartsUIConfiguration } from '../../../components/experiment-page/models/ExperimentPageUIState';
+import { getStorageItem, setStorageItem } from '../../../../common/utils/LocalStorageUtils';
 
 type UpdateChartStateAction = { type: 'UPDATE'; stateSetter: RunsChartsUIConfigurationSetter };
 type InitializeChartStateAction = { type: 'INITIALIZE'; initialConfig?: ExperimentEvaluationRunsChartsUIConfiguration };
@@ -135,8 +136,7 @@ const chartsUIStateReducer = (state: ExperimentEvaluationRunsChartsUIConfigurati
 
 // This function is async on purpose to accommodate potential asynchoronous storage mechanisms (e.g. IndexedDB) in the future
 const loadPersistedDataFromStorage = async (storeIdentifier: string) => {
-  // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
-  const serializedData = localStorage.getItem(createLocalStorageKey(storeIdentifier));
+  const serializedData = getStorageItem(localStorage, createLocalStorageKey(storeIdentifier));
   if (!serializedData) {
     return undefined;
   }
@@ -152,8 +152,7 @@ const saveDataToStorage = async (
   storeIdentifier: string,
   dataToPersist: ExperimentEvaluationRunsChartsUIConfiguration,
 ) => {
-  // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
-  localStorage.setItem(createLocalStorageKey(storeIdentifier), JSON.stringify(dataToPersist));
+  setStorageItem(localStorage, createLocalStorageKey(storeIdentifier), JSON.stringify(dataToPersist));
 };
 
 /**

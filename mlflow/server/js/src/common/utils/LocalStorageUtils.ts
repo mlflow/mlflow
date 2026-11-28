@@ -8,6 +8,39 @@
 /**
  * Utils for working with local storage.
  */
+// Keep one UI-state entry from consuming most common 5 MiB per-origin quotas.
+const MAX_STORAGE_ITEM_SIZE = 1_000_000;
+
+const isQuotaExceededError = (error: unknown) =>
+  error instanceof DOMException &&
+  (error.name === 'QuotaExceededError' ||
+    error.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+    error.code === 22 ||
+    error.code === 1014);
+
+export const getStorageItem = (storage: Storage, key: string) => {
+  const value = storage.getItem(key);
+  if (value !== null && value.length > MAX_STORAGE_ITEM_SIZE) {
+    storage.removeItem(key);
+    return null;
+  }
+  return value;
+};
+
+export const setStorageItem = (storage: Storage, key: string, value: string) => {
+  if (value.length > MAX_STORAGE_ITEM_SIZE) {
+    return;
+  }
+
+  try {
+    storage.setItem(key, value);
+  } catch (error) {
+    if (!isQuotaExceededError(error)) {
+      throw error;
+    }
+  }
+};
+
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export default class LocalStorageUtils {
   /**
@@ -79,11 +112,11 @@ class LocalStorageStore {
 
   /** Save the specified key-value pair in local storage. */
   setItem(key: any, value: any) {
-    this.storageObj.setItem(this.withScopePrefix(key), value);
+    setStorageItem(this.storageObj, this.withScopePrefix(key), value);
   }
 
   /** Fetch the value corresponding to the passed-in key from local storage. */
-  getItem(key: any) {
-    return this.storageObj.getItem(this.withScopePrefix(key));
+  getItem(key: any): any {
+    return getStorageItem(this.storageObj, this.withScopePrefix(key));
   }
 }
