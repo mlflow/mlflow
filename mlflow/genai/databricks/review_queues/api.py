@@ -1009,6 +1009,7 @@ def add_review_queue_items(
     dataset_record_ids: list[str] | None = None,
     traces: "Iterable[Trace] | Iterable[str] | pd.DataFrame | None" = None,
     dataset: str | None = None,
+    grant_access: bool = True,
 ) -> list[ReviewQueueItem]: ...
 
 
@@ -1034,6 +1035,7 @@ def add_review_queue_items(
     dataset_record_ids: list[str] | None = None,
     traces: "Iterable[Trace] | Iterable[str] | pd.DataFrame | None" = None,
     dataset: str | None = None,
+    grant_access: bool = True,
 ) -> list[ReviewQueueItem]:
     """
     Attach traces and/or dataset records to a queue or a labeling session.
@@ -1044,6 +1046,21 @@ def add_review_queue_items(
     fails, the earlier ones stay attached and the error says how many were; attaching the
     same items again is safe. The server caps how many items a queue holds.
 
+    Unless ``grant_access=False``, the queue's reviewers are also granted the access they need
+    to review the new items, as the review queue UI does:
+
+    - Traces added to a ``USER`` queue: its owner gets ``CAN_EDIT`` on the experiment, or
+      ``CAN_READ`` when the traces are stored in Unity Catalog. They also get ``SELECT`` on the
+      trace spans and logs tables and ``SELECT`` and ``MODIFY`` on the trace annotation table,
+      unless the server reports they can already write their answers. A ``CUSTOM`` queue's
+      members got the trace tables when they joined, so its traces need no grant.
+    - Dataset records: the ``USER`` queue's owner, or every member of a ``CUSTOM`` queue, gets
+      ``CAN_READ`` on the experiment and ``SELECT`` and ``MODIFY`` on the dataset's table.
+
+    Grants are made as the caller and are best-effort, as described in
+    :py:func:`add_review_queue_member`: a grant that fails is logged as a warning and never
+    fails the call.
+
     To add items to a :py:class:`mlflow.genai.LabelingSession`, pass the session in place of
     ``experiment_id`` and ``queue_id``, with the other arguments by keyword. They're added
     with the session's own methods, as they are today:
@@ -1052,7 +1069,8 @@ def add_review_queue_items(
     traces are fetched first; and :py:meth:`mlflow.genai.LabelingSession.add_dataset` for
     ``dataset``, which also grants the session's assigned users ``SELECT`` on it. A session
     takes datasets by name only, not ``dataset_id``. The labeling backend doesn't return the
-    items it adds, so for a session this returns an empty list.
+    items it adds, so for a session this returns an empty list. A session grants access its
+    own way, so ``grant_access=False`` can't be passed with one.
 
     .. code-block:: python
 
@@ -1081,6 +1099,8 @@ def add_review_queue_items(
         dataset: The name of a dataset, i.e. its Unity Catalog table, in place of
             ``dataset_id``. Without ``dataset_record_ids``, every record in it is attached,
             as :py:meth:`mlflow.genai.LabelingSession.add_dataset` does.
+        grant_access: Whether to grant the queue's reviewers the access they need to review
+            the new items. Defaults to ``True``.
 
     Returns:
         The resulting list of :py:class:`ReviewQueueItem`, or an empty list for a labeling
@@ -1088,6 +1108,7 @@ def add_review_queue_items(
     """
     if isinstance(experiment_id, LabelingSession):
         _reject_queue_id_for_session("add_review_queue_items", queue_id, None)
+        _reject_grant_access_for_session("add_review_queue_items", grant_access)
         if dataset_id is not None:
             raise MlflowException.invalid_parameter_value(
                 "A `LabelingSession` takes datasets by name: pass `dataset` instead of "
@@ -1137,25 +1158,56 @@ def add_review_queue_items(
         )
     parent = _queue(experiment_id, queue_id)
     added: list[ReviewQueueItem] = []
-    for start in range(0, len(items), _MAX_ITEMS_PER_REQUEST):
-        batch = items[start : start + _MAX_ITEMS_PER_REQUEST]
-        try:
-            resp = _client.call(
-                "POST",
-                f"{parent}/items:batchCreate",
-                json={"requests": [{"parent": parent, "review_queue_item": i} for i in batch]},
-            )
-        except MlflowException as e:
-            if start == 0:
-                raise
-            raise MlflowException(
-                f"Attached {start} of {len(items)} items to review queue {queue_id!r} before "
-                f"the server refused the rest. Attaching the same items again is safe. "
-                f"Error: {e.message}",
-                error_code=ErrorCode.Value(e.error_code),
-            ) from e
-        added += [ReviewQueueItem.from_dict(i) for i in resp.get("review_queue_items", [])]
+    attached: list[dict[str, Any]] = []
+    access: list[str | None] = []
+    try:
+        for start in range(0, len(items), _MAX_ITEMS_PER_REQUEST):
+            batch = items[start : start + _MAX_ITEMS_PER_REQUEST]
+            try:
+                resp = _client.call(
+                    "POST",
+                    f"{parent}/items:batchCreate",
+                    json={"requests": [{"parent": parent, "review_queue_item": i} for i in batch]},
+                )
+            except MlflowException as e:
+                if start == 0:
+                    raise
+                raise MlflowException(
+                    f"Attached {start} of {len(items)} items to review queue {queue_id!r} before "
+                    f"the server refused the rest. Attaching the same items again is safe. "
+                    f"Error: {e.message}",
+                    error_code=ErrorCode.Value(e.error_code),
+                ) from e
+            attached += batch
+            access.append(resp.get("assignee_asset_access"))
+            added += [ReviewQueueItem.from_dict(i) for i in resp.get("review_queue_items", [])]
+    finally:
+        # Reviewers get access to the items that were attached, even if a later batch failed.
+        if grant_access and attached:
+            _grant_item_access(experiment_id, queue_id, attached, access)
     return added
+
+
+def _grant_item_access(
+    experiment_id: str, queue_id: str, items: list[dict[str, Any]], access: list[str | None]
+) -> None:
+    _grants.grant_item_access(
+        experiment_id,
+        queue_id,
+        trace_ids=[
+            i["v4_trace"]["trace_id"] for i in items if i["kind"] == ItemKind.V4_TRACE.value
+        ],
+        dataset_ids=list(
+            dict.fromkeys(
+                i["dataset_record"]["dataset_id"]
+                for i in items
+                if i["kind"] == ItemKind.DATASET_RECORD.value
+            )
+        ),
+        # The server reports, per batch, whether the reviewers can already write answers to
+        # everything in it.
+        trace_tables_held=all(a == "ASSIGNEE_ASSET_ACCESS_HAS_ACCESS" for a in access),
+    )
 
 
 @experimental(version="3.17.1")

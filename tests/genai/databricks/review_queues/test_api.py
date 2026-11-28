@@ -53,6 +53,12 @@ def grant_reviewer_access():
         yield mock_grant
 
 
+@pytest.fixture(autouse=True)
+def grant_item_access():
+    with mock.patch.object(_grants, "grant_item_access") as mock_grant:
+        yield mock_grant
+
+
 _QUESTION = {
     "name": "experiments/1/reviewQuestions/q1",
     "title": "Correct?",
@@ -961,6 +967,71 @@ def test_add_review_queue_items_first_batch_failure_is_unchanged():
     with mock.patch(_CALL, side_effect=cap):
         with pytest.raises(MlflowException, match="^Queue rq1 has 150 of at most 150 items.$"):
             add_review_queue_items("1", "rq1", trace_ids=["tr-1"])
+
+
+def test_add_review_queue_items_grants_the_queues_reviewers(grant_item_access):
+    with mock.patch(_CALL, return_value={"review_queue_items": [_ITEM]}):
+        add_review_queue_items(
+            "1",
+            "rq1",
+            trace_ids=["tr-1", "trace:/main.traces.pfx/a1"],
+            dataset_id="ds1",
+            dataset_record_ids=["r1", "r2"],
+        )
+    grant_item_access.assert_called_once_with(
+        "1", "rq1", trace_ids=["tr-1", "a1"], dataset_ids=["ds1"], trace_tables_held=False
+    )
+
+
+@pytest.mark.parametrize(
+    ("advisories", "held"),
+    [
+        (["ASSIGNEE_ASSET_ACCESS_HAS_ACCESS", "ASSIGNEE_ASSET_ACCESS_HAS_ACCESS"], True),
+        (["ASSIGNEE_ASSET_ACCESS_HAS_ACCESS", "ASSIGNEE_ASSET_ACCESS_NO_ACCESS"], False),
+        (["ASSIGNEE_ASSET_ACCESS_HAS_ACCESS", None], False),
+    ],
+)
+def test_add_review_queue_items_passes_on_the_servers_access_check(
+    grant_item_access, advisories, held
+):
+    responses = [{"review_queue_items": [], "assignee_asset_access": a} for a in advisories]
+    with mock.patch(_CALL, side_effect=[{k: v for k, v in r.items() if v} for r in responses]):
+        add_review_queue_items("1", "rq1", trace_ids=[f"tr-{i}" for i in range(150)])
+    assert grant_item_access.call_args.kwargs["trace_tables_held"] is held
+
+
+def test_add_review_queue_items_without_grants(grant_item_access):
+    with mock.patch(_CALL, return_value={"review_queue_items": [_ITEM]}):
+        add_review_queue_items("1", "rq1", trace_ids=["tr-1"], grant_access=False)
+    grant_item_access.assert_not_called()
+
+
+def test_add_review_queue_items_grants_what_was_attached_before_a_failure(grant_item_access):
+    cap = MlflowException("Queue rq1 has 100 of at most 150 items.", INVALID_STATE)
+    trace_ids = [f"tr-{i}" for i in range(160)]
+    with mock.patch(_CALL, side_effect=[{"review_queue_items": []}, cap]):
+        with pytest.raises(MlflowException, match="Attached 100 of 160 items"):
+            add_review_queue_items("1", "rq1", trace_ids=trace_ids)
+    assert grant_item_access.call_args.kwargs["trace_ids"] == trace_ids[:100]
+
+
+def test_add_review_queue_items_grants_nothing_when_nothing_was_attached(grant_item_access):
+    cap = MlflowException("Queue rq1 has 150 of at most 150 items.", INVALID_STATE)
+    with mock.patch(_CALL, side_effect=cap):
+        with pytest.raises(MlflowException, match="150 of at most 150"):
+            add_review_queue_items("1", "rq1", trace_ids=["tr-1"])
+    grant_item_access.assert_not_called()
+
+
+def test_add_review_queue_items_session_keeps_the_labeling_sdks_grants(
+    labeling_store, grant_item_access
+):
+    session = _session([])
+    add_review_queue_items(session, dataset="main.evals.set_a")
+    grant_item_access.assert_not_called()
+    with pytest.raises(MlflowException, match="can't take `grant_access=False`"):
+        add_review_queue_items(session, dataset="main.evals.set_a", grant_access=False)
+    labeling_store.add_dataset_to_session.assert_called_once()
 
 
 _GET_TRACE = "mlflow.genai.databricks.review_queues.api.get_trace"
