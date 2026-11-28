@@ -604,10 +604,16 @@ def test_parse_csv_with_datetime_schema_rejects_invalid_values():
     assert e.value.error_code == ErrorCode.Name(BAD_REQUEST)
 
 
-def test_parse_csv_with_tensor_schema_ignores_schema():
+def test_parse_csv_with_tensor_schema_applies_dtype():
     schema = Schema([TensorSpec(np.dtype("float64"), (-1, 2))])
-    df = pyfunc_scoring_server.parse_csv_input(StringIO("0,1\n1.0,0.0\n"), schema=schema)
+    df = pyfunc_scoring_server.parse_csv_input(StringIO("0,1\n1,0\n"), schema=schema)
     pd.testing.assert_frame_equal(df, pd.DataFrame({"0": [1.0], "1": [0.0]}))
+
+
+def test_parse_csv_with_named_tensor_schema_ignores_schema():
+    schema = Schema([TensorSpec(np.dtype("float64"), (-1,), "a")])
+    df = pyfunc_scoring_server.parse_csv_input(StringIO("a\n1\n"), schema=schema)
+    pd.testing.assert_frame_equal(df, pd.DataFrame({"a": [1]}))
 
 
 @pytest.mark.parametrize(
@@ -621,8 +627,12 @@ def test_parse_csv_with_tensor_schema_ignores_schema():
             np.array([[0.5, 1.0], [1.5, 0.0], [2.5, 1.0], [3.5, 0.0]]),
             "0,1\n1.0,0.0\n3.0,1.0\n",
         ),
+        (
+            np.array([[0.5, 1.0], [1.5, 0.0], [2.5, 1.0], [3.5, 0.0]]),
+            "0,1\n1,0\n3,1\n",
+        ),
     ],
-    ids=["column_schema", "tensor_schema"],
+    ids=["column_schema", "tensor_schema", "tensor_schema_whole_numbers"],
 )
 def test_predict_csv_applies_model_schema(tmp_path, x, csv_str):
     model = logreg_module.LogisticRegression().fit(x, [0, 0, 1, 1])

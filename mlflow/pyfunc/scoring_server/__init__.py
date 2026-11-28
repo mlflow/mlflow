@@ -196,8 +196,15 @@ def parse_csv_input(csv_input, schema: Schema = None):
     import pandas as pd
 
     try:
-        # Tensor-based schemas have no pandas dtypes; schema enforcement converts the frame later
-        if schema is None or schema.is_tensor_spec():
+        if schema is None:
+            return pd.read_csv(csv_input)
+        elif schema.is_tensor_spec():
+            # Tensor-based schemas have no pandas dtypes. Schema enforcement casts named inputs
+            # and single columns, but checks a multi-column frame for an unnamed input without
+            # casting, so read numeric columns with that input's dtype here
+            dtype = schema.numpy_types()[0]
+            if not schema.has_input_names() and dtype.kind in "biuf":
+                return pd.read_csv(csv_input, dtype=dtype)
             return pd.read_csv(csv_input)
         else:
             dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
