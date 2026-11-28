@@ -1217,6 +1217,50 @@ def test_session_level_round_trip_builtin_session_scorer():
     assert deserialized.is_session_level_scorer is True
 
 
+def test_knowledge_retention_round_trip():
+    from mlflow.genai.scorers.builtin_scorers import KnowledgeRetention
+
+    scorer = KnowledgeRetention(
+        model="openai:/gpt-4o-mini",
+        inference_params={"temperature": 0.0},
+        extra_headers={"X-Team": "eval"},
+    )
+
+    serialized = scorer.model_dump()
+    assert "last_turn_scorer" not in serialized["builtin_scorer_pydantic_data"]
+    assert serialized["builtin_scorer_pydantic_data"]["instructions"] == (
+        scorer.last_turn_scorer.instructions
+    )
+
+    deserialized = Scorer.model_validate(json.loads(json.dumps(serialized)))
+    assert isinstance(deserialized, KnowledgeRetention)
+    assert deserialized.model == "openai:/gpt-4o-mini"
+    assert deserialized.last_turn_scorer.model == "openai:/gpt-4o-mini"
+    assert deserialized.last_turn_scorer.inference_params == {"temperature": 0.0}
+    assert deserialized.last_turn_scorer.extra_headers == {"X-Team": "eval"}
+
+
+def test_knowledge_retention_custom_last_turn_scorer_cannot_be_serialized():
+    from mlflow.genai.scorers.builtin_scorers import (
+        KnowledgeRetention,
+        _LastTurnKnowledgeRetention,
+    )
+
+    class CustomTurnScorer(_LastTurnKnowledgeRetention):
+        pass
+
+    for last_turn_scorer in (
+        _LastTurnKnowledgeRetention(model="openai:/inner", inference_params={"top_p": 0.5}),
+        CustomTurnScorer(),
+    ):
+        scorer = KnowledgeRetention(last_turn_scorer=last_turn_scorer)
+        with pytest.raises(MlflowException, match="custom `last_turn_scorer`"):
+            scorer.model_dump()
+
+    configured = KnowledgeRetention(model="openai:/outer", inference_params={"top_p": 0.5})
+    assert configured.model_dump()["builtin_scorer_pydantic_data"]["model"] == "openai:/outer"
+
+
 def test_builtin_scorer_serialized_before_session_level_deserializes_to_none():
     from mlflow.genai.scorers.builtin_scorers import ConversationCompleteness
 
