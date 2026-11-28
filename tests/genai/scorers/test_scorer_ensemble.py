@@ -52,6 +52,23 @@ _NUMERIC_BUILTINS = [mean, minimum, maximum]
         pytest.param(majority_vote, ["x", "x", "y"], "x", id="majority_vote-categorical_majority"),
         pytest.param(majority_vote, [True], True, id="majority_vote-single"),
         pytest.param(majority_vote, ["only"], "only", id="majority_vote-single_categorical"),
+        pytest.param(majority_vote, ["yes", True, False], True, id="majority_vote-mixed_pass"),
+        pytest.param(
+            majority_vote, ["no", "no", True, True, False], "no", id="majority_vote-mixed_fail"
+        ),
+        pytest.param(
+            majority_vote,
+            [True, "yes", "yes", "no", "no"],
+            "yes",
+            id="majority_vote-mixed_most_common_on_winning_side",
+        ),
+        pytest.param(
+            majority_vote, ["yes", True, "no", False], False, id="majority_vote-mixed_tie"
+        ),
+        pytest.param(majority_vote, ["yes", "no"], "no", id="majority_vote-yes_no_tie"),
+        pytest.param(
+            majority_vote, ["yes", "maybe", "maybe"], "maybe", id="majority_vote-no_reading"
+        ),
         # mean
         pytest.param(mean, [1.0, 2.0, 3.0], 2.0, id="mean-basic"),
         pytest.param(mean, [2], 2, id="mean-single"),
@@ -228,6 +245,19 @@ def test_ensemble_majority_vote_end_to_end():
     fb = agg(outputs="hello")
     assert fb.value is True
     assert fb.name == "vote"
+
+
+def test_ensemble_majority_vote_mixes_yes_no_and_bool():
+    @scorer
+    def _judge_yes(outputs) -> str:
+        return "yes"
+
+    agg = make_scorer_ensemble(
+        name="vote",
+        scorers=[_judge_yes, _always_true, _always_false],
+        ensemble_fn="majority_vote",
+    )
+    assert agg(outputs="hello").value is True
 
 
 def test_ensemble_dispatches_mixed_signatures():
