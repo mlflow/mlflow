@@ -1,3 +1,4 @@
+import json
 import time
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+from mlflow.utils.mlflow_tags import MLFLOW_MODEL_VERSIONS
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import get_safe_port
@@ -671,6 +673,28 @@ def test_set_delete_registered_model_alias_and_get_model_version_by_alias_flow(c
     assert model.aliases == {}
     mv = client.get_model_version(name, "1")
     assert mv.aliases == []
+
+
+def test_copy_version_after_logged_model_deletion(client):
+    with _use_tracking_uri(client.tracking_uri):
+        model = client.create_logged_model(experiment_id="0")
+        source = mlflow.register_model(f"models:/{model.model_id}", "source")
+        assert json.loads(client.get_logged_model(model.model_id).tags[MLFLOW_MODEL_VERSIONS]) == [
+            {"name": "source", "version": 1}
+        ]
+        previous_links = [{"name": "source", "version": 1}, {"version": "legacy"}]
+        client.set_logged_model_tags(
+            model.model_id, {MLFLOW_MODEL_VERSIONS: json.dumps(previous_links)}
+        )
+        promoted = mlflow.register_model(f"models:/source/{source.version}", "promotion")
+        links = json.loads(client.get_logged_model(model.model_id).tags[MLFLOW_MODEL_VERSIONS])
+        assert links == [*previous_links, {"name": "promotion", "version": int(promoted.version)}]
+        client.delete_logged_model(model.model_id)
+        copied = client.copy_model_version(f"models:/source/{source.version}", "destination")
+        assert copied.model_id == model.model_id
+        assert [mv.version for mv in client.search_model_versions("name = 'destination'")] == [
+            copied.version
+        ]
 
 
 def test_copy_model_version_flow(client):

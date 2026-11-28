@@ -8,6 +8,7 @@ from unittest import mock
 import pytest
 from sqlalchemy import create_engine, text
 
+from mlflow import MlflowClient
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -511,6 +512,7 @@ def test_create_model_version(store):
     assert mvd1.last_updated_timestamp == 456778000
     assert mvd1.description is None
     assert mvd1.source == "a/b/CD"
+    assert mvd1.model_id is None
     assert mvd1.run_id == run_id
     assert mvd1.status == "READY"
     assert mvd1.status_message is None
@@ -750,7 +752,10 @@ def test_delete_model_version_redaction(store):
     run_id = "12345"
     source = "path/to/source"
     _rm_maker(store, name)
-    mv = _mv_maker(store, name, source=source, run_id=run_id, run_link=run_link)
+    mv = store.create_model_version(
+        name, source, run_id=run_id, run_link=run_link, model_id="m-123"
+    )
+    assert mv.model_id == "m-123"
     mvd = store.get_model_version(name=name, version=mv.version)
     assert mvd.run_link == run_link
     assert mvd.run_id == run_id
@@ -762,6 +767,7 @@ def test_delete_model_version_redaction(store):
     assert "REDACTED" in mvd_deleted.run_link
     assert "REDACTED" in mvd_deleted.source
     assert "REDACTED" in mvd_deleted.run_id
+    assert mvd_deleted.model_id is None
 
 
 def test_get_model_version_download_uri(store):
@@ -2686,6 +2692,38 @@ def test_create_model_version_with_model_id_and_no_run_id(store):
 
         mvd = store.get_model_version(name=mv.name, version=mv.version)
         assert mvd.run_id == mock_run_id
+        assert mv.model_id == mvd.model_id == "test-model-id-456"
+
+
+def test_create_model_version_inherits_logged_model_id(store):
+    name = "source-model"
+    store.create_registered_model(name)
+    model_id = "m-123"
+    source = f"models:/{model_id}"
+    with mock.patch.object(
+        MlflowClient,
+        "get_logged_model",
+        return_value=mock.Mock(artifact_location="/artifacts/model", source_run_id=None),
+    ) as get_logged_model:
+        mv = store.create_model_version(name, source)
+        assert mv.model_id == model_id
+        get_logged_model.assert_called_once_with(model_id)
+
+    copy = store.create_model_version(name, f"models:/{name}/{mv.version}")
+    assert store.get_model_version(name, copy.version).model_id == model_id
+    with pytest.raises(MlflowException, match="does not match the model version source"):
+        store.create_model_version(name, f"models:/{name}/{mv.version}", model_id="m-other")
+    assert [v.version for v in store.search_model_versions()] == [copy.version, mv.version]
+
+
+def test_create_model_version_rejects_unrelated_model_id_for_source_without_id(store):
+    store.create_registered_model("source")
+    version = store.create_model_version("source", "s3://bucket/model", run_id="run")
+    with pytest.raises(MlflowException, match="does not match the model version source"):
+        store.create_model_version(
+            "source", f"models:/source/{version.version}", model_id="m-other"
+        )
+    assert [v.version for v in store.search_model_versions()] == [version.version]
 
 
 def test_create_model_version_concurrent(store):

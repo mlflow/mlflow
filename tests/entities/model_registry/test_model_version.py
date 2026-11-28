@@ -1,5 +1,7 @@
 import uuid
 
+import pytest
+
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.model_version_deployment_job_state import (
     ModelVersionDeploymentJobState,
@@ -157,6 +159,14 @@ def test_creation_and_hydration():
         {tag.key: tag.value for tag in (tags or [])},
         ["test_alias"],
     )
+
+
+@pytest.mark.parametrize("model_id", [None, "", "m-123"])
+def test_model_id_round_trip(model_id):
+    version = ModelVersion("test", "1", 0, model_id=model_id)
+    proto = version.to_proto()
+    assert proto.HasField("model_id") == bool(model_id)
+    assert ModelVersion.from_proto(proto).model_id == (model_id or None)
 
 
 def test_string_repr():

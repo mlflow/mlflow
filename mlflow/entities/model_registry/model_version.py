@@ -33,8 +33,6 @@ class ModelVersion(_ModelRegistryEntity):
         tags: list[ModelVersionTag] | None = None,
         run_link: str | None = None,
         aliases: list[str] | None = None,
-        # TODO: Make model_id a required field
-        # (currently optional to minimize breakages during prototype development)
         model_id: str | None = None,
         params: list[ModelParam] | None = None,
         metrics: list[Metric] | None = None,
@@ -160,7 +158,7 @@ class ModelVersion(_ModelRegistryEntity):
 
     @property
     def model_id(self) -> str | None:
-        """String. ID of the model associated with this version."""
+        """ID of the logged model associated with this version, if known."""
         return self._model_id
 
     @property
@@ -209,6 +207,7 @@ class ModelVersion(_ModelRegistryEntity):
             proto.status_message if proto.HasField("status_message") else None,
             run_link=proto.run_link,
             aliases=proto.aliases,
+            model_id=proto.model_id or None,
             deployment_job_state=(
                 ModelVersionDeploymentJobState.from_proto(proto.deployment_job_state)
                 if proto.HasField("deployment_job_state")
@@ -217,7 +216,7 @@ class ModelVersion(_ModelRegistryEntity):
         )
         for tag in proto.tags:
             model_version._add_tag(ModelVersionTag.from_proto(tag))
-        # TODO: Include params, metrics, and model ID in proto
+        # TODO: Include params and metrics in proto
         return model_version
 
     def to_proto(self):
@@ -249,7 +248,9 @@ class ModelVersion(_ModelRegistryEntity):
             ProtoModelVersionTag(key=key, value=value) for key, value in self._tags.items()
         ])
         model_version.aliases.extend(self.aliases)
+        if self.model_id:
+            model_version.model_id = self.model_id
         if self.deployment_job_state is not None:
             model_version.deployment_job_state.CopyFrom(self.deployment_job_state.to_proto())
-        # TODO: Include params, metrics, and model ID in proto
+        # TODO: Include params and metrics in proto
         return model_version

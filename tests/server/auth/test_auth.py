@@ -73,6 +73,7 @@ from mlflow.server.mcp_server_api import (
     search_mcp_servers,
 )
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.tracking.request_auth.assistant_delegation_request_auth_provider import (
     ASSISTANT_DELEGATION_HEADER,
 )
@@ -1922,6 +1923,31 @@ def test_create_model_version_requires_read_on_source_model(
             auth=(username2, password2),
         )
         assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client", [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}], indirect=True
+)
+def test_promote_registered_version_without_source_experiment_access(client, monkeypatch):
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment = client.create_experiment("private-experiment")
+        run_id = client.create_run(experiment).info.run_id
+        model = client.create_logged_model(experiment, source_run_id=run_id)
+        client.create_registered_model("source")
+        version = client.create_model_version(
+            "source", model.artifact_location, run_id=run_id, model_id=model.model_id
+        )
+
+    username, password = create_user(client.tracking_uri)
+    grant_role_permission(client.tracking_uri, username, "registered_model", "source", "READ")
+    with User(username, password, monkeypatch), _use_tracking_uri(client.tracking_uri):
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.get_logged_model(model.model_id)
+        promoted = mlflow.register_model(f"models:/source/{version.version}", "destination")
+        assert promoted.model_id == model.model_id
+        assert [v.version for v in client.search_model_versions("name = 'destination'")] == [
+            promoted.version
+        ]
 
 
 @pytest.mark.parametrize(

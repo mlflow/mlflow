@@ -1009,6 +1009,7 @@ class SqlAlchemyStore(AbstractStore):
         for tag in tags or []:
             _validate_model_version_tag(tag.key, tag.value)
         storage_location = source
+        source_model_id = None
         if urllib.parse.urlparse(source).scheme == "models":
             parsed_model_uri = _parse_model_uri(source)
             try:
@@ -1019,17 +1020,27 @@ class SqlAlchemyStore(AbstractStore):
                     model = MlflowClient().get_logged_model(parsed_model_uri.model_id)
                     storage_location = model.artifact_location
                     run_id = run_id or model.source_run_id
+                    source_model_id = parsed_model_uri.model_id
                 else:
-                    storage_location = self.get_model_version_download_uri(
-                        parsed_model_uri.name, parsed_model_uri.version
-                    )
+                    with self.ManagedSessionMaker() as session:
+                        parent = self._get_sql_model_version(
+                            session, parsed_model_uri.name, parsed_model_uri.version
+                        )
+                        storage_location = parent.storage_location or parent.source
+                        source_model_id = parent.model_id
+                        run_id = run_id or parent.run_id
             except Exception as e:
                 raise MlflowException(
                     f"Unable to fetch model from model URI source artifact location '{source}'."
                     f"Error: {e}"
                 ) from e
 
-        if not run_id and model_id:
+            if model_id and model_id != source_model_id:
+                raise MlflowException.invalid_parameter_value(
+                    f"Model ID '{model_id}' does not match the model version source '{source}'."
+                )
+
+        if not run_id and model_id and not source_model_id:
             model = MlflowClient().get_logged_model(model_id)
             run_id = model.source_run_id
 
@@ -1057,6 +1068,7 @@ class SqlAlchemyStore(AbstractStore):
                             last_updated_time=creation_time,
                             source=source,
                             storage_location=storage_location,
+                            model_id=source_model_id or model_id or None,
                             run_id=run_id,
                             run_link=run_link,
                             description=description,
@@ -1264,6 +1276,7 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version.description = None
             sql_model_version.user_id = None
             sql_model_version.source = "REDACTED-SOURCE-PATH"
+            sql_model_version.model_id = None
             sql_model_version.run_id = "REDACTED-RUN-ID"
             sql_model_version.run_link = "REDACTED-RUN-LINK"
             sql_model_version.status_message = None
