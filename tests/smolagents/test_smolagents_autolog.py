@@ -56,8 +56,28 @@ def test_run_autolog():
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     if _SMOLAGENTS_VERSION_NEW:
-        # TODO: support this once the new version is stable
-        assert len(traces[0].data.spans) > 0
+        # Steps now run through the private `_step_stream` generator and are not traced.
+        spans = traces[0].data.spans
+        assert [span.name for span in spans] == [
+            "CodeAgent.run",
+            "InferenceClientModel.call_original",
+            "InferenceClientModel.call_original",
+            "InferenceClientModel.call_original",
+        ]
+        assert spans[0].span_type == SpanType.AGENT
+        for span in spans[1:]:
+            assert span.span_type == SpanType.CHAT_MODEL
+            assert span.parent_id == spans[0].span_id
+            assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+                "input_tokens": 10,
+                "output_tokens": 18,
+                "total_tokens": 28,
+            }
+        assert traces[0].info.token_usage == {
+            "input_tokens": 30,
+            "output_tokens": 54,
+            "total_tokens": 84,
+        }
     else:
         assert len(traces[0].data.spans) == 6
         # CodeAgent
