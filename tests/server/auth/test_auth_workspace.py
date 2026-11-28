@@ -463,6 +463,12 @@ class _RegistryStore:
             _is_prompt=lambda: is_prompt,
         )
 
+    def get_model_version(self, name: str, version: str):
+        return SimpleNamespace(source="runs:/run-1/model", run_id="run-1", model_id=None)
+
+    def get_model_version_download_uri(self, name: str, version: str):
+        return "runs:/run-1/model"
+
 
 @pytest.fixture
 def workspace_permission_setup(tmp_path, monkeypatch):
@@ -3061,7 +3067,7 @@ def test_model_version_artifact_validator_uses_workspace_permissions(workspace_p
     with auth_module.app.test_request_context(
         GET_MODEL_VERSION_ARTIFACT,
         method="GET",
-        query_string={"name": "model-xyz"},
+        query_string={"name": "model-xyz", "version": "1"},
     ):
         assert auth_module.validate_can_read_model_version_artifact()
 
@@ -3170,7 +3176,7 @@ def test_model_version_artifact_validator_denied_without_workspace_permission(
     with auth_module.app.test_request_context(
         GET_MODEL_VERSION_ARTIFACT,
         method="GET",
-        query_string={"name": "model-xyz"},
+        query_string={"name": "model-xyz", "version": "1"},
     ):
         assert not auth_module.validate_can_read_model_version_artifact()
 
