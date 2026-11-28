@@ -3910,14 +3910,23 @@ class ActiveModelContext:
     Args:
         model_id: The ID of the active model.
         set_by_user: Whether the active model was set by the user or not.
+        inherit_from_env: Whether to use the process-wide active model when no ID is supplied.
     """
 
-    def __init__(self, model_id: str | None = None, set_by_user: bool = False):
+    def __init__(
+        self,
+        model_id: str | None = None,
+        set_by_user: bool = False,
+        *,
+        inherit_from_env: bool = True,
+    ):
         # use active model ID from environment variables as the default value for model_id
         # so that for subprocesses the default _ACTIVE_MODEL_CONTEXT.model_id
         # is still valid, and we don't need to read from env var.
         self._set_by_user = set_by_user
-        if is_in_databricks_model_serving_environment():
+        if not inherit_from_env:
+            self._model_id = model_id
+        elif is_in_databricks_model_serving_environment():
             # In Databricks, we set the active model ID to the environment variable
             # so that it can be used in the main process, since databricks serving
             # loads model from threads.
@@ -3968,6 +3977,16 @@ def _get_active_model_id_from_env() -> str | None:
 
 
 _ACTIVE_MODEL_CONTEXT = ThreadLocalVariable(default_factory=lambda: ActiveModelContext())
+
+
+@contextlib.contextmanager
+def _without_active_model():
+    previous = _ACTIVE_MODEL_CONTEXT.get()
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(inherit_from_env=False))
+    try:
+        yield
+    finally:
+        _ACTIVE_MODEL_CONTEXT.set(previous)
 
 
 class ActiveModel(LoggedModel):

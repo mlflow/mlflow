@@ -51,6 +51,7 @@ from mlflow.models.evaluation.base import (
     resolve_evaluators_and_configs,
 )
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+from mlflow.protos.databricks_pb2 import PERMISSION_DENIED
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
@@ -2125,8 +2126,9 @@ def test_env_manager_set_on_served_pyfunc_model(multiclass_logistic_regressor_mo
     assert served_model_1.env_manager == "virtualenv"
 
 
+@pytest.mark.parametrize("uri_kind", ["logged_model", "version", "alias"])
 def test_metrics_logged_to_model_on_evaluation(
-    multiclass_logistic_regressor_model_uri, iris_dataset
+    multiclass_logistic_regressor_model_uri, iris_dataset, uri_kind
 ):
     with mlflow.start_run():
         # Log the model and retrieve its model_id
@@ -2135,9 +2137,18 @@ def test_metrics_logged_to_model_on_evaluation(
         )
         model_id = model_info.model_id
 
-        # Evaluate the model using its model_id
+        model_uri = model_info.model_uri
+        if uri_kind != "logged_model":
+            name = "classifier@team"
+            version = mlflow.register_model(model_uri, name)
+            assert version.model_id == model_id
+            model_uri = f"models:/{name}/{version.version}"
+            if uri_kind == "alias":
+                MlflowClient().set_registered_model_alias(name, "champion", version.version)
+                model_uri = f"models:/{name}@champion"
+
         eval_result = mlflow.evaluate(
-            model=model_info.model_uri,
+            model=model_uri,
             data=iris_dataset._constructor_args["data"],
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
@@ -2152,6 +2163,43 @@ def test_metrics_logged_to_model_on_evaluation(
 
         # Validate that all metrics have the correct model_id in their metadata
         assert all(metric.model_id == model_id for metric in logged_model_metrics)
+
+
+@pytest.mark.parametrize("unavailable", ["deleted", "permission_denied"])
+def test_evaluate_registered_version_with_unavailable_logged_model(
+    multiclass_logistic_regressor_model_uri, iris_dataset, unavailable, monkeypatch
+):
+    client = MlflowClient()
+    version = mlflow.register_model(multiclass_logistic_regressor_model_uri, "classifier")
+    unrelated = client.create_logged_model("0")
+    monkeypatch.setenv("MLFLOW_ACTIVE_MODEL_ID", unrelated.model_id)
+    with mlflow.set_active_model(model_id=unrelated.model_id), mlflow.start_run() as run:
+        if unavailable == "deleted":
+            client.delete_logged_model(version.model_id)
+        else:
+            monkeypatch.setattr(
+                mlflow,
+                "get_logged_model",
+                mock.Mock(side_effect=MlflowException("Permission denied", PERMISSION_DENIED)),
+            )
+        model_uri = f"models:/classifier/{version.version}"
+        data = iris_dataset._constructor_args
+        result = mlflow.models.evaluate(
+            model_uri, data["data"], targets=data["targets"], model_type="classifier"
+        )
+        evaluated_run = client.get_run(run.info.run_id)
+        assert evaluated_run.data.metrics == result.metrics
+        assert not evaluated_run.inputs.model_inputs
+        assert not client.get_logged_model(unrelated.model_id).metrics
+        assert mlflow.get_active_model_id() == unrelated.model_id
+        with pytest.raises(MlflowException, match="not found|Permission denied"):
+            mlflow.models.evaluate(
+                model_uri,
+                data["data"],
+                targets=data["targets"],
+                model_type="classifier",
+                model_id=version.model_id,
+            )
 
 
 def test_builtin_evaluator_metrics_logged_once_to_model(

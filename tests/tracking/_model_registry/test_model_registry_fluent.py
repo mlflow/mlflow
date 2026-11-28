@@ -1,6 +1,7 @@
 import logging
 import os
 import subprocess
+from contextlib import nullcontext
 from pathlib import Path
 from unittest import mock
 
@@ -14,9 +15,11 @@ from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     INTERNAL_ERROR,
+    PERMISSION_DENIED,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry.fluent import _register_model
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
@@ -118,6 +121,137 @@ def test_register_model_with_tags():
     register_model(f"runs:/{run.info.run_id}/model", "Model 1", tags=tags)
     mv = MlflowClient().get_model_version("Model 1", "1")
     assert mv.tags == tags
+
+
+@pytest.mark.parametrize("pack", [False, True])
+@pytest.mark.parametrize(
+    ("tracking_uri", "error_code", "creation_model_id"),
+    [
+        ("sqlite:///local", RESOURCE_DOES_NOT_EXIST, None),
+        ("databricks://tracking", PERMISSION_DENIED, None),
+        ("databricks://tracking", RESOURCE_DOES_NOT_EXIST, "m-remote"),
+    ],
+)
+def test_register_remote_alias_to_uc(
+    monkeypatch, pack, tracking_uri, error_code, creation_model_id
+):
+    alias = "models://src@databricks/classifier@team@champion"
+    pinned = "models://src@databricks/classifier@team/2"
+    version = ModelVersion("classifier@team", "2", 0, model_id="m-remote")
+    destination = ModelVersion("catalog.schema.copy", "1", 0)
+    monkeypatch.setenv("MLFLOW_PRINT_MODEL_URLS_ON_CREATION", "false")
+    monkeypatch.delenv("DATABRICKS_CPU_ARCH", raising=False)
+
+    def download(source, dst_path, *, is_artifact_root):
+        assert source == pinned
+        assert is_artifact_root
+        (Path(dst_path) / "MLmodel").write_text("pinned artifacts")
+        return dst_path
+
+    def create_version(**kwargs):
+        assert kwargs["source"] == pinned
+        assert kwargs["model_id"] == creation_model_id
+        assert (Path(kwargs["local_model_path"]) / "MLmodel").read_text() == "pinned artifacts"
+        return destination
+
+    with (
+        mock.patch("mlflow.get_registry_uri", return_value="databricks-uc") as get_registry_uri,
+        mock.patch.object(
+            MlflowClient, "tracking_uri", new_callable=mock.PropertyMock, return_value=tracking_uri
+        ) as get_tracking_uri,
+        mock.patch.object(MlflowClient, "create_registered_model") as create_model,
+        mock.patch.object(
+            MlflowClient, "get_model_version_by_alias", return_value=version
+        ) as lookup,
+        mock.patch.object(
+            MlflowClient,
+            "get_logged_model",
+            side_effect=MlflowException("Unavailable model", error_code),
+        ) as get_logged_model,
+        mock.patch.object(
+            MlflowClient, "_create_model_version", side_effect=create_version
+        ) as create,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent._download_artifact_from_uri",
+            side_effect=download,
+        ) as download_artifacts,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.pack_env_for_databricks_model_serving",
+            side_effect=lambda uri, **kwargs: nullcontext(kwargs["local_model_path"]),
+        ) as pack_env,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.stage_model_for_databricks_model_serving"
+        ) as stage,
+    ):
+        assert (
+            _register_model(
+                alias, destination.name, env_pack="databricks_model_serving" if pack else None
+            )
+            is destination
+        )
+        lookup.assert_called_once_with("classifier@team", "champion")
+        get_registry_uri.assert_called_with()
+        get_tracking_uri.assert_called_with()
+        create_model.assert_called_once_with(destination.name)
+        get_logged_model.assert_called_once_with(version.model_id)
+        create.assert_called_once()
+        model_path = create.call_args.kwargs["local_model_path"]
+        download_artifacts.assert_called_once_with(pinned, model_path, is_artifact_root=True)
+        if pack:
+            pack_env.assert_called_once_with(
+                pinned, enforce_pip_requirements=True, local_model_path=model_path
+            )
+            stage.assert_called_once_with(
+                model_name=destination.name, model_version=destination.version
+            )
+        else:
+            pack_env.assert_not_called()
+            stage.assert_not_called()
+        assert not Path(model_path).exists()
+
+
+def test_register_remote_alias_to_workspace_registry(monkeypatch, tmp_path):
+    monkeypatch.setattr("mlflow.tracking._model_registry.utils._registry_uri", "databricks://dst")
+    pinned = "models://src@databricks/classifier@team/2"
+    destination = ModelVersion("copy", "1", 0)
+
+    def download(source, dst_path, *, is_artifact_root):
+        assert source == pinned
+        assert is_artifact_root
+        (Path(dst_path) / "MLmodel").write_text("version two")
+        return dst_path
+
+    with (
+        mock.patch.object(MlflowClient, "_get_registry_client") as get_registry_client,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent._download_artifact_from_uri",
+            side_effect=download,
+        ) as download_root,
+        mock.patch(
+            "mlflow.tracking.artifact_utils.DbfsRestArtifactRepository",
+            return_value=LocalArtifactRepository(tmp_path.as_uri()),
+        ) as dbfs,
+    ):
+        registry = get_registry_client.return_value
+        registry.get_model_version_by_alias.return_value = ModelVersion("classifier@team", "2", 0)
+        registry.create_model_version.return_value = destination
+        assert (
+            register_model("models://src@databricks/classifier@team@champion", "copy")
+            is destination
+        )
+
+    get_registry_client.assert_called_with()
+    registry.create_registered_model.assert_called_once_with("copy", None, None, None)
+    registry.get_model_version_by_alias.assert_called_once_with("classifier@team", "champion")
+    download_root.assert_called_once_with(pinned, mock.ANY, is_artifact_root=True)
+    dbfs.assert_called_once_with("dbfs://dst@databricks/databricks/mlflow/tmp-external-source/")
+    registry.create_model_version.assert_called_once()
+    source = registry.create_model_version.call_args.kwargs["source"]
+    root = "dbfs:/databricks/mlflow/tmp-external-source/"
+    assert source.startswith(root)
+    uploaded = tmp_path / source.removeprefix(root)
+    assert uploaded.name == "2"
+    assert (uploaded / "MLmodel").read_text() == "version two"
 
 
 def test_register_model_prints_uc_model_version_url(monkeypatch):

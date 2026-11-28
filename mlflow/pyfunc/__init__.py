@@ -508,6 +508,7 @@ try:
     IS_RESPONSES_AGENT_AVAILABLE = True
 except ImportError:
     IS_RESPONSES_AGENT_AVAILABLE = False
+from mlflow.store.artifact.utils.models import _is_ambiguous_model_version_uri
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import _try_get_prediction_context
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -1082,7 +1083,6 @@ def _get_pip_requirements_from_model_path(model_path: str):
     return [req.req_str for req in _parse_requirements(req_file_path, is_constraint=False)]
 
 
-@trace_disabled  # Suppress traces while loading model
 def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
@@ -1126,6 +1126,18 @@ def load_model(
     models outside Databricks Runtime and Databricks Model Serving.
     """
 
+    return _load_model(model_uri, suppress_warnings, dst_path, model_config)
+
+
+@trace_disabled  # Suppress traces while loading model
+def _load_model(
+    model_uri: str,
+    suppress_warnings: bool = False,
+    dst_path: str | None = None,
+    model_config: str | Path | dict[str, Any] | None = None,
+    *,
+    is_model_root: bool = False,
+) -> PyFuncModel:
     # Inferring pip requirements loads the user's own model while saving it.
     if not _is_model_code_loading_allowed() and not _MLFLOW_IN_CAPTURE_MODULE_PROCESS.get():
         raise MlflowException(
@@ -1154,7 +1166,10 @@ def load_model(
         lineage_header_info = LineageHeaderInfo(entities=entity_list) if entity_list else None
 
     local_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=dst_path, lineage_header_info=lineage_header_info
+        artifact_uri=model_uri,
+        output_path=dst_path,
+        lineage_header_info=lineage_header_info,
+        is_artifact_root=is_model_root,
     )
 
     if not suppress_warnings:
@@ -1301,12 +1316,13 @@ def _load_model_or_server(
         StdinScoringServerClient,
     )
 
+    is_model_root = _is_ambiguous_model_version_uri(model_uri)
     if env_manager == _EnvManager.LOCAL:
-        return load_model(model_uri, model_config=model_config)
+        return _load_model(model_uri, model_config=model_config, is_model_root=is_model_root)
 
     _logger.info("Starting model server for model environment restoration.")
 
-    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri, is_artifact_root=is_model_root)
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     is_port_connectable = check_port_connectivity()

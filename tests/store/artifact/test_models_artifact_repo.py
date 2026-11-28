@@ -58,6 +58,17 @@ def test_models_artifact_repo_init_with_uri_containing_profile(uri_with_profile)
         )
 
 
+def test_models_artifact_repo_uses_explicit_uc_profile():
+    uri = "models://selected@databricks-uc/catalog.schema.model/2"
+    with mock.patch(UC_MODELS_ARTIFACT_REPOSITORY, autospec=True) as repo:
+        repo.return_value.model_name = "catalog.schema.model"
+        repo.return_value.model_version = "2"
+        ModelsArtifactRepository(uri, registry_uri="databricks://default")
+        repo.assert_called_once_with(
+            artifact_uri=uri, tracking_uri=None, registry_uri="databricks-uc://selected"
+        )
+
+
 @pytest.mark.parametrize(
     "uri_without_profile",
     ["models:/MyModel/12", "models:/MyModel/Staging", "models:/MyModel/Production"],
@@ -248,6 +259,7 @@ def test_models_artifact_repo_download_leaves_local_model_unchanged(tmp_path):
         ("models:/model/1/path/to/artifact", "models:/model/1", "path/to/artifact"),
         ("models:/model@alias", "models:/model@alias", ""),
         ("models:/model@alias/", "models:/model@alias", ""),
+        ("models:/model@alias/2", "models:/model@alias", "2"),
         ("models:/model@alias/path", "models:/model@alias", "path"),
         ("models:/model@alias/path/to/artifact", "models:/model@alias", "path/to/artifact"),
         (

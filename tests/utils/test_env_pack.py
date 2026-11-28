@@ -30,6 +30,16 @@ def mock_dbr_version():
         yield
 
 
+@pytest.mark.parametrize("source", ["models:/parent/1/child", "models:/parent@champion/2"])
+def test_pack_source_artifacts_preserves_artifact_paths(source, tmp_path):
+    artifacts = tmp_path / "model"
+    artifacts.mkdir()
+    with mock.patch.object(env_pack, "download_artifacts", return_value=str(artifacts)) as download:
+        with env_pack._get_source_artifacts(source) as downloaded:
+            assert downloaded == artifacts
+        download.assert_called_once_with(artifact_uri=source)
+
+
 def test_tar_function_path_handling(tmp_path):
     # Create test files
     root_dir = tmp_path / "root"
