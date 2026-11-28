@@ -109,6 +109,23 @@ If unspecified, default to virtualenv.
 """,
 )
 
+ENV_MANAGER_BUILD_DOCKER = _create_env_manager_option(
+    default=_EnvManager.VIRTUALENV,
+    # '\b' prevents rewrapping text:
+    # https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
+    help_string="""
+If specified, create an environment for MLmodel using the specified
+environment manager. The following values are supported:
+
+\b
+- local: use the local environment
+- virtualenv: use venv (and pyenv for Python version management)
+- conda: use conda
+
+If unspecified, default to virtualenv.
+""",
+)
+
 ENV_MANAGER_PROJECTS = _create_env_manager_option(
     help_string="""
 If specified, create an environment for MLproject using the specified
@@ -137,7 +154,6 @@ environment manager. The following values are supported:
 \b
 - local: use the local environment
 - virtualenv: use venv (and pyenv for Python version management)
-- uv: use uv
 - conda: use conda
 
 If unspecified, default to None, then MLflow will automatically pick the env manager

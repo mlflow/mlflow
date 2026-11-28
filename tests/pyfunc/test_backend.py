@@ -186,3 +186,26 @@ def test_model_code_disabled_allows_dockerfile_without_model(monkeypatch, tmp_pa
     with mock.patch("mlflow.pyfunc.backend.docker_utils.generate_dockerfile") as generate:
         backend.generate_dockerfile(None, str(tmp_path / "context"))
     assert generate.call_args.kwargs["model_install_steps"] == ""
+
+
+@pytest.mark.parametrize("model_uri", ["model", None])
+@pytest.mark.parametrize("entrypoint", ["generate_dockerfile", "build_image"])
+def test_docker_preparation_rejects_uv_before_building(tmp_path, model_uri, entrypoint):
+    backend = PyFuncBackend({}, env_manager=em.UV)
+    kwargs = (
+        {"output_dir": str(tmp_path / "context")}
+        if entrypoint == "generate_dockerfile"
+        else {"image_name": "test-model"}
+    )
+    with (
+        mock.patch("mlflow.pyfunc.backend._download_artifact_from_uri") as download,
+        mock.patch("mlflow.pyfunc.backend.docker_utils.generate_dockerfile") as generate,
+        mock.patch("mlflow.pyfunc.backend.docker_utils.build_image_from_context") as build,
+    ):
+        with pytest.raises(MlflowException, match=r"Building a model container supports one of"):
+            getattr(backend, entrypoint)(model_uri, **kwargs)
+    download.assert_not_called()
+    generate.assert_not_called()
+    build.assert_not_called()
+    if entrypoint == "generate_dockerfile":
+        assert not (tmp_path / "context").exists()

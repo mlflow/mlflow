@@ -250,7 +250,7 @@ def generate_dockerfile(
 @mlflow_mcp(tool_name="build_model_docker")
 @cli_args.MODEL_URI_BUILD_DOCKER
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
-@cli_args.ENV_MANAGER
+@cli_args.ENV_MANAGER_BUILD_DOCKER
 @cli_args.MLFLOW_HOME
 @cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW
