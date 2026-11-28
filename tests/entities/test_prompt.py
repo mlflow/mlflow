@@ -53,11 +53,40 @@ def test_prompt_variables_extraction(template, expected):
         ("Hello, {{ person.name.first }}", "Hello, {person.name.first}"),
         ("Hello, {{name1}}", "Hello, {name1}"),
         ("Hello, {name}", "Hello, {name}"),
+        (
+            'Reply as {"answer": "..."}. Question: {{question}}',
+            'Reply as {{"answer": "..."}}. Question: {question}',
+        ),
+        ('{"a": {"b": {{ x }}}}', '{{"a": {{"b": {x}}}}}'),
+        ("if (ok) { return {{value}}; }", "if (ok) {{ return {value}; }}"),
     ],
 )
 def test_prompt_to_single_brace_format(template, expected):
     prompt = PromptVersion(name="test", version=1, template=template)
     assert prompt.to_single_brace_format() == expected
+
+
+def test_prompt_to_single_brace_format_keeps_literal_braces_when_formatted():
+    prompt = PromptVersion(
+        name="test", version=1, template='Reply as {"answer": "..."}. Question: {{question}}'
+    )
+    single_brace = prompt.to_single_brace_format()
+    assert single_brace.format(question="2+2?") == 'Reply as {"answer": "..."}. Question: 2+2?'
+
+
+def test_chat_prompt_to_single_brace_format_escapes_literal_braces():
+    prompt = PromptVersion(
+        name="test",
+        version=1,
+        template=[
+            {"role": "system", "content": 'Reply with {"ok": true}.'},
+            {"role": "user", "content": [{"type": "text", "text": "{{ question }}"}]},
+        ],
+    )
+    assert prompt.to_single_brace_format() == [
+        {"role": "system", "content": 'Reply with {{"ok": true}}.'},
+        {"role": "user", "content": [{"type": "text", "text": "{question}"}]},
+    ]
 
 
 def test_prompt_format():

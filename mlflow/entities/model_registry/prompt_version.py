@@ -25,6 +25,12 @@ from mlflow.prompt.constants import (
 # Alias type
 PromptVersionTag = ModelVersionTag
 
+_VARIABLE_NAME = r"[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*"
+# Matches a {{variable}}, an existing {variable}, or any other single brace.
+_SINGLE_BRACE_CONVERSION_PATTERN = re.compile(
+    rf"\{{\{{\s*({_VARIABLE_NAME})\s*\}}\}}|\{{({_VARIABLE_NAME})\}}|[{{}}]"
+)
+
 
 def _is_jinja2_template(template: str | list[dict[str, Any]]) -> bool:
     """Check if template uses Jinja2 control flow syntax ({% %})."""
@@ -361,10 +367,24 @@ class PromptVersion(_ModelRegistryEntity):
             The template with variables converted from {{variable}} to {variable} format.
             For text prompts, returns a string. For chat prompts, returns a list of messages.
         """
-        t = self.template if self.is_text_prompt else json.dumps(self.template)
-        for var in self.variables:
-            t = re.sub(r"\{\{\s*" + var + r"\s*\}\}", "{" + var + "}", t)
-        return t if self.is_text_prompt else json.loads(t)
+        variables = self.variables
+
+        def convert(match: re.Match[str]) -> str:
+            if (var := match.group(1)) is not None:
+                return "{" + var + "}" if var in variables else match.group(0)
+            if match.group(2) is not None:
+                # Already a single-brace placeholder, e.g. "{name}". Keep it as is.
+                return match.group(0)
+            # A literal brace, e.g. in a JSON example. Escape it so that single-brace
+            # formatters such as LangChain's don't read it as a placeholder.
+            return match.group(0) * 2
+
+        def to_single_brace(text: str) -> str:
+            return _SINGLE_BRACE_CONVERSION_PATTERN.sub(convert, text)
+
+        if self.is_text_prompt:
+            return to_single_brace(self.template)
+        return [_format_content(message, to_single_brace) for message in self.template]
 
     @staticmethod
     def convert_response_format_to_dict(
