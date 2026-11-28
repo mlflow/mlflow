@@ -6118,10 +6118,11 @@ class MlflowClient:
                     - `params.optimizer != 'adam' AND metrics.accuracy >= 0.9`
             datasets: List of dictionaries to specify datasets on which to apply metrics filters
                 For example, a filter string with `metrics.accuracy > 0.9` and dataset with name
-                "test_dataset" means we will return all logged models with accuracy > 0.9 on the
-                test_dataset. Metric values from ANY dataset matching the criteria are considered.
-                If no datasets are specified, then metrics across all datasets are considered in
-                the filter. The following fields are supported:
+                "test_dataset" means we will return all logged models whose latest accuracy on the
+                test_dataset is > 0.9. On SQL-backed tracking stores, a metric is compared by its
+                latest value (highest step, then latest timestamp) among the rows logged on the
+                listed datasets, or across all datasets if none are specified. The following fields
+                are supported:
 
                 dataset_name (str):
                     Required. Name of the dataset.
