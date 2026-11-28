@@ -1,10 +1,13 @@
 import os
+import re
 import sys
+from pathlib import Path
 from unittest import mock
 
 import pytest
 import yaml
 
+import mlflow.models
 from mlflow.environment_variables import MLFLOW_ALLOW_MODEL_CODE_EXECUTION
 from mlflow.exceptions import MlflowException
 from mlflow.models.container import _install_model_dependencies_to_env
@@ -285,3 +288,24 @@ def test_unsupported_env_manager_raises(tmp_path, env_manager):
 
     with pytest.raises(MlflowException, match=r"Building a model container supports one of"):
         _install_model_dependencies_to_env(model_path, env_manager=env_manager)
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("/ping", True),
+        ("/health", True),
+        ("/version", True),
+        ("/invocations", True),
+        ("/", False),
+        ("/foo", False),
+        ("/metrics", False),
+    ],
+)
+def test_nginx_proxies_scoring_server_endpoints(path, expected):
+    nginx_conf = Path(mlflow.models.__file__).parent.joinpath(
+        "container", "scoring_server", "nginx.conf"
+    )
+    proxied = re.findall(r"location ~ (\S+) \{", nginx_conf.read_text())
+    assert proxied
+    assert any(re.search(pattern, path) for pattern in proxied) is expected
