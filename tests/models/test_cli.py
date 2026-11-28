@@ -778,6 +778,29 @@ def test_env_manager_unsupported_value():
         )
 
 
+@pytest.mark.parametrize("command", [models_cli.build_docker, models_cli.generate_dockerfile])
+def test_docker_commands_reject_uv_env_manager(command, tmp_path):
+    runner = CliRunner()
+    help_result = runner.invoke(command, ["--help"], catch_exceptions=False)
+    assert "- virtualenv:" in help_result.output
+    assert "- uv:" not in help_result.output
+
+    args = (
+        ["--name", "test-model"]
+        if command is models_cli.build_docker
+        else ["--output-directory", str(tmp_path / "context")]
+    )
+    with (
+        mock.patch("mlflow.pyfunc.backend.docker_utils.generate_dockerfile") as generate,
+        mock.patch("mlflow.pyfunc.backend.docker_utils.build_image_from_context") as build,
+    ):
+        with pytest.raises(MlflowException, match=r"Building a model container supports one of"):
+            runner.invoke(command, [*args, "--env-manager", "uv"], catch_exceptions=False)
+    generate.assert_not_called()
+    build.assert_not_called()
+    assert not (tmp_path / "context").exists()
+
+
 def test_host_invalid_value():
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
