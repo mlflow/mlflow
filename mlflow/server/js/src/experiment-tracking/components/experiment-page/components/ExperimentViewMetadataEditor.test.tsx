@@ -45,7 +45,7 @@ jest.mock('../../../../common/utils/FeatureUtils', () => ({
   shouldEnableExperimentSettingsPage: jest.fn(() => false),
 }));
 
-jest.mock('../../../../common/components/EditableNote', () => ({
+jest.mock('../../../../common/components/ThemeAwareReactMde', () => ({
   ThemeAwareReactMde: ({ value, onChange, childProps }: any) => (
     <textarea {...childProps?.textArea} value={value} onChange={(event) => onChange(event.target.value)} />
   ),

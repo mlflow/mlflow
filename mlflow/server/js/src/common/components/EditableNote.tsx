@@ -5,15 +5,18 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import React, { Component } from 'react';
-import { Alert, Button, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import React, { Component, lazy } from 'react';
+import { Alert, Button, Spinner } from '@databricks/design-system';
 import { Prompt } from './Prompt';
-import 'react-mde/lib/styles/css/react-mde-all.css';
-import ReactMde, { SvgIcon } from 'react-mde';
+import { SectionErrorBoundary } from './error-boundaries/SectionErrorBoundary';
 import { forceAnchorTagNewTab, getMarkdownConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import './EditableNote.css';
 import type { IntlShape } from 'react-intl';
 import { FormattedMessage, injectIntl } from 'react-intl';
+
+const ThemeAwareReactMde = lazy(() =>
+  import('./ThemeAwareReactMde').then((module) => ({ default: module.ThemeAwareReactMde })),
+);
 
 type EditableNoteImplProps = {
   defaultMarkdown?: string;
@@ -30,8 +33,6 @@ type EditableNoteImplProps = {
 };
 
 type EditableNoteImplState = any;
-
-const getReactMdeIcon = (name: string) => <TooltipIcon name={name} />;
 
 export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableNoteImplState> {
   static defaultProps = {
@@ -173,21 +174,29 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
         {showEditor ? (
           <React.Fragment>
             <div className="note-view-text-area">
-              <ThemeAwareReactMde
-                value={markdown || ''}
-                minEditorHeight={this.props.minEditorHeight}
-                maxEditorHeight={this.props.maxEditorHeight}
-                minPreviewHeight={50}
-                childProps={this.props.childProps}
-                toolbarCommands={this.props.toolbarCommands}
-                onChange={this.handleMdeValueChange}
-                // @ts-expect-error TS(2322): Type 'string' is not assignable to type '"write" |... Remove this comment to see the full error message
-                selectedTab={selectedTab}
-                onTabChange={this.handleTabChange}
-                // @ts-expect-error TS(2554): Expected 0 arguments, but got 1.
-                generateMarkdownPreview={(md) => Promise.resolve(this.getSanitizedHtmlContent(md))}
-                getIcon={getReactMdeIcon}
-              />
+              <SectionErrorBoundary>
+                <React.Suspense
+                  fallback={
+                    <div css={{ minHeight: this.props.minEditorHeight }}>
+                      <Spinner />
+                    </div>
+                  }
+                >
+                  <ThemeAwareReactMde
+                    value={markdown || ''}
+                    minEditorHeight={this.props.minEditorHeight}
+                    maxEditorHeight={this.props.maxEditorHeight}
+                    minPreviewHeight={50}
+                    childProps={this.props.childProps}
+                    toolbarCommands={this.props.toolbarCommands}
+                    onChange={this.handleMdeValueChange}
+                    // @ts-expect-error TS(2322): Type 'string' is not assignable to type '"write" |... Remove this comment to see the full error message
+                    selectedTab={selectedTab}
+                    onTabChange={this.handleTabChange}
+                    generateMarkdownPreview={() => Promise.resolve(this.getSanitizedHtmlContent())}
+                  />
+                </React.Suspense>
+              </SectionErrorBoundary>
             </div>
             {error && (
               <Alert
@@ -216,50 +225,6 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
       </div>
     );
   }
-}
-
-type TooltipIconProps = {
-  name?: string;
-};
-
-function TooltipIcon(props: TooltipIconProps) {
-  const { theme } = useDesignSystemTheme();
-  const { name } = props;
-  return (
-    <Tooltip side="top" content={name} componentId="mlflow.common.components.editable-note.tooltip-icon">
-      <span css={{ color: theme.colors.textPrimary }}>
-        {/* @ts-expect-error TS(2322): Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message */}
-        <SvgIcon icon={name} />
-      </span>
-    </Tooltip>
-  );
-}
-
-type ThemeAwareReactMdeProps = React.ComponentProps<typeof ReactMde>;
-
-export function ThemeAwareReactMde(props: ThemeAwareReactMdeProps) {
-  const { theme } = useDesignSystemTheme();
-
-  // Apply theme-aware CSS variables for ReactMde
-  const themeAwareStyle = React.useMemo(
-    () =>
-      ({
-        '--mlflow-dark-bg-primary': theme.colors.backgroundPrimary,
-        '--mlflow-dark-bg-secondary': theme.colors.backgroundSecondary,
-        '--mlflow-dark-bg-hover': theme.colors.actionDefaultBackgroundHover,
-        '--mlflow-dark-text-primary': theme.colors.textPrimary,
-        '--mlflow-dark-border': theme.colors.border,
-      }) as React.CSSProperties,
-    [theme],
-  );
-
-  const isDarkTheme = theme.isDarkMode;
-
-  return (
-    <div className={isDarkTheme ? 'mlflow-dark-theme' : ''} style={themeAwareStyle}>
-      <ReactMde {...props} />
-    </div>
-  );
 }
 
 type HTMLNoteContentProps = {
