@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import sys
+import textwrap
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,37 @@ def write_step_summary(message: str) -> None:
             stream.write(message + "\n")
     else:
         sys.stderr.write(message + "\n")
+
+
+def wrap_summary_body(body: str) -> str:
+    wrapper = textwrap.TextWrapper(width=100, break_long_words=False, break_on_hyphens=False)
+    lines = body.split("\n")
+    fence = ""
+    for index, line in enumerate(lines):
+        if marker := re.match(r" {0,3}(`{3,}|~{3,})(.*)", line):
+            run, info = marker.groups()
+            if not fence:
+                fence = run
+            elif run.startswith(fence) and not info.strip():
+                fence = ""
+        elif (
+            not fence
+            and len(line) > wrapper.width
+            and not line.startswith(("    ", "\t"))
+            and not line.lstrip().startswith((">", "|"))
+        ):
+            lines[index] = wrapper.fill(line)
+    return "\n".join(lines)
+
+
+def summary_block(*, body: str, **fields: Any) -> str:
+    metadata = "\n".join(
+        f"{key}: {json.dumps(value, ensure_ascii=False)}" for key, value in fields.items()
+    )
+    content = f"---\n{metadata}\n---\n{wrap_summary_body(body)}"
+    longest = max((len(run) for run in re.findall(r"`+", content)), default=0)
+    fence = "`" * max(3, longest + 1)
+    return f"{fence}md\n{content}\n{fence}"
 
 
 def write_step_outputs(**values: str) -> None:
@@ -144,7 +176,11 @@ def publish(args: argparse.Namespace) -> int:
             "event": "COMMENT",
             "body": f"{notice}\n\nVerification did not complete. See the workflow run for details.",
         }
-    write_step_summary(f"```json\n{json.dumps(review, indent=2, ensure_ascii=False)}\n```\n")
+    fields = review.copy()
+    comments = fields.pop("comments", [])
+    sections = ["## Review", summary_block(**fields), "## Comments"]
+    sections.extend([summary_block(**comment) for comment in comments] or ["No inline comments."])
+    write_step_summary("\n\n".join(sections) + "\n")
     if args.dry_run:
         write_step_summary(
             "Dry run: no review or media was published. Local media paths are not GitHub links."
