@@ -1,7 +1,7 @@
 import functools
 import pathlib
 import pickle
-from typing import Generator
+from typing import Generator, get_args, get_type_hints
 from uuid import uuid4
 
 import pytest
@@ -12,15 +12,36 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
 from mlflow.pyfunc.model import _DEFAULT_RESPONSES_AGENT_METADATA_TASK, ResponsesAgent
+from mlflow.types import responses as responses_types
 from mlflow.types.responses import (
     _HAS_LANGCHAIN_BASE_MESSAGE,
     RESPONSES_AGENT_INPUT_EXAMPLE,
     RESPONSES_AGENT_INPUT_SCHEMA,
     RESPONSES_AGENT_OUTPUT_SCHEMA,
+    AnnotationAddedEvent,
+    FunctionCallItem,
+    FunctionCallOutputItem,
+    McpApprovalRequestItem,
+    McpApprovalResponseItem,
+    OutputTextContent,
+    ReasoningItem,
+    ReasoningSummaryText,
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
+    TextDeltaEvent,
+    TextOutputItem,
     output_to_responses_items_stream,
+)
+from mlflow.types.responses_helpers import (
+    FunctionCallOutput,
+    McpApprovalRequest,
+    McpApprovalResponse,
+    ResponseFunctionToolCall,
+    ResponseOutputMessage,
+    ResponseReasoningItem,
+    ResponseTextAnnotationDeltaEvent,
+    ResponseTextDeltaEvent,
 )
 
 from tests.tracing.helper import get_traces, purge_traces
@@ -1325,6 +1346,80 @@ def test_create_function_call_output_item():
         "output": "Sunny, 75°F",
     }
     assert result == expected
+
+
+_HELPER_RETURN_TYPES = {
+    "create_text_delta": TextDeltaEvent,
+    "create_annotation_added": AnnotationAddedEvent,
+    "create_text_output_item": TextOutputItem,
+    "create_reasoning_item": ReasoningItem,
+    "create_function_call_item": FunctionCallItem,
+    "create_function_call_output_item": FunctionCallOutputItem,
+    "create_mcp_approval_request_item": McpApprovalRequestItem,
+    "create_mcp_approval_response_item": McpApprovalResponseItem,
+}
+
+
+@pytest.mark.parametrize(
+    ("helper", "args", "pydantic_model"),
+    [
+        ("create_text_delta", ("Hello", "id"), ResponseTextDeltaEvent),
+        (
+            "create_annotation_added",
+            ("id", {"type": "url_citation", "title": "t", "url": "https://x.y"}),
+            ResponseTextAnnotationDeltaEvent,
+        ),
+        ("create_text_output_item", ("Hello", "id"), ResponseOutputMessage),
+        ("create_reasoning_item", ("id", "why"), ResponseReasoningItem),
+        ("create_function_call_item", ("id", "call-1", "fn", "{}"), ResponseFunctionToolCall),
+        ("create_function_call_output_item", ("call-1", "out"), FunctionCallOutput),
+        ("create_mcp_approval_request_item", ("id", "{}", "tool", "server"), McpApprovalRequest),
+        (
+            "create_mcp_approval_response_item",
+            ("id", "req-1", True, "ok"),
+            McpApprovalResponse,
+        ),
+    ],
+)
+def test_helper_return_type_matches_output(helper, args, pydantic_model):
+    func = getattr(responses_types, helper)
+    typed_dict = _HELPER_RETURN_TYPES[helper]
+    result = func(*args)
+
+    assert get_type_hints(func)["return"] is typed_dict
+    # The TypedDict describes exactly the keys the helper returns
+    assert set(result) == set(get_type_hints(typed_dict))
+    assert result["type"] in get_args(get_type_hints(typed_dict)["type"])
+    # and the matching Pydantic model accepts the result
+    pydantic_model(**result)
+
+
+def test_helper_return_type_nested_typed_dicts_match_output():
+    message = responses_types.create_text_output_item("Hello", "id")
+    message_hints = get_type_hints(TextOutputItem)
+    assert message_hints["content"] == list[OutputTextContent]
+    assert set(message["content"][0]) == set(get_type_hints(OutputTextContent))
+    assert message["role"] in get_args(message_hints["role"])
+
+    reasoning = responses_types.create_reasoning_item("id", "why")
+    assert get_type_hints(ReasoningItem)["summary"] == list[ReasoningSummaryText]
+    assert set(reasoning["summary"][0]) == set(get_type_hints(ReasoningSummaryText))
+
+
+@pytest.mark.parametrize(
+    "helper",
+    [
+        "create_text_delta",
+        "create_annotation_added",
+        "create_text_output_item",
+        "create_reasoning_item",
+        "create_function_call_item",
+        "create_function_call_output_item",
+    ],
+)
+def test_responses_agent_helper_wrappers_share_return_type(helper):
+    wrapper_hint = get_type_hints(getattr(ResponsesAgent, helper))["return"]
+    assert wrapper_hint is _HELPER_RETURN_TYPES[helper]
 
 
 @pytest.mark.parametrize(
