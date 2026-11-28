@@ -225,7 +225,7 @@ def _serve_pyfunc(model, env_manager):
     else:
         # Without nginx, uvicorn must be reachable from outside the container.
         host = "0.0.0.0"
-        port = DEFAULT_NGINX_SERVER_PORT
+        port = DEFAULT_SAGEMAKER_SERVER_PORT
 
     cmd, cmd_env = scoring_server.get_cmd(
         model_uri=MODEL_PATH, nworkers=nworkers, port=port, host=host

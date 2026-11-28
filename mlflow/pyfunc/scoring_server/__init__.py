@@ -577,7 +577,7 @@ def _serve(model_uri, port, host):
 def get_cmd(
     model_uri: str,
     port: int | None = None,
-    host: int | None = None,
+    host: str | None = None,
     timeout: int | None = None,
     nworkers: int | None = None,
 ) -> tuple[str, dict[str, str]]:
