@@ -52,7 +52,11 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self.label_list = self.evaluator_config.get("label_list")
         self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
-        if self.pos_label and self.label_list and self.pos_label not in self.label_list:
+        if (
+            self.pos_label is not None
+            and self.label_list is not None
+            and self.pos_label not in self.label_list
+        ):
             raise MlflowException.invalid_parameter_value(
                 f"'pos_label' {self.pos_label} must exist in 'label_list' {self.label_list}."
             )
@@ -120,20 +124,24 @@ class ClassifierEvaluator(BuiltInEvaluator):
         # sort label_list ASC, for binary classification it makes sure the last one is pos label
         self.label_list.sort()
 
+        if self.pos_label is not None and self.pos_label not in self.label_list:
+            raise MlflowException.invalid_parameter_value(
+                f"'pos_label' {self.pos_label} must exist in 'label_list' {self.label_list.tolist()}."
+            )
+
         if len(self.label_list) == 2:
             # y_probs columns are aligned with the sorted label order; capture the column
             # holding the positive class now, before label_list is reordered below.
-            if self.pos_label is not None and self.pos_label in self.label_list:
+            if self.pos_label is not None:
                 self.pos_index = int(np.where(self.label_list == self.pos_label)[0][0])
             else:
                 self.pos_index = 1
             if self.pos_label is None:
                 self.pos_label = self.label_list[-1]
             else:
-                if self.pos_label in self.label_list:
-                    self.label_list = np.delete(
-                        self.label_list, np.where(self.label_list == self.pos_label)
-                    )
+                self.label_list = np.delete(
+                    self.label_list, np.where(self.label_list == self.pos_label)
+                )
                 self.label_list = np.append(self.label_list, self.pos_label)
             with _suppress_class_imbalance_errors(IndexError, log_warning=False):
                 _logger.info(
@@ -639,7 +647,7 @@ def _gen_classifier_curve(
         xlabel = "False Positive Rate"
         ylabel = "True Positive Rate"
         title = "ROC curve"
-        if pos_label:
+        if pos_label is not None:
             xlabel = f"False Positive Rate (Positive label: {pos_label})"
             ylabel = f"True Positive Rate (Positive label: {pos_label})"
     elif curve_type == "pr":
@@ -664,7 +672,7 @@ def _gen_classifier_curve(
         xlabel = "Recall"
         ylabel = "Precision"
         title = "Precision recall curve"
-        if pos_label:
+        if pos_label is not None:
             xlabel = f"Recall (Positive label: {pos_label})"
             ylabel = f"Precision (Positive label: {pos_label})"
     else:
