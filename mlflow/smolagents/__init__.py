@@ -46,7 +46,8 @@ def autolog(
     try:
         for _, attr in vars(smolagents).items():
             if isinstance(attr, type) and issubclass(attr, models.Model):
-                class_method_map.setdefault(attr.__name__, []).append("__call__")
+                # Agents call `Model.generate` directly, and `Model.__call__` delegates to it.
+                class_method_map.setdefault(attr.__name__, []).append("generate")
     except Exception as e:
         _logger.warn("the error happens while registering models to class_method_map: %s", e)
 
