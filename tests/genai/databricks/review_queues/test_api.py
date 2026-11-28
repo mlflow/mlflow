@@ -314,6 +314,67 @@ def test_delete_review_queue():
     mock_call.assert_called_once_with("DELETE", "experiments/1/reviewQueues/rq1")
 
 
+def test_get_review_queue_by_run(labeling_store):
+    other = _session([], labeling_session_id="ls0", mlflow_run_id="run0")
+    session = _session([])
+    labeling_store.get_labeling_sessions.return_value = [other, session]
+    with mock.patch(_CALL) as mock_call:
+        found = get_review_queue("1", run_id="run1")
+    assert found is session
+    labeling_store.get_labeling_sessions.assert_called_once_with("1")
+    mock_call.assert_not_called()
+
+
+def test_get_review_queue_by_run_not_found(labeling_store):
+    labeling_store.get_labeling_sessions.return_value = [_session([])]
+    match = "No labeling session for run 'run9' was found in experiment '1'"
+    with pytest.raises(MlflowException, match=match) as e:
+        get_review_queue("1", run_id="run9")
+    assert e.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        ({"queue_id": "rq1", "run_id": "run1"}, "not both"),
+        ({}, "Pass `queue_id`, or `run_id` for a labeling session"),
+    ],
+)
+def test_get_review_queue_needs_queue_id_or_run_id(labeling_store, kwargs, match):
+    with mock.patch(_CALL) as mock_call:
+        with pytest.raises(MlflowException, match=match):
+            get_review_queue("1", **kwargs)
+    mock_call.assert_not_called()
+    labeling_store.get_labeling_sessions.assert_not_called()
+
+
+def test_delete_review_queue_session(labeling_store):
+    session = _session([])
+    with (
+        mock.patch("mlflow.genai.labeling._get_labeling_store", return_value=labeling_store),
+        # `delete_labeling_session` returns the review app, which it looks up after deleting.
+        mock.patch("mlflow.genai.labeling.get_databricks_review_app"),
+        mock.patch(_CALL) as mock_call,
+    ):
+        delete_review_queue(session)
+    labeling_store.delete_labeling_session.assert_called_once_with(session)
+    mock_call.assert_not_called()
+
+
+def test_delete_review_queue_session_rejects_queue_id(labeling_store):
+    with mock.patch("mlflow.genai.labeling._get_labeling_store", return_value=labeling_store):
+        with pytest.raises(MlflowException, match="takes no `queue_id`"):
+            delete_review_queue(_session([]), "rq1")
+    labeling_store.delete_labeling_session.assert_not_called()
+
+
+def test_delete_review_queue_requires_queue_id():
+    with mock.patch(_CALL) as mock_call:
+        with pytest.raises(MlflowException, match="`queue_id` is required"):
+            delete_review_queue("1")
+    mock_call.assert_not_called()
+
+
 def test_add_review_queue_member():
     with mock.patch(_CALL, return_value={"user": "alice@example.com"}) as mock_call:
         member = add_review_queue_member("1", "rq1", "alice@example.com")
@@ -350,14 +411,14 @@ _STORE = "mlflow.genai.labeling.stores._get_labeling_store"
 _MEMBERS = "experiments/1/reviewQueues/rq1/members"
 
 
-def _session(assigned_users, labeling_session_id="ls1"):
+def _session(assigned_users, labeling_session_id="ls1", mlflow_run_id="run1"):
     return LabelingSession(
         name="My session",
         assigned_users=list(assigned_users),
         agent=None,
         label_schemas=[],
         labeling_session_id=labeling_session_id,
-        mlflow_run_id="run1",
+        mlflow_run_id=mlflow_run_id,
         review_app_id="app1",
         experiment_id="1",
         url="https://example.com/review",
@@ -1116,9 +1177,11 @@ def test_add_review_queue_items_requires_queue_id():
         (list_review_queue_items, (), {}),
         (set_review_queue_item_status, (), {"item_id": "i1", "status": "COMPLETE"}),
         (set_review_queue_item_status, ("i1", "COMPLETE"), {}),
+        (update_review_queue, (), {"display_name": "New name"}),
+        (resolve_effective_review_questions, (), {}),
     ],
 )
-def test_queue_only_item_functions_reject_sessions(function, args, kwargs):
+def test_queue_only_functions_reject_sessions(function, args, kwargs):
     with mock.patch(_CALL) as mock_call:
         with pytest.raises(MlflowException, match="works on review queues only") as e:
             function(_session([]), *args, **kwargs)
@@ -1130,9 +1193,16 @@ def test_queue_only_item_functions_reject_sessions(function, args, kwargs):
 
 
 @pytest.mark.parametrize(
-    "function", [remove_review_queue_items, list_review_queue_items, set_review_queue_item_status]
+    "function",
+    [
+        remove_review_queue_items,
+        list_review_queue_items,
+        set_review_queue_item_status,
+        update_review_queue,
+        resolve_effective_review_questions,
+    ],
 )
-def test_queue_only_item_functions_keep_their_signatures(function):
+def test_queue_only_functions_keep_their_signatures(function):
     assert inspect.signature(function).parameters["queue_id"].default is inspect.Parameter.empty
 
 

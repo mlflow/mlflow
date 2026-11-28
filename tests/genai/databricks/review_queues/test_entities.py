@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 
 from mlflow.genai.databricks.review_queues import (
@@ -138,6 +140,42 @@ def test_review_queue_from_dict_minimal():
     })
     assert queue == ReviewQueue(
         queue_id="rq1", experiment_id="1", display_name="", queue_type=ReviewQueueType.USER
+    )
+
+
+_ENTITIES = "mlflow.genai.databricks.review_queues.entities"
+
+
+def _queue(queue_id="rq1"):
+    return ReviewQueue(
+        queue_id=queue_id, experiment_id="123", display_name="", queue_type=ReviewQueueType.USER
+    )
+
+
+def test_review_queue_url_in_a_notebook_names_the_workspace():
+    with (
+        mock.patch(
+            f"{_ENTITIES}.get_workspace_url", return_value="https://example.cloud.databricks.com/"
+        ),
+        mock.patch(f"{_ENTITIES}.get_workspace_id", return_value="6051"),
+    ):
+        url = _queue().url
+    assert url == (
+        "https://example.cloud.databricks.com/ml/experiments/123/review-queue"
+        "?o=6051&selectedQueueId=rq1"
+    )
+
+
+def test_review_queue_url_outside_a_notebook_uses_the_tracking_host():
+    creds = mock.Mock(host="https://example.cloud.databricks.com/")
+    with (
+        mock.patch(f"{_ENTITIES}.get_workspace_url", return_value=None),
+        mock.patch(f"{_ENTITIES}.get_databricks_host_creds", return_value=creds),
+    ):
+        url = _queue("my queue/1").url
+    assert url == (
+        "https://example.cloud.databricks.com/ml/experiments/123/review-queue"
+        "?selectedQueueId=my+queue%2F1"
     )
 
 

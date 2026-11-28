@@ -6,9 +6,10 @@ review queue REST API: questions, queues, members, and items are separate resour
 nested under an experiment, and every function takes the ``experiment_id`` explicitly.
 They require a Databricks tracking URI.
 
-The member functions and :py:func:`add_review_queue_items` also accept a
-:py:class:`mlflow.genai.LabelingSession` in place of ``experiment_id`` and ``queue_id``, so
-code written for labeling sessions can use them too.
+The member functions, :py:func:`add_review_queue_items` and :py:func:`delete_review_queue`
+also accept a :py:class:`mlflow.genai.LabelingSession` in place of ``experiment_id`` and
+``queue_id``, and :py:func:`get_review_queue` finds a session by its MLflow run, so code written
+for labeling sessions can use them too.
 """
 
 import functools
@@ -33,6 +34,7 @@ from mlflow.genai.databricks.review_queues.entities import (
     ReviewQueueType,
     ReviewStatus,
 )
+from mlflow.genai.labeling import delete_labeling_session
 from mlflow.genai.labeling import stores as labeling_stores
 from mlflow.genai.labeling.labeling import LabelingSession
 from mlflow.protos.databricks_pb2 import INVALID_STATE, RESOURCE_DOES_NOT_EXIST, ErrorCode
@@ -67,6 +69,27 @@ def _set_if_not_none(body: dict[str, Any], mask: list[str], key: str, value: Any
 def _require_update(mask: list[str]) -> None:
     if not mask:
         raise MlflowException.invalid_parameter_value("Specify at least one field to update.")
+
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def _queues_only(function: Callable[_P, _R]) -> Callable[_P, _R]:
+    # Checks the first argument before Python binds the rest, so a session gets this error
+    # rather than one about a missing `queue_id`, and the signature stays as it is.
+    @functools.wraps(function)
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        target = args[0] if args else kwargs.get("experiment_id")
+        if isinstance(target, LabelingSession):
+            raise MlflowException.invalid_parameter_value(
+                f"`{function.__name__}` works on review queues only: labeling sessions have no "
+                "equivalent. Migrate the session to a review queue with "
+                "`migrate_labeling_session`, then pass the queue's `experiment_id` and `queue_id`."
+            )
+        return function(*args, **kwargs)
+
+    return wrapper
 
 
 # ---- Review questions ----
@@ -276,18 +299,55 @@ def create_review_queue(
     return queue
 
 
+@overload
+def get_review_queue(experiment_id: str, queue_id: str) -> ReviewQueue: ...
+
+
+@overload
+def get_review_queue(experiment_id: str, *, run_id: str) -> LabelingSession: ...
+
+
 @experimental(version="3.17.1")
-def get_review_queue(experiment_id: str, queue_id: str) -> ReviewQueue:
+def get_review_queue(
+    experiment_id: str, queue_id: str | None = None, *, run_id: str | None = None
+) -> ReviewQueue | LabelingSession:
     """
-    Get a review queue by ID.
+    Get a review queue by ID, or a labeling session by its MLflow run.
+
+    Pass ``run_id`` to get the :py:class:`mlflow.genai.LabelingSession` for that run, as
+    :py:func:`mlflow.genai.get_labeling_session` does, but searched in ``experiment_id``
+    rather than the active experiment.
+
+    .. code-block:: python
+
+        from mlflow.genai.databricks.review_queues import get_review_queue
+
+        queue = get_review_queue("123", "rq-1")
+        session = get_review_queue("123", run_id="<run-id>")
 
     Args:
-        experiment_id: The experiment that owns the queue.
+        experiment_id: The experiment that owns the queue or the labeling session.
         queue_id: The queue to get.
+        run_id: The MLflow run of the labeling session to get, in place of ``queue_id``.
 
     Returns:
-        The :py:class:`ReviewQueue`.
+        The :py:class:`ReviewQueue`, or the :py:class:`mlflow.genai.LabelingSession` for
+        ``run_id``.
     """
+    if run_id is not None:
+        if queue_id is not None:
+            raise MlflowException.invalid_parameter_value("Pass `queue_id` or `run_id`, not both.")
+        for session in labeling_stores._get_labeling_store().get_labeling_sessions(experiment_id):
+            if session.mlflow_run_id == run_id:
+                return session
+        raise MlflowException(
+            f"No labeling session for run {run_id!r} was found in experiment {experiment_id!r}.",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        )
+    if queue_id is None:
+        raise MlflowException.invalid_parameter_value(
+            "Pass `queue_id`, or `run_id` for a labeling session."
+        )
     return ReviewQueue.from_dict(_client.call("GET", _queue(experiment_id, queue_id)))
 
 
@@ -323,6 +383,7 @@ def list_review_queues(
 
 
 @experimental(version="3.17.1")
+@_queues_only
 def update_review_queue(
     experiment_id: str,
     queue_id: str,
@@ -333,6 +394,10 @@ def update_review_queue(
 ) -> ReviewQueue:
     """
     Update a review queue. Only the fields that are passed are changed.
+
+    Labeling sessions can't be renamed or edited this way, so passing a
+    :py:class:`mlflow.genai.LabelingSession` raises an error. Migrate it to a review queue
+    with :py:func:`migrate_labeling_session` first.
 
     Args:
         experiment_id: The experiment that owns the queue.
@@ -362,15 +427,34 @@ def update_review_queue(
     return ReviewQueue.from_dict(resp)
 
 
+@overload
+def delete_review_queue(experiment_id: str, queue_id: str) -> None: ...
+
+
+@overload
+def delete_review_queue(labeling_session: LabelingSession, /) -> None: ...
+
+
 @experimental(version="3.17.1")
-def delete_review_queue(experiment_id: str, queue_id: str) -> None:
+def delete_review_queue(experiment_id: str | LabelingSession, queue_id: str | None = None) -> None:
     """
-    Delete a review queue. Answers already recorded on its items are unaffected.
+    Delete a review queue or a labeling session. Answers already recorded on its items are
+    unaffected.
+
+    To delete a :py:class:`mlflow.genai.LabelingSession`, pass the session in place of
+    ``experiment_id`` and ``queue_id``. It's deleted with
+    :py:func:`mlflow.genai.delete_labeling_session`, as it is today; a review queue it was
+    migrated to is left alone.
 
     Args:
-        experiment_id: The experiment that owns the queue.
-        queue_id: The queue to delete.
+        experiment_id: The experiment that owns the queue, or a labeling session.
+        queue_id: The queue to delete. Omit it for a labeling session.
     """
+    if isinstance(experiment_id, LabelingSession):
+        _reject_queue_id_for_session("delete_review_queue", queue_id, None)
+        delete_labeling_session(experiment_id)
+        return
+    queue_id = _require(queue_id, "queue_id")
     _client.call("DELETE", _queue(experiment_id, queue_id))
 
 
@@ -429,27 +513,6 @@ def _add_session_members(session: LabelingSession, users: list[str]) -> None:
     current = _current_labeling_session(session)
     if new_users := [u for u in users if u not in current.assigned_users]:
         current.set_assigned_users(current.assigned_users + new_users)
-
-
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
-
-
-def _queues_only(function: Callable[_P, _R]) -> Callable[_P, _R]:
-    # Checks the first argument before Python binds the rest, so a session gets this error
-    # rather than one about a missing `queue_id`, and the signature stays as it is.
-    @functools.wraps(function)
-    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-        target = args[0] if args else kwargs.get("experiment_id")
-        if isinstance(target, LabelingSession):
-            raise MlflowException.invalid_parameter_value(
-                f"`{function.__name__}` works on review queues only: labeling sessions have no "
-                "equivalent. Migrate the session to a review queue with "
-                "`migrate_labeling_session`, then pass the queue's `experiment_id` and `queue_id`."
-            )
-        return function(*args, **kwargs)
-
-    return wrapper
 
 
 def _reject_grant_access_for_session(function: str, grant_access: bool) -> None:
@@ -1313,6 +1376,7 @@ def set_review_queue_item_status(
 
 
 @experimental(version="3.17.1")
+@_queues_only
 def resolve_effective_review_questions(
     experiment_id: str,
     queue_id: str,
@@ -1321,6 +1385,10 @@ def resolve_effective_review_questions(
 ) -> list[ReviewQuestion]:
     """
     Return the questions reviewers answer in a queue.
+
+    A labeling session refers to its label schemas by name, in
+    :py:attr:`mlflow.genai.LabelingSession.label_schemas`, so passing a session raises an
+    error. Migrate it to a review queue with :py:func:`migrate_labeling_session` first.
 
     A ``USER`` queue uses all of the experiment's questions; a ``CUSTOM`` queue uses its
     pinned questions.
