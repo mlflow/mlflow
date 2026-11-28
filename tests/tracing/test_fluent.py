@@ -626,6 +626,37 @@ def test_trace_handle_exception_during_streaming():
     assert spans[0].events[1].name == "exception"
 
 
+def test_trace_stream_ends_span_on_keyboard_interrupt():
+    @mlflow.trace
+    def stream():
+        yield 1
+        raise KeyboardInterrupt("stop")
+
+    with pytest.raises(KeyboardInterrupt, match="stop"):
+        for _ in stream():
+            pass
+
+    span = get_traces()[0].data.spans[0]
+    assert span.status.status_code == SpanStatusCode.ERROR
+    assert [e.attributes.get("exception.type") for e in span.events[1:]] == ["KeyboardInterrupt"]
+
+
+@pytest.mark.asyncio
+async def test_trace_async_stream_ends_span_on_cancel():
+    @mlflow.trace
+    async def stream():
+        yield 1
+        raise asyncio.CancelledError("stop")
+
+    with pytest.raises(asyncio.CancelledError, match="stop"):
+        async for _ in stream():
+            pass
+
+    span = get_traces()[0].data.spans[0]
+    assert span.status.status_code == SpanStatusCode.ERROR
+    assert [e.attributes.get("exception.type") for e in span.events[1:]] == ["CancelledError"]
+
+
 @pytest.mark.parametrize(
     "model",
     [
@@ -2100,6 +2131,17 @@ def test_span_record_exception_with_exception():
     event_attrs = str(exception_event.attributes)
     assert "ValueError" in event_attrs
     assert "Custom error message" in event_attrs
+
+
+@pytest.mark.parametrize("exception", [asyncio.CancelledError(), KeyboardInterrupt()])
+def test_span_record_exception_with_base_exception(exception):
+    span = mlflow.start_span_no_context("test_span")
+    span.record_exception(exception)
+    span.end()
+
+    test_span = get_traces()[0].data.spans[0]
+    assert test_span.status.status_code == SpanStatusCode.ERROR
+    assert [e.attributes["exception.type"] for e in test_span.events] == [type(exception).__name__]
 
 
 def test_span_record_exception_invalid_type():
