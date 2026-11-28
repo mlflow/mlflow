@@ -38,6 +38,7 @@ from mlflow.utils.validation import (
     _validate_metric_name,
     _validate_model_name,
     _validate_model_renaming,
+    _validate_model_version,
     _validate_param_name,
     _validate_public_https_url,
     _validate_run_id,
@@ -860,6 +861,21 @@ def test_validate_model_renaming_invalid_chars(invalid_name):
         check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
     ):
         _validate_model_renaming(invalid_name)
+
+
+@pytest.mark.parametrize("invalid_version", [None, [], {}])
+def test_validate_model_version_rejects_non_coercible_values(invalid_version):
+    with pytest.raises(MlflowException, match="must be an integer") as exc:
+        _validate_model_version(invalid_version)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [("42", 42), (7, 7)],
+)
+def test_validate_model_version_accepts_valid_versions(version, expected):
+    assert _validate_model_version(version) == expected
 
 
 @pytest.mark.parametrize(
