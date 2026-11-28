@@ -733,8 +733,11 @@ _PT2_TEXT_RECORD_NAMES = frozenset({
 # and no non-ASCII bytes (needed by the binary STACK_GLOBAL argument opcodes).
 _PT2_TEXT_RECORD_CONTENT = re.compile(r"[A-Za-z0-9._-]{1,64}\n?")
 # Payload configs the PT2 archive loader consults to decide whether a weight / constant record
-# is unpickled (`use_pickle: true`) or read as raw tensor bytes.
-_PT2_PAYLOAD_CONFIG_RECORD = re.compile(r"(?:^|/)data/(?:weights|constants)/[^/]+_config\.json$")
+# is unpickled (`use_pickle: true`) or read as raw tensor bytes. Matched case-insensitively
+# because `torch.export.load` resolves record names case-insensitively.
+_PT2_PAYLOAD_CONFIG_RECORD = re.compile(
+    r"(?:^|/)data/(?:weights|constants)/[^/]+_config\.json$", re.IGNORECASE
+)
 # Records with these prefixes are read as raw tensor bytes when `use_pickle` is false; records
 # with any other prefix (custom / opaque objects) are always unpickled.
 _PT2_RAW_TENSOR_RECORD_PREFIXES = ("weight_", "tensor_")
@@ -761,7 +764,11 @@ def _pt2_raw_tensor_records(records: dict[str, bytes]) -> set[str]:
         directory = name.rsplit("/", 1)[0]
         for entry in entries.values():
             match entry:
-                case {"path_name": str() as path_name} if "/" not in path_name:
+                case {"path_name": str() as path_name}:
+                    # A nested `path_name` can resolve to a record that a nested config marks
+                    # as raw, so validate every record rather than trusting either config.
+                    if "/" in path_name or "\\" in path_name:
+                        return set()
                     record = f"{directory}/{path_name}"
                 case _:
                     continue
@@ -771,7 +778,10 @@ def _pt2_raw_tensor_records(records: dict[str, bytes]) -> set[str]:
                 raw_records.add(record)
             else:
                 pickled_records.add(record)
-    return raw_records - pickled_records
+    # `torch.export.load` resolves record names case-insensitively, so a record listed as
+    # pickled under any casing must not be skipped as raw tensor bytes.
+    pickled_folded = {record.casefold() for record in pickled_records}
+    return {record for record in raw_records if record.casefold() not in pickled_folded}
 
 
 _PICKLE_STRING_OPCODES = frozenset({
@@ -899,7 +909,24 @@ def _validate_pt2_archive_is_pickle_free(model_path: str) -> None:
         raise _violation(os.path.basename(model_path)) from e
 
     with archive:
-        infos = [info for info in archive.infolist() if not info.is_dir()]
+        infos = archive.infolist()
+        # `torch.export.load` resolves record names case-insensitively, so when names collide
+        # it may read a different record (e.g. a payload config) than the one validated here.
+        # `torch.export.save` never writes such archives.
+        seen_names: set[str] = set()
+        for info in infos:
+            # Torch matches the raw name bytes, while `zipfile` truncates names at a null byte,
+            # converts `os.sep` to `/` (e.g. on Windows) and decodes names without the UTF-8
+            # flag as CP437, so such names would refer to different records in each.
+            if info.filename != info.orig_filename:
+                raise _violation(info.orig_filename)
+            if not info.filename.isascii() and not info.flag_bits & 0x800:
+                raise _violation(info.filename)
+            folded_name = info.filename.casefold()
+            if folded_name in seen_names:
+                raise _violation(info.filename)
+            seen_names.add(folded_name)
+        infos = [info for info in infos if not info.is_dir()]
         payload_configs = {
             info.filename: archive.read(info)
             for info in infos
