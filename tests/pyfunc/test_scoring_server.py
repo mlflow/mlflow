@@ -25,7 +25,7 @@ from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc import PythonModel
 from mlflow.pyfunc.scoring_server import _get_jsonable_obj, get_cmd
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
-from mlflow.types.schema import Array, Object, Property
+from mlflow.types.schema import AnyType, Array, Object, Property
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import MlflowInvalidInputException, NumpyEncoder
@@ -610,6 +610,16 @@ def test_parse_csv_with_tensor_schema_applies_dtype():
     pd.testing.assert_frame_equal(df, pd.DataFrame({"0": [1.0], "1": [0.0]}))
 
 
+def test_parse_csv_with_non_primitive_column_types():
+    schema = Schema([
+        ColSpec("double", "x"),
+        ColSpec(AnyType(), "any"),
+        ColSpec(Array("string"), "arr", required=False),
+    ])
+    df = pyfunc_scoring_server.parse_csv_input(StringIO("x,any\n1,a\n2,3\n"), schema=schema)
+    pd.testing.assert_frame_equal(df, pd.DataFrame({"x": [1.0, 2.0], "any": ["a", "3"]}))
+
+
 def test_parse_csv_with_named_tensor_schema_ignores_schema():
     schema = Schema([TensorSpec(np.dtype("float64"), (-1,), "a")])
     df = pyfunc_scoring_server.parse_csv_input(StringIO("a\n1\n"), schema=schema)
@@ -645,6 +655,12 @@ def test_predict_csv_applies_model_schema(tmp_path, x, csv_str):
     pyfunc_scoring_server._predict(str(model_path), str(input_path), str(output_path), "csv")
 
     assert json.loads(output_path.read_text()) == {"predictions": [0, 1]}
+
+    response = score_model_in_process(
+        str(model_path), csv_str, pyfunc_scoring_server.CONTENT_TYPE_CSV
+    )
+    assert response.status_code == 200
+    assert response.json() == {"predictions": [0, 1]}
 
 
 def test_parse_parquet_schema(pandas_df_with_all_types):

@@ -207,7 +207,13 @@ def parse_csv_input(csv_input, schema: Schema = None):
                 return pd.read_csv(csv_input, dtype=dtype)
             return pd.read_csv(csv_input)
         else:
-            dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
+            # Only primitive types map to pandas dtypes. Leave other columns, such as Array,
+            # Object, and AnyType, to pandas inference and schema enforcement
+            dtypes = {
+                name: spec.type.to_pandas()
+                for name, spec in zip(schema.input_names(), schema.inputs)
+                if isinstance(spec.type, DataType)
+            }
             # `read_csv` rejects datetime dtypes, so read those columns as strings and convert
             # them afterwards with `astype`, the conversion schema enforcement applies to string
             # columns. Unlike `pd.to_datetime` on the JSON path, it parses each value separately,
