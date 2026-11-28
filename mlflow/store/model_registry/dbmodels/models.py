@@ -122,6 +122,8 @@ class SqlModelVersion(Base):
 
     storage_location = Column(String(500), nullable=True, default=None)
 
+    model_id = Column(String(36), nullable=True)
+
     run_id = Column(String(32), nullable=True, default=None)
 
     run_link = Column(String(500), nullable=True, default=None)

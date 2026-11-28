@@ -403,6 +403,7 @@ CREATE TABLE model_versions (
 	run_link VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	storage_location VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	model_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT model_version_pk PRIMARY KEY (workspace, name, version),
 	CONSTRAINT fk_model_versions_registered_models FOREIGN KEY(workspace, name) REFERENCES registered_models (workspace, name) ON UPDATE CASCADE
 )
