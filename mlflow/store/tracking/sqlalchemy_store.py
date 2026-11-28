@@ -8263,7 +8263,7 @@ class SqlAlchemyStore(
                         schema["inputs"][key] = self._infer_field_type(value)
 
             if (outputs := record.get("outputs")) is not None:
-                if isinstance(outputs, dict):
+                if isinstance(outputs, dict) and isinstance(schema["outputs"], dict):
                     for key, value in outputs.items():
                         if key not in schema["outputs"]:
                             schema["outputs"][key] = self._infer_field_type(value)

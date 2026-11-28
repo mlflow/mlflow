@@ -460,6 +460,27 @@ def test_dataset_schema_and_profile_incremental_updates(store):
     assert profile2["num_records"] == 2
 
 
+def test_upsert_dict_outputs_after_non_dict_outputs(store):
+    exp_ids = _create_experiments(store, ["test_mixed_outputs_exp"])
+    dataset = store.create_dataset(name="test_mixed_outputs_dataset", experiment_ids=exp_ids)
+
+    store.upsert_dataset_records(
+        dataset.dataset_id, [{"inputs": {"q": "a"}, "outputs": "plain text"}]
+    )
+    store.upsert_dataset_records(
+        dataset.dataset_id,
+        [{"inputs": {"q": "b"}, "outputs": {"answer": "B"}}, {"inputs": {"q": "c"}, "outputs": 3}],
+    )
+
+    records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert sorted((r.inputs["q"], r.outputs) for r in records) == [
+        ("a", "plain text"),
+        ("b", {"answer": "B"}),
+        ("c", 3),
+    ]
+    assert json.loads(store.get_dataset(dataset.dataset_id).schema)["outputs"] == "string"
+
+
 def test_dataset_user_detection(store):
     test_prefix = "test_user_detection_"
     exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
