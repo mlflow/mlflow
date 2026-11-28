@@ -51,6 +51,22 @@ describe('catalogToRates', () => {
     });
     expect(rates).toEqual({ m: { input: 1, output: 2 } });
   });
+
+  it('reads the 1-hour cache-write rate', () => {
+    const rates = catalogToRates({
+      models: {
+        m: {
+          pricing: {
+            input_per_million_tokens: 5,
+            output_per_million_tokens: 25,
+            cache_write_per_million_tokens: 6.25,
+            cache_write_1hr_per_million_tokens: 10,
+          },
+        },
+      },
+    });
+    expect(rates).toEqual({ m: { input: 5, output: 25, cacheWrite: 6.25, cacheWrite1h: 10 } });
+  });
 });
 
 describe('loadCatalogRates', () => {
