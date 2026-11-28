@@ -290,10 +290,22 @@ def test_unsupported_env_manager_raises(tmp_path, env_manager):
         _install_model_dependencies_to_env(model_path, env_manager=env_manager)
 
 
-@pytest.mark.parametrize("path", ["/ping", "/health", "/version", "/invocations"])
-def test_nginx_proxies_scoring_server_endpoints(path):
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("/ping", True),
+        ("/health", True),
+        ("/version", True),
+        ("/invocations", True),
+        ("/", False),
+        ("/foo", False),
+        ("/metrics", False),
+    ],
+)
+def test_nginx_proxies_scoring_server_endpoints(path, expected):
     nginx_conf = Path(mlflow.models.__file__).parent.joinpath(
         "container", "scoring_server", "nginx.conf"
     )
     proxied = re.findall(r"location ~ (\S+) \{", nginx_conf.read_text())
-    assert any(re.match(pattern, path) for pattern in proxied)
+    assert proxied
+    assert any(re.search(pattern, path) for pattern in proxied) is expected
