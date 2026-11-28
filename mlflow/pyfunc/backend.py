@@ -404,11 +404,8 @@ class PyFuncBackend(FlavorBackend):
     ):
         # The container rejects uv only inside `docker build`, after the base image and MLflow
         # have been installed, so reject it here before downloading the model or building.
-        if self._env_manager == em.UV:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid value for `env_manager`: {self._env_manager}. Building a model "
-                f"container supports one of {[em.LOCAL, em.CONDA, em.VIRTUALENV]}.",
-            )
+        if self._env_manager is not None:
+            em.validate_for_container(self._env_manager)
         if model_uri:
             _check_model_code_loading_allowed("a PyFunc model")
         os.makedirs(output_dir, exist_ok=True)
