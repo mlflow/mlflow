@@ -1,0 +1,161 @@
+import { APILink } from "@site/src/components/APILink";
+import TileCard from '@site/src/components/TileCard';
+import TilesGrid from '@site/src/components/TilesGrid';
+import { Bot, GitBranch, Shield } from "lucide-react";
+
+# Inspect AI
+
+[Inspect AI](https://inspect.aisi.org.uk/) is an open-source LLM evaluation framework developed by the UK AI Safety Institute. It provides tasks, datasets, scorers, and agent evaluation workflows for structured benchmark-style evaluation. MLflow's Inspect AI integration allows you to use Inspect AI scorers as MLflow scorers, logging results, comparing runs, and viewing assessments alongside traces in MLflow.
+
+## Prerequisites
+
+Inspect AI scorers require the `inspect-ai` package:
+
+```bash
+pip install inspect-ai
+```
+
+## Quick Start
+
+You can call an Inspect AI scorer directly using <APILink fn="mlflow.genai.scorers.inspect_ai.get_scorer">get_scorer</APILink>:
+
+```python
+from mlflow.genai.scorers.inspect_ai import get_scorer
+
+scorer = get_scorer("model_graded_fact", model="openai/gpt-4o-mini")
+feedback = scorer(
+    inputs="What is the capital of France?",
+    outputs="Paris is the capital of France.",
+    expectations={"target": "Paris"},
+)
+
+print(feedback.value)    # "yes" or "no"
+print(feedback.rationale)
+print(feedback.metadata["terminal_state"])  # "scored", "skip", "not_run", or "error"
+```
+
+Or use scorers inside <APILink fn="mlflow.genai.evaluate">mlflow.genai.evaluate</APILink>:
+
+```python
+import mlflow
+from mlflow.genai.scorers.inspect_ai import get_scorer
+
+eval_dataset = [
+    {
+        "inputs": {"question": "What is the capital of France?"},
+        "outputs": "Paris is the capital of France.",
+        "expectations": {"target": "Paris"},
+    },
+    {
+        "inputs": {"question": "What is 2 + 2?"},
+        "outputs": "4",
+        "expectations": {"target": "4"},
+    },
+]
+
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    scorers=[
+        get_scorer("model_graded_fact", model="openai/gpt-4o-mini"),
+    ],
+)
+```
+
+## Using `get_scorer`
+
+<APILink fn="mlflow.genai.scorers.inspect_ai.get_scorer">get_scorer</APILink> accepts any Inspect AI scorer or task name registered in the installed package:
+
+```python
+from mlflow.genai.scorers.inspect_ai import get_scorer
+
+# Named Inspect AI scorer
+scorer = get_scorer(
+    metric_name="model_graded_fact",   # Inspect AI scorer/task name
+    model="openai/gpt-4o-mini",        # Model URI for LLM-judge scorers
+    model_kwargs={"temperature": 0.0}, # Optional model parameters
+)
+```
+
+Additional keyword arguments are forwarded directly to the Inspect AI scorer. Refer to the [Inspect AI scorer documentation](https://inspect.aisi.org.uk/scorers.html) for scorer-specific parameters.
+
+## Terminal-State Semantics
+
+MLflow preserves Inspect AI's evaluation states explicitly. Every `Feedback` object returned by an Inspect AI scorer includes a `terminal_state` key in its `metadata` field:
+
+| `terminal_state` | Meaning |
+|---|---|
+| `"scored"` | Scorer ran successfully and produced a result |
+| `"skip"` | Case was explicitly skipped by the scorer |
+| `"not_run"` | Scorer returned no result (case was not evaluated) |
+| `"error"` | Scorer reported an error (distinct from a model failure) |
+
+This lets you distinguish between a model producing a wrong answer and an evaluator that failed independently:
+
+```python
+feedback = scorer(inputs="...", outputs="...")
+
+match feedback.metadata["terminal_state"]:
+    case "scored":
+        print(f"Score: {feedback.value}")
+    case "skip":
+        print("Case was skipped")
+    case "not_run":
+        print("Scorer did not evaluate this case")
+    case "error":
+        print(f"Scorer error: {feedback.rationale}")
+```
+
+Scorer runtime exceptions (crashes, timeouts) are recorded as `Feedback.error` rather than disappearing silently from the evaluation aggregate.
+
+## Configuration
+
+### Model URIs
+
+The `model` parameter accepts any MLflow model URI format:
+
+```python
+# OpenAI
+scorer = get_scorer("model_graded_fact", model="openai/gpt-4o")
+
+# Databricks-hosted endpoint
+scorer = get_scorer("model_graded_fact", model="databricks/my-llm-endpoint")
+
+# Default model from environment
+scorer = get_scorer("model_graded_fact")
+```
+
+### Multi-Turn (Session) Evaluation
+
+Inspect AI scorers that operate on conversational sessions accept a `session` parameter — a list of MLflow `Trace` objects representing the conversation turns:
+
+```python
+scorer = get_scorer("conversational_task", model="openai/gpt-4o-mini")
+
+feedback = scorer(
+    session=[trace_turn_1, trace_turn_2, trace_turn_3],
+    expectations={"goal": "book a flight to Paris"},
+)
+```
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Bot}
+    title="Evaluate Agents"
+    description="Learn specialized techniques for evaluating AI agents with tool usage"
+    href="/genai/eval-monitor/running-evaluation/agents"
+  />
+  <TileCard
+    icon={GitBranch}
+    title="Evaluate Traces"
+    description="Evaluate production traces to understand application behavior"
+    href="/genai/eval-monitor/running-evaluation/traces"
+  />
+  <TileCard
+    icon={Shield}
+    title="Built-in Judges"
+    description="Explore MLflow's built-in evaluation judges"
+    href="/genai/eval-monitor/scorers/llm-judge/predefined"
+  />
+</TilesGrid>
