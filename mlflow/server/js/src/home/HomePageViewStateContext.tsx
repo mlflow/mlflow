@@ -1,4 +1,4 @@
-import { create } from '@databricks/web-shared/zustand';
+import { create } from 'zustand';
 
 type HomePageViewState = {
   isLogTracesDrawerOpen: boolean;
