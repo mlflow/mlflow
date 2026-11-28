@@ -61,6 +61,7 @@ def test_search_command_params():
     assert "page_token" in param_names
     assert "output" in param_names
     assert "extract_fields" in param_names
+    assert "all_pages" in param_names
 
 
 def test_get_command_params():
@@ -129,6 +130,125 @@ def test_search_command_strips_spaces_in_order_by(runner):
     assert result.exit_code == 0
     _, kwargs = mock_client.return_value.search_traces.call_args
     assert kwargs["order_by"] == ["timestamp_ms DESC", "status"]
+
+
+def _make_trace(trace_id: str) -> Trace:
+    """Build a minimal Trace entity for search command tests."""
+    trace_location = TraceLocation(
+        type=TraceLocationType.MLFLOW_EXPERIMENT,
+        mlflow_experiment=MlflowExperimentLocation(experiment_id="1"),
+    )
+    return Trace(
+        info=TraceInfo(
+            trace_id=trace_id,
+            state=TraceState.OK,
+            request_time=1700000000000,
+            execution_duration=1234,
+            request_preview="test request",
+            response_preview="test response",
+            trace_location=trace_location,
+        ),
+        data=TraceData(spans=[]),
+    )
+
+
+def test_search_command_jsonl_output(runner):
+    traces = [_make_trace("tr-1"), _make_trace("tr-2")]
+
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        mock_client.return_value.search_traces.return_value = PagedList(traces, "next-token")
+        result = runner.invoke(commands, ["search", "--experiment-id", "1", "--output", "jsonl"])
+
+    assert result.exit_code == 0
+    lines = [json.loads(line) for line in result.output.strip().splitlines()]
+    assert [line["info"]["trace_id"] for line in lines] == ["tr-1", "tr-2"]
+    # Without --all-pages only the first page is emitted, even when a token is returned
+    assert mock_client.return_value.search_traces.call_count == 1
+
+
+def test_search_command_jsonl_output_with_extract_fields(runner):
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        mock_client.return_value.search_traces.return_value = PagedList([_make_trace("tr-1")], None)
+        result = runner.invoke(
+            commands,
+            [
+                "search",
+                "--experiment-id",
+                "1",
+                "--output",
+                "jsonl",
+                "--extract-fields",
+                "info.trace_id,info.state",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output.strip()) == {"info": {"trace_id": "tr-1", "state": "OK"}}
+
+
+def test_search_command_all_pages_follows_page_token(runner):
+    pages = [
+        PagedList([_make_trace("tr-1")], "token-1"),
+        PagedList([_make_trace("tr-2"), _make_trace("tr-3")], "token-2"),
+        PagedList([_make_trace("tr-4")], None),
+    ]
+
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        mock_client.return_value.search_traces.side_effect = pages
+        result = runner.invoke(
+            commands,
+            [
+                "search",
+                "--experiment-id",
+                "1",
+                "--output",
+                "jsonl",
+                "--all-pages",
+                "--max-results",
+                "2",
+            ],
+        )
+
+    assert result.exit_code == 0
+    lines = [json.loads(line) for line in result.output.strip().splitlines()]
+    assert [line["info"]["trace_id"] for line in lines] == ["tr-1", "tr-2", "tr-3", "tr-4"]
+    assert mock_client.return_value.search_traces.call_count == 3
+    page_tokens = [
+        call.kwargs["page_token"] for call in mock_client.return_value.search_traces.call_args_list
+    ]
+    assert page_tokens == [None, "token-1", "token-2"]
+
+
+def test_search_command_all_pages_stops_on_empty_page(runner):
+    pages = [
+        PagedList([_make_trace("tr-1")], "token-1"),
+        PagedList([], "token-2"),
+    ]
+
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        mock_client.return_value.search_traces.side_effect = pages
+        result = runner.invoke(
+            commands,
+            ["search", "--experiment-id", "1", "--output", "jsonl", "--all-pages"],
+        )
+
+    assert result.exit_code == 0
+    assert len(result.output.strip().splitlines()) == 1
+    assert mock_client.return_value.search_traces.call_count == 2
+
+
+@pytest.mark.parametrize("output_format", ["table", "json"])
+def test_search_command_all_pages_requires_jsonl_output(runner, output_format):
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        mock_client.return_value.search_traces.return_value = PagedList([], None)
+        result = runner.invoke(
+            commands,
+            ["search", "--experiment-id", "1", "--output", output_format, "--all-pages"],
+        )
+
+    assert result.exit_code != 0
+    assert "--all-pages requires --output jsonl" in result.output
+    mock_client.return_value.search_traces.assert_not_called()
 
 
 def test_get_command_with_fields(runner):
