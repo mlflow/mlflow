@@ -683,6 +683,39 @@ describe('ExperimentEvaluationRunsTable dataset cell', () => {
     expect(link).toHaveAttribute('target', '_blank');
   });
 
+  test('prefers an MLflow-stored dataset logged after an untracked input', async () => {
+    const run = makeRun('run-1', {
+      inputs: {
+        datasetInputs: [
+          {
+            dataset: { digest: 'inline', name: 'dataset', profile: '', schema: '', source: '{}', sourceType: 'code' },
+            tags: [],
+          },
+          {
+            dataset: {
+              digest: 'stored',
+              name: 'golden-set',
+              profile: '',
+              schema: '',
+              source: JSON.stringify({ dataset_id: 'd-123' }),
+              sourceType: 'mlflow_evaluation_dataset',
+            },
+            tags: [],
+          },
+        ],
+        modelInputs: [],
+      },
+    } as Partial<RunEntityWithChildren>);
+    renderTable({ data: [run], enableNewEvalRunsUi: true });
+
+    expect(screen.queryByText('Unnamed dataset')).not.toBeInTheDocument();
+    await userEvent.hover(screen.getByText('golden-set'));
+    expect(await screen.findByRole('link', { name: /View dataset/ })).toHaveAttribute(
+      'href',
+      Routes.getExperimentPageDatasetDetailRoute('exp-1', 'd-123'),
+    );
+  });
+
   test('flag off: the dataset pill keeps the name-only tooltip', async () => {
     renderTable({ data: [withDataset('run-1', 'qa_smoke_set', 'code')] });
 

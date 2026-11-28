@@ -23,6 +23,7 @@ import {
 } from './evalRunLineage';
 import { parseLinkedPromptsFromRunTags } from '../prompts/utils';
 import type { RunDetailsScorer, RunDetailsSidebarProps, RunDetailsStats } from './RunDetailsSidebar';
+import { getDisplayedEvalRunDatasetInput } from '../experiment-evaluation-runs/ExperimentEvaluationRunsPage.utils';
 
 const ENDPOINT_KEYS = ['endpoint', 'model', 'model_name', 'served_entity'];
 
@@ -87,7 +88,7 @@ export const useEvalRunSidebarData = ({ experimentId, runUuid }: UseEvalRunSideb
   );
 
   const runDetails = useMemo(() => {
-    const dataset = run?.inputs?.datasetInputs?.[0]?.dataset;
+    const dataset = getDisplayedEvalRunDatasetInput(run?.inputs?.datasetInputs)?.dataset;
     const rawStartTime = run?.info?.startTime;
     const parsedStartTime =
       rawStartTime !== null && rawStartTime !== undefined && rawStartTime !== '' ? Number(rawStartTime) : undefined;

@@ -14,7 +14,7 @@ import {
 } from './ExperimentEvaluationRunsTableCellRenderers';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Theme, Interpolation } from '@emotion/react';
-import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
+import { getDisplayedEvalRunDatasetInput, type RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
 import { EvalRunsVisibilityHeaderCell } from './EvalRunsVisibilityHeaderCell';
 import { SelectAllHeaderCell } from './EvalRunsSelectAllHeaderCell';
@@ -282,7 +282,7 @@ export const getExperimentEvalRunsDefaultColumns = (
             enableSorting: true,
             sortingFn: 'alphanumeric' as const,
             accessorFn: (row: RunEntityOrGroupData) =>
-              'subRuns' in row ? undefined : row.inputs?.datasetInputs?.[0]?.dataset?.name,
+              'subRuns' in row ? undefined : getDisplayedEvalRunDatasetInput(row.inputs?.datasetInputs)?.dataset?.name,
           }
         : {}),
       meta: {

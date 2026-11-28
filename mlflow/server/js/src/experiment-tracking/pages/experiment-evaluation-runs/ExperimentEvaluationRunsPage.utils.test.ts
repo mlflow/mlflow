@@ -1,6 +1,11 @@
 import { describe, it, expect } from '@jest/globals';
 import type { ExperimentEvaluationRunsGroupData } from './ExperimentEvaluationRunsPage.utils';
-import { flattenRunEntityOrGroupData, getGroupByRunsData, getNestedRuns } from './ExperimentEvaluationRunsPage.utils';
+import {
+  flattenRunEntityOrGroupData,
+  getDisplayedEvalRunDatasetInput,
+  getGroupByRunsData,
+  getNestedRuns,
+} from './ExperimentEvaluationRunsPage.utils';
 import type { RunDatasetWithTags, RunEntity } from '../../types';
 import type { KeyValueEntity } from '../../../common/types';
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
@@ -20,6 +25,29 @@ const createMockDataset = (digest: string): RunDatasetWithTags => ({
     sourceType: 'code',
   },
   tags: [],
+});
+
+describe('getDisplayedEvalRunDatasetInput', () => {
+  const input = (name: string, source: string | null) => ({ dataset: { name, source } });
+  const untracked = input('dataset', '{}');
+  const stored = input('stored-a', JSON.stringify({ dataset_id: 'd-a' }));
+  const otherStored = input('stored-b', JSON.stringify({ dataset_id: 'd-b' }));
+
+  it('prefers the first MLflow-stored dataset', () => {
+    expect(getDisplayedEvalRunDatasetInput([untracked, otherStored, stored])).toBe(otherStored);
+  });
+
+  it('falls back to the first input when none is stored', () => {
+    const second = input('second', null);
+    expect(getDisplayedEvalRunDatasetInput([untracked, second])).toBe(untracked);
+    expect(getDisplayedEvalRunDatasetInput([])).toBeUndefined();
+  });
+
+  it('ignores invalid sources and non-string dataset ids', () => {
+    const invalid = input('invalid', '{');
+    const numericId = input('numeric', JSON.stringify({ dataset_id: 7 }));
+    expect(getDisplayedEvalRunDatasetInput([invalid, numericId, stored])).toBe(stored);
+  });
 });
 
 const createMockRun = ({
