@@ -22,7 +22,7 @@ TRACE_CONTENT_TRUNCATION = 1000
 SPAN_CONTENT_TRUNCATION = 400
 
 
-DEFAULT_MODEL = "openai:/gpt-5-mini"
+DEFAULT_MODEL = "openai:/gpt-6.1-terra"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
 # Default number of slowest spans to include in timing information
 DEFAULT_TOP_N_SLOWEST_SPANS = 3

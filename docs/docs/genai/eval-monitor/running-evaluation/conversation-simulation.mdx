@@ -431,16 +431,16 @@ def predict_fn(input: list[dict], **kwargs):
 
 ### ConversationSimulator Parameters
 
-| Parameter           | Type                                              | Default              | Description                                       |
-| ------------------- | ------------------------------------------------- | -------------------- | ------------------------------------------------- |
-| `test_cases`        | `list[dict]`, `DataFrame`, or `EvaluationDataset` | Required             | Test case definitions                             |
-| `max_turns`         | `int`                                             | 10                   | Maximum conversation turns before stopping        |
-| `user_model`        | `str`                                             | `openai:/gpt-5-mini` | Model for simulating user messages                |
-| `**user_llm_params` | `dict`                                            | `{}`                 | Additional parameters for the user simulation LLM |
+| Parameter           | Type                                              | Default               | Description                                       |
+| ------------------- | ------------------------------------------------- | --------------------- | ------------------------------------------------- |
+| `test_cases`        | `list[dict]`, `DataFrame`, or `EvaluationDataset` | Required              | Test case definitions                             |
+| `max_turns`         | `int`                                             | 10                    | Maximum conversation turns before stopping        |
+| `user_model`        | `str`                                             | `openai:/gpt-6.1-sol` | Model for simulating user messages                |
+| `**user_llm_params` | `dict`                                            | `{}`                  | Additional parameters for the user simulation LLM |
 
 ### Model Selection
 
-The simulator uses an LLM to generate realistic user messages. The default model is `openai:/gpt-5-mini`.
+The simulator uses an LLM to generate realistic user messages. The default model is `openai:/gpt-6.1-sol`.
 
 You can specify a different model:
 

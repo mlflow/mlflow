@@ -867,7 +867,7 @@ def discover_issues(
             satisfaction judge is used: conversation-level for traces in a session, and
             trace-level for traces without one.
         model: LLM used for all pipeline phases (scoring, labeling, clustering,
-            summarization). Defaults to ``"openai:/gpt-5-mini"``.
+            summarization). Defaults to ``"openai:/gpt-6.1-terra"``.
         max_issues: Maximum distinct issues to identify.
         filter_string: Filter string passed to ``search_traces``.
             Ignored when ``traces`` is provided.
