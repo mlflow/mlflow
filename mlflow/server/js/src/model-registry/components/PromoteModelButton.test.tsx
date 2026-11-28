@@ -6,13 +6,7 @@ import type { DeepPartial } from 'redux';
 import type { NavigateFunction } from '../../common/utils/RoutingUtils';
 import { MemoryRouter, useNavigate } from '../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
-import {
-  findAntdOption,
-  screen,
-  within,
-  fastFillInput,
-  renderWithIntl,
-} from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { screen, within, fastFillInput, renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { PromoteModelButton } from './PromoteModelButton';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { Services as ModelRegistryService } from '../services';
@@ -124,12 +118,12 @@ describe('PromoteModelButton', () => {
 
     // Then, fill in the select filter and click on the option
     await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'modelA', user);
-    await user.click(findAntdOption('modelA'));
+    await user.click(screen.getByRole('option', { name: 'modelA' }));
 
     // Assert two calls to search
     expect(ModelRegistryService.searchRegisteredModels).toHaveBeenCalledTimes(2);
 
-    const explanationText = screen.queryByText(/will be copied to modelA/);
+    const explanationText = await screen.findByText(/will be copied to modelA/);
     expect(explanationText).toBeInTheDocument();
 
     // Click "copy" button
@@ -178,7 +172,7 @@ describe('PromoteModelButton', () => {
 
     // Select create new model option
     await user.click(screen.getByRole('combobox'));
-    await user.click(findAntdOption('Create New Model'));
+    await user.click(screen.getByRole('option', { name: 'Create New Model' }));
 
     // Assert two calls to search
     expect(ModelRegistryService.searchRegisteredModels).toHaveBeenCalledTimes(2);
@@ -187,7 +181,7 @@ describe('PromoteModelButton', () => {
     expect(explanationText).not.toBeInTheDocument();
 
     // Fill in the model name
-    await fastFillInput(screen.getByPlaceholderText('Input a model name'), 'modelB', user);
+    await fastFillInput(await screen.findByPlaceholderText('Input a model name'), 'modelB', user);
 
     // Click "copy" button
     await user.click(screen.getByRole('button', { name: 'Promote' }));
