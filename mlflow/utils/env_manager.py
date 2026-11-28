@@ -14,3 +14,12 @@ def validate(env_manager):
             f"Invalid value for `env_manager`: {env_manager}. Must be one of {allowed_values}",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+
+def validate_for_container(env_manager):
+    allowed_values = [LOCAL, CONDA, VIRTUALENV]
+    if env_manager not in allowed_values:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for `env_manager`: {env_manager}. Building a model container "
+            f"supports one of {allowed_values}.",
+        )

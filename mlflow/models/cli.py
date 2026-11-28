@@ -228,6 +228,8 @@ def generate_dockerfile(
         _logger.info("Generating Dockerfile for model %s", model_uri)
     else:
         _logger.info("Generating Dockerfile")
+    if env_manager is not None:
+        _EnvManager.validate_for_container(env_manager)
     backend = get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager)
     if backend.can_build_image():
         backend.generate_dockerfile(
@@ -250,7 +252,7 @@ def generate_dockerfile(
 @mlflow_mcp(tool_name="build_model_docker")
 @cli_args.MODEL_URI_BUILD_DOCKER
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
-@cli_args.ENV_MANAGER
+@cli_args.ENV_MANAGER_BUILD_DOCKER
 @cli_args.MLFLOW_HOME
 @cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW

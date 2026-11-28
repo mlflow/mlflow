@@ -18,7 +18,6 @@ from subprocess import Popen, check_call
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DISABLE_ENV_CREATION
-from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.pyfunc import _extract_conda_env, scoring_server
@@ -145,11 +144,7 @@ def _install_model_dependencies_to_env(model_path, env_manager) -> list[str]:
 
     # Checked before the environment file is copied below, so an unsupported manager fails
     # with this message rather than partway through a copy it was never going to use.
-    if env_manager not in (em.CONDA, em.VIRTUALENV):
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid value for `env_manager`: {env_manager}. Building a model container "
-            f"supports one of {[em.LOCAL, em.CONDA, em.VIRTUALENV]}.",
-        )
+    em.validate_for_container(env_manager)
 
     _logger.info("creating and activating custom environment")
 
