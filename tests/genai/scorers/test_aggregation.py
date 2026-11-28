@@ -83,6 +83,35 @@ def test_compute_aggregated_metrics_custom_function():
     assert result["scorer/custom_count"] == pytest.approx(3)
 
 
+@pytest.mark.parametrize(
+    ("name", "aggregations", "expected"),
+    [
+        (
+            "scorer",
+            ["mean", lambda x: sum(x)],
+            {"scorer/mean": pytest.approx(0.7), "scorer/error_count": 1},
+        ),
+        ("judge?", ["mean"], {}),
+        ("a" * 246, ["mean"], {}),
+    ],
+)
+def test_compute_aggregated_metrics_skips_aggregations_with_invalid_metric_keys(
+    name, aggregations, expected
+):
+    scorers = [Scorer(name=name, aggregations=aggregations), Scorer(name="other")]
+    eval_results = [
+        EvalResult(
+            eval_item=_EVAL_ITEM,
+            assessments=[Feedback(name=name, value=v), Feedback(name="other", value=1)],
+        )
+        for v in (0.8, 0.6)
+    ]
+    stats = {name: ScorerStat(failure_count=1), "other": ScorerStat(failure_count=1)}
+    result = compute_aggregated_metrics(eval_results, scorers, scorer_stats=stats)
+
+    assert result == {**expected, "other/mean": 1.0, "other/error_count": 1}
+
+
 def test_compute_aggregated_metrics_empty():
     scorer = Scorer(name="scorer", aggregations=["mean"])
     eval_results = []

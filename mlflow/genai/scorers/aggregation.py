@@ -18,6 +18,14 @@ from mlflow.utils.validation import (
 _logger = logging.getLogger(__name__)
 
 
+def _is_valid_metric_key(key: str) -> bool:
+    return (
+        len(key) <= MAX_ENTITY_KEY_LENGTH
+        and validate_param_and_metric_name(key)
+        and not path_not_unique(key)
+    )
+
+
 _AGGREGATE_FUNCTIONS = {
     "min": np.min,
     "max": np.max,
@@ -84,7 +92,15 @@ def compute_aggregated_metrics(
 
         # Each aggregation should be logged as a separate metric
         for agg_name, agg_value in aggregation_results.items():
-            result[f"{name}/{agg_name}"] = agg_value
+            key = f"{name}/{agg_name}"
+            if not _is_valid_metric_key(key):
+                _logger.warning(
+                    "Skipping aggregation with invalid metric key %r. Rename the scorer, or use a "
+                    "named function instead of a lambda for a custom aggregation.",
+                    key,
+                )
+                continue
+            result[key] = agg_value
 
     # Count failures per scorer invocation (a row, or a session for session-level scorers), the
     # same count as the failure summary. A custom aggregation named "error_count" takes precedence.
@@ -92,11 +108,7 @@ def compute_aggregated_metrics(
         if not stat.has_failures:
             continue
         key = f"{name}/error_count"
-        if (
-            len(key) > MAX_ENTITY_KEY_LENGTH
-            or not validate_param_and_metric_name(key)
-            or path_not_unique(key)
-        ):
+        if not _is_valid_metric_key(key):
             _logger.warning("Skipping scorer error count with invalid metric key %r.", key)
             continue
         result.setdefault(key, stat.failure_count)
