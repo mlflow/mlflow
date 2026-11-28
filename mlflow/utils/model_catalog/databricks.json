@@ -2241,6 +2241,27 @@
       },
       "last_updated_at": "2026-11-06"
     },
+    "databricks-kimi-k3-1-pro-fast": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.99997,
+        "output_per_million_tokens": 9.99999,
+        "cache_read_per_million_tokens": 0.19999,
+        "cache_write_per_million_tokens": 1.99997
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-28"
+    },
     "databricks-llama-2-70b-chat": {
       "mode": "chat",
       "context_window": {
@@ -2590,6 +2611,27 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-20"
+    },
+    "system.ai.gemini-4-neon": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.15,
+        "cache_write_per_million_tokens": 3.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-28"
     },
     "system.ai.gpt-6-2-astra": {
       "mode": "chat",
