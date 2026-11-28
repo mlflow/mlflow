@@ -45,6 +45,7 @@ from mlflow.models.model_config import ModelConfig
 from mlflow.models.python_api import build_docker
 from mlflow.models.resources import Resource, ResourceType
 from mlflow.utils.environment import infer_pip_requirements
+from mlflow.utils.uv_utils import UvConfig
 
 __all__ = [
     "Model",
@@ -65,6 +66,7 @@ __all__ = [
     "ResourceType",
     "ModelConfig",
     "update_model_requirements",
+    "UvConfig",
 ]
 
 
