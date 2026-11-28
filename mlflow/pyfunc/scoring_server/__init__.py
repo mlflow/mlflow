@@ -198,8 +198,22 @@ def parse_csv_input(csv_input, schema: Schema = None):
     try:
         if schema is None:
             return pd.read_csv(csv_input)
+        elif schema.is_tensor_spec():
+            # Tensor-based schemas have no pandas dtypes. Schema enforcement casts named inputs
+            # and single columns, but checks a multi-column frame for an unnamed input without
+            # casting, so read numeric columns with that input's dtype here
+            dtype = schema.numpy_types()[0]
+            if not schema.has_input_names() and dtype.kind in "biuf":
+                return pd.read_csv(csv_input, dtype=dtype)
+            return pd.read_csv(csv_input)
         else:
-            dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
+            # Only primitive types map to pandas dtypes. Leave other columns, such as Array,
+            # Object, and AnyType, to pandas inference and schema enforcement
+            dtypes = {
+                name: spec.type.to_pandas()
+                for name, spec in zip(schema.input_names(), schema.inputs)
+                if isinstance(spec.type, DataType)
+            }
             # `read_csv` rejects datetime dtypes, so read those columns as strings and convert
             # them afterwards with `astype`, the conversion schema enforcement applies to string
             # columns. Unlike `pd.to_datetime` on the JSON path, it parses each value separately,
@@ -541,10 +555,9 @@ def _predict(model_uri, input_path, output_path, content_type):
             params = parsed_json_input.params
             should_parse_as_unified_llm_input = parsed_json_input.is_unified_llm_input
         elif content_type == "csv":
-            df = (
-                parse_csv_input(input_path)
-                if input_path is not None
-                else parse_csv_input(sys.stdin)
+            df = parse_csv_input(
+                input_path if input_path is not None else sys.stdin,
+                schema=pyfunc_model.metadata.get_input_schema(),
             )
             params = None
         else:
