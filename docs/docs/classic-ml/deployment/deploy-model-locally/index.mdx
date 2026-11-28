@@ -56,14 +56,28 @@ The inference server provides 4 endpoints:
 
 ### Accepted Input Formats
 
-The `/invocations` endpoint accepts CSV or JSON inputs. The input format must be specified in the
-`Content-Type` header as either `application/json` or `application/csv`.
+The `/invocations` endpoint accepts CSV, JSON, or Parquet inputs. The input format must be specified in the
+`Content-Type` header as `text/csv`, `application/json`, or `application/vnd.apache.parquet`.
 
 #### CSV Input
 
-CSV input must be a valid pandas.DataFrame CSV representation. For example:
+CSV input must be a valid pandas.DataFrame CSV representation. The first line is read as the header row,
+so it must contain the column names. For example, with an `input.csv` file containing:
 
-`curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/csv' --data '1,2,3,4'`
+```
+x1,x2
+1.0,0.0
+3.0,1.0
+```
+
+`curl http://127.0.0.1:5000/invocations -H 'Content-Type: text/csv' --data-binary @input.csv`
+
+#### Parquet Input
+
+Parquet input must be a pandas.DataFrame serialized in the Parquet format, for example with
+`pandas_df.to_parquet("input.parquet")`:
+
+`curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/vnd.apache.parquet' --data-binary @input.parquet`
 
 #### JSON Input
 
