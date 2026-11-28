@@ -1,4 +1,5 @@
 import inspect
+import logging
 from unittest import mock
 
 import pandas as pd
@@ -6,7 +7,15 @@ import pytest
 import requests
 
 import mlflow
-from mlflow.entities import Trace, TraceData, TraceInfo, TraceLocation, TraceState
+from mlflow.entities import (
+    Expectation,
+    Feedback,
+    Trace,
+    TraceData,
+    TraceInfo,
+    TraceLocation,
+    TraceState,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.genai.databricks.review_queues import (
     InputCategorical,
@@ -37,6 +46,7 @@ from mlflow.genai.databricks.review_queues import (
     resolve_effective_review_questions,
     set_review_queue_item_status,
     set_review_queue_members,
+    sync_review_queue_to_dataset,
     update_review_question,
     update_review_queue,
 )
@@ -1379,3 +1389,139 @@ def test_migrate_labeling_session_surfaces_server_error_codes(status_code, error
     mock_creds.assert_called_once_with("databricks")
     mock_request.assert_called_once()
     assert exc_info.value.error_code == error_code
+
+
+_GET_DATASET = "mlflow.genai.databricks.review_queues.api.get_dataset"
+
+
+def _synced_trace(request, *, tags=None, metadata=None, assessments=()):
+    return mock.Mock(
+        data=mock.Mock(request=request),
+        info=mock.Mock(
+            trace_metadata=metadata or {}, tags=tags or {}, assessments=list(assessments)
+        ),
+    )
+
+
+def _items_page(items, token=None):
+    return {"review_queue_items": items, **({"next_page_token": token} if token else {})}
+
+
+def _trace_item_dict(trace_id):
+    return {
+        **_ITEM,
+        "name": f"experiments/1/reviewQueues/rq1/items/{trace_id}",
+        "v4_trace": {"trace_id": trace_id},
+    }
+
+
+_RECORD_ITEM = {
+    "name": "experiments/1/reviewQueues/rq1/items/r1",
+    "kind": "DATASET_RECORD",
+    "status": "COMPLETE",
+    "dataset_record": {"dataset_id": "ds1", "dataset_record_id": "r1"},
+}
+
+
+def test_sync_review_queue_to_dataset_copies_the_queues_traces(caplog):
+    v3 = _synced_trace(
+        '{"question": "hi"}',
+        tags={"mlflow.user": "alice@example.com"},
+        assessments=[
+            Expectation(name="answer", value="hello"),
+            Feedback(name="correct", value=True),
+        ],
+    )
+    uc = _synced_trace('{"question": "bye"}', metadata={"reviewApp.userName": "bob@example.com"})
+    items = "experiments/1/reviewQueues/rq1/items"
+    pages = {
+        None: _items_page([_trace_item_dict("tr-1"), _RECORD_ITEM], token="tok"),
+        "tok": _items_page([_trace_item_dict("a" * 32)]),
+    }
+    traces = {"tr-1": v3, f"trace:/main.traces.pfx/{'a' * 32}": uc}
+    with (
+        mock.patch(
+            _CALL, side_effect=lambda m, p, params=None: pages[params["page_token"]]
+        ) as mock_call,
+        mock.patch(_CALL_API, return_value=_experiment_at("main.traces.pfx")),
+        mock.patch(_GET_TRACE, side_effect=lambda trace_id, silent: traces[trace_id]),
+        mock.patch(_GET_DATASET) as mock_get_dataset,
+        caplog.at_level(logging.INFO, logger="mlflow.genai.databricks.review_queues.api"),
+    ):
+        result = sync_review_queue_to_dataset("1", "rq1", "main.evals.set_a")
+    assert result is None
+    assert {c.args[1] for c in mock_call.call_args_list} == {items}
+    mock_get_dataset.assert_called_once_with(name="main.evals.set_a")
+    mock_get_dataset.return_value.merge_records.assert_called_once_with([
+        {
+            "inputs": {"question": "hi"},
+            "trace": v3,
+            "source_id": "alice@example.com",
+            "source_type": "HUMAN",
+            "expectations": {"answer": "hello"},
+        },
+        {
+            "inputs": {"question": "bye"},
+            "trace": uc,
+            "source_id": "bob@example.com",
+            "source_type": "HUMAN",
+        },
+    ])
+    assert "Skipped 1 dataset records in review queue 'rq1'" in caplog.text
+
+
+def test_sync_review_queue_to_dataset_skips_traces_it_cant_find(caplog):
+    found = _synced_trace(None)
+    with (
+        mock.patch(
+            _CALL, return_value=_items_page([_trace_item_dict("tr-1"), _trace_item_dict("tr-2")])
+        ),
+        mock.patch(_CALL_API) as mock_call_api,
+        mock.patch(_GET_TRACE, side_effect=[None, found]),
+        mock.patch(_GET_DATASET) as mock_get_dataset,
+        caplog.at_level(logging.INFO, logger="mlflow.genai.databricks.review_queues.api"),
+    ):
+        sync_review_queue_to_dataset("1", "rq1", "main.evals.set_a")
+    # Traces stored in MLflow need no lookup of where the experiment keeps its traces.
+    mock_call_api.assert_not_called()
+    mock_get_dataset.return_value.merge_records.assert_called_once_with([
+        {"inputs": {}, "trace": found}
+    ])
+    assert "Trace 'tr-1' in review queue 'rq1' wasn't found." in caplog.text
+
+
+def test_sync_review_queue_to_dataset_with_no_traces_merges_nothing(caplog):
+    with (
+        mock.patch(_CALL, return_value=_items_page([_RECORD_ITEM])),
+        mock.patch(_GET_DATASET) as mock_get_dataset,
+        caplog.at_level(logging.INFO, logger="mlflow.genai.databricks.review_queues.api"),
+    ):
+        sync_review_queue_to_dataset("1", "rq1", "main.evals.set_a")
+    mock_get_dataset.assert_not_called()
+    assert "Review queue 'rq1' has no traces to sync" in caplog.text
+
+
+def test_sync_review_queue_to_dataset_session(labeling_store):
+    session = _session([])
+    with mock.patch(_CALL) as mock_call, mock.patch(_GET_DATASET) as mock_get_dataset:
+        sync_review_queue_to_dataset(session, dataset_name="main.evals.set_a")
+    labeling_store.sync_session_expectations.assert_called_once_with(session, "main.evals.set_a")
+    mock_call.assert_not_called()
+    mock_get_dataset.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("args", "kwargs", "match"),
+    [
+        ((_session([]), "main.evals.set_a"), {}, "Pass `dataset_name` by keyword"),
+        ((_session([]),), {}, "`dataset_name` is required"),
+        (("1",), {"dataset_name": "main.evals.set_a"}, "`queue_id` is required"),
+        (("1", "rq1"), {}, "`dataset_name` is required"),
+    ],
+)
+def test_sync_review_queue_to_dataset_validation(labeling_store, args, kwargs, match):
+    with mock.patch(_CALL) as mock_call:
+        with pytest.raises(MlflowException, match=match):
+            sync_review_queue_to_dataset(*args, **kwargs)
+    mock_call.assert_not_called()
+    labeling_store.sync_session_expectations.assert_not_called()

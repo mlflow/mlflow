@@ -18,6 +18,7 @@ from mlflow.genai.databricks.review_queues.api import (
     resolve_effective_review_questions,
     set_review_queue_item_status,
     set_review_queue_members,
+    sync_review_queue_to_dataset,
     update_review_question,
     update_review_queue,
 )
@@ -76,6 +77,7 @@ __all__ = [
     "resolve_effective_review_questions",
     "set_review_queue_item_status",
     "set_review_queue_members",
+    "sync_review_queue_to_dataset",
     "update_review_question",
     "update_review_queue",
 ]
