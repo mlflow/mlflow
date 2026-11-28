@@ -1009,7 +1009,7 @@ export const AssistantChatPanel = () => {
             alignItems: 'center',
             gap: theme.spacing.sm,
             fontWeight: theme.typography.typographyBoldFontWeight,
-            fontSize: theme.typography.fontSizeMd + 2,
+            fontSize: theme.typography.fontSizeBase,
           }}
         >
           <SparkleDoubleIcon color="ai" css={{ fontSize: 20 }} />
