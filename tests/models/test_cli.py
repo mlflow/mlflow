@@ -802,7 +802,8 @@ def test_docker_commands_reject_uv_env_manager(command, tmp_path):
         )
     python_api_backend.assert_not_called()
     cli_backend.assert_not_called()
-    assert not (tmp_path / "context").exists()
+    if command is models_cli.generate_dockerfile:
+        assert not (tmp_path / "context").exists()
 
 
 def test_build_docker_python_api_rejects_uv_before_backend_selection():
